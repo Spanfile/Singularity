@@ -1,0 +1,4 @@
+adlists = [
+  {source = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", format = "hosts"},
+  {source = "file://justdomains", format = "domains"},
+]
