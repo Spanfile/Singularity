@@ -33,12 +33,12 @@ struct Opt {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
-    adlists: Vec<AdlistConf>,
+    adlists: Vec<Adlist>,
     output: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct AdlistConf {
+struct Adlist {
     source: Url,
     format: AdlistFormat,
 }
@@ -68,79 +68,39 @@ fn main() -> anyhow::Result<()> {
     debug!("{:?}", opt);
     debug!("{:?}", cfg);
 
-    info!("Writing blackhole hosts into {}", cfg.output.display());
+    info!("Writing hosts into {}", cfg.output.display());
     let mut output = File::create(&cfg.output)?;
 
     let mut total = 0;
-    for adlist_conf in &cfg.adlists {
-        let reader: BufReader<_> = match adlist_conf.source.scheme() {
-            "http" | "https" => {
-                info!("Requesting adlist from {}...", adlist_conf.source);
-
-                // TODO: add configurable timeouts
-                let resp = ureq::get(adlist_conf.source.as_str()).timeout_connect(1_000).call();
-                if resp.ok() {
-                    BufReader::new(Box::new(resp.into_reader()) as Box<dyn Read>)
-                } else {
-                    warn!(
-                        "Requesting adlist failed. GET returned {}. Error body: {}",
-                        resp.status(),
-                        resp.into_string()?
-                    );
-                    continue;
-                }
-            }
-            "file" => {
-                let path = match adlist_conf.source.to_file_path() {
-                    Ok(path) => path,
-                    Err(()) => {
-                        error!("Invalid path for file scheme: {}", adlist_conf.source);
-                        continue;
-                    }
-                };
-                info!("Reading adlist from {}...", path.display());
-
-                let file = match File::open(&path) {
-                    Ok(f) => f,
+    for adlist in &cfg.adlists {
+        if let Some(reader) = adlist.get_reader() {
+            let mut count = 0;
+            for line in reader.lines() {
+                let line = match line {
+                    Ok(l) => l,
                     Err(e) => {
-                        error!("Failed to open adlist file: {}", e);
+                        warn!("Invalid line in output. {}", e);
                         continue;
                     }
                 };
-                BufReader::new(Box::new(file) as Box<dyn Read>)
-            }
-            scheme => {
-                error!("Unsupported adlist source scheme: '{}'", scheme);
-                continue;
-            }
-        };
 
-        let mut count = 0;
-        for line in reader.lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(e) => {
-                    warn!("Invalid line in output. {}", e);
-                    continue;
+                let line = match adlist.format {
+                    AdlistFormat::Hosts => parse_hosts_line(line),
+                    AdlistFormat::Domains => parse_domains_line(line),
+                };
+
+                if let Some(line) = line {
+                    writeln!(&mut output, "{}", line)?;
+                    total += 1;
+                    count += 1;
                 }
-            };
-
-            let line = match adlist_conf.format {
-                AdlistFormat::Hosts => parse_hosts_line(line),
-                AdlistFormat::Domains => parse_domains_line(line),
-            };
-
-            if let Some(line) = line {
-                writeln!(&mut output, "{}", line)?;
-                total += 1;
-                count += 1;
             }
-        }
 
-        info!("Read {} hosts from {}", count, adlist_conf.source);
+            info!("Read adlist with {} hosts", count);
+        }
     }
 
-    info!("Read {} hosts in total from {} sources", total, cfg.adlists.len());
+    info!("Read {} hosts in total from {} source(s)", total, cfg.adlists.len());
     Ok(())
 }
 
@@ -158,6 +118,55 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
         Some(path) => confy::load_path(path)?,
         None => confy::load(APP_NAME)?,
     })
+}
+
+impl Adlist {
+    fn get_reader(&self) -> Option<BufReader<Box<dyn Read>>> {
+        match self.source.scheme() {
+            "http" | "https" => {
+                info!("Requesting adlist from {}...", self.source);
+
+                // TODO: add configurable timeouts
+                let resp = ureq::get(self.source.as_str()).timeout_connect(1_000).call();
+                debug!("Got response status {}", resp.status());
+
+                if resp.ok() {
+                    Some(BufReader::new(Box::new(resp.into_reader()) as Box<dyn Read>))
+                } else {
+                    error!(
+                        "Requesting adlist failed. Got response status {}. Response body:\n{}",
+                        resp.status(),
+                        resp.into_string()
+                            .expect("failed to turn error response body into string")
+                    );
+                    None
+                }
+            }
+            "file" => {
+                let path = match self.source.to_file_path() {
+                    Ok(path) => path,
+                    Err(()) => {
+                        error!("Invalid path for file scheme: {}", self.source);
+                        return None;
+                    }
+                };
+                info!("Reading adlist from {}...", path.display());
+
+                let file = match File::open(&path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        error!("Failed to open adlist file: {}", e);
+                        return None;
+                    }
+                };
+                Some(BufReader::new(Box::new(file) as Box<dyn Read>))
+            }
+            scheme => {
+                error!("Unsupported adlist source scheme: '{}'", scheme);
+                None
+            }
+        }
+    }
 }
 
 fn parse_hosts_line(line: String) -> Option<String> {
