@@ -20,6 +20,7 @@ const APP_NAME: &str = "pdns-singularity";
 const DEFAULT_OUTPUT: &str = "/etc/pdns/blackhole-hosts";
 const HTTP_READ_TIMEOUT: u64 = 1_000;
 const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
+const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
 
 #[derive(Debug, Copy, Clone)]
 struct ConnectTimeout(u64);
@@ -66,6 +67,8 @@ struct Opt {
 struct Config {
     adlists: Vec<Adlist>,
     output: PathBuf,
+    #[serde(rename = "blackhole-address")]
+    blackhole_address: IpAddr,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -86,6 +89,9 @@ impl Default for Config {
         Self {
             adlists: Default::default(),
             output: PathBuf::from(DEFAULT_OUTPUT),
+            blackhole_address: DEFAULT_BLACKHOLE_ADDRESS
+                .parse()
+                .expect("failed to parse default blackhole address"),
         }
     }
 }
@@ -121,7 +127,7 @@ fn main() -> anyhow::Result<()> {
                 };
 
                 if let Some(line) = line {
-                    writeln!(&mut output, "{}", line)?;
+                    writeln!(&mut output, "{}", host_blackhole(cfg.blackhole_address, &line))?;
                     total += 1;
                     count += 1;
                 }
@@ -222,4 +228,8 @@ fn parse_hosts_line(line: String) -> Option<String> {
 
 fn parse_domains_line(line: String) -> Option<String> {
     Some(line)
+}
+
+fn host_blackhole(blackhole_address: IpAddr, host: &str) -> String {
+    format!("{} {}", blackhole_address, host)
 }
