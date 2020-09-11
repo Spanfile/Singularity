@@ -3,10 +3,12 @@
 mod logging;
 
 use std::{
+    fmt::Display,
     fs::File,
     io::{BufRead, BufReader, Read, Write},
     net::IpAddr,
     path::PathBuf,
+    str::FromStr,
 };
 
 use log::*;
@@ -16,6 +18,31 @@ use url::Url;
 
 const APP_NAME: &str = "pdns-singularity";
 const DEFAULT_OUTPUT: &str = "/etc/pdns/blackhole-hosts";
+const HTTP_READ_TIMEOUT: u64 = 1_000;
+const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
+
+#[derive(Debug, Copy, Clone)]
+struct ConnectTimeout(u64);
+
+impl Default for ConnectTimeout {
+    fn default() -> Self {
+        Self(HTTP_CONNECT_TIMEOUT)
+    }
+}
+
+impl FromStr for ConnectTimeout {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.parse()?))
+    }
+}
+
+impl Display for ConnectTimeout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -26,9 +53,13 @@ struct Opt {
     /// Enable verbose logging
     #[structopt(short, long)]
     verbose: bool,
-    /// Custom path to the app's configuration file.
+    /// Custom path to the app's configuration file. By default the app will use the system-specific user configuration
+    /// directory.
     #[structopt(short, long)]
     config: Option<PathBuf>,
+    /// The timeout to wait for HTTP requests to succeed in milliseconds.
+    #[structopt(default_value, short, long)]
+    timeout: ConnectTimeout,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,7 +104,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut total = 0;
     for adlist in &cfg.adlists {
-        if let Some(reader) = adlist.get_reader() {
+        if let Some(reader) = adlist.get_reader(opt.timeout) {
             let mut count = 0;
             for line in reader.lines() {
                 let line = match line {
@@ -121,13 +152,15 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
 }
 
 impl Adlist {
-    fn get_reader(&self) -> Option<BufReader<Box<dyn Read>>> {
+    fn get_reader(&self, connect_timeout: ConnectTimeout) -> Option<BufReader<Box<dyn Read>>> {
         match self.source.scheme() {
             "http" | "https" => {
                 info!("Requesting adlist from {}...", self.source);
 
-                // TODO: add configurable timeouts
-                let resp = ureq::get(self.source.as_str()).timeout_connect(1_000).call();
+                let resp = ureq::get(self.source.as_str())
+                    .timeout_connect(connect_timeout.0)
+                    .timeout_read(HTTP_READ_TIMEOUT)
+                    .call();
                 debug!("Got response status {}", resp.status());
 
                 if resp.ok() {
