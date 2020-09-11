@@ -1,4 +1,12 @@
+# possible adlist sources:
+# http, https: https://some.website
+# file: file:/absolute/path/to/local/file
+#
+# possible adlist formats:
+# hosts: 0.0.0.0 malicious.domain
+# domains: malicious.domain
+
 adlists = [
   {source = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", format = "hosts"},
-  {source = "file://justdomains", format = "domains"},
 ]
+output = "dev-blackhole"

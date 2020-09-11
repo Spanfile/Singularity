@@ -1,6 +1,13 @@
+#![feature(str_split_once)]
+
 mod logging;
 
-use std::path::PathBuf;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader, Read, Write},
+    net::IpAddr,
+    path::PathBuf,
+};
 
 use log::*;
 use serde::{Deserialize, Serialize};
@@ -8,6 +15,7 @@ use structopt::StructOpt;
 use url::Url;
 
 const APP_NAME: &str = "pdns-singularity";
+const DEFAULT_OUTPUT: &str = "/etc/pdns/blackhole-hosts";
 
 #[derive(Debug, StructOpt)]
 #[structopt(
@@ -23,9 +31,10 @@ struct Opt {
     config: Option<PathBuf>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Config {
     adlists: Vec<AdlistConf>,
+    output: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,21 +50,134 @@ enum AdlistFormat {
     Domains,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            adlists: Default::default(),
+            output: PathBuf::from(DEFAULT_OUTPUT),
+        }
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let opt = Opt::from_args();
+
+    setup_logging(&opt)?;
+    let cfg = load_config(&opt)?;
+
+    debug!("{:?}", opt);
+    debug!("{:?}", cfg);
+
+    info!("Writing blackhole hosts into {}", cfg.output.display());
+    let mut output = File::create(&cfg.output)?;
+
+    let mut total = 0;
+    for adlist_conf in &cfg.adlists {
+        let reader: BufReader<_> = match adlist_conf.source.scheme() {
+            "http" | "https" => {
+                info!("Requesting adlist from {}...", adlist_conf.source);
+
+                // TODO: add configurable timeouts
+                let resp = ureq::get(adlist_conf.source.as_str()).timeout_connect(1_000).call();
+                if resp.ok() {
+                    BufReader::new(Box::new(resp.into_reader()) as Box<dyn Read>)
+                } else {
+                    warn!(
+                        "Requesting adlist failed. GET returned {}. Error body: {}",
+                        resp.status(),
+                        resp.into_string()?
+                    );
+                    continue;
+                }
+            }
+            "file" => {
+                let path = match adlist_conf.source.to_file_path() {
+                    Ok(path) => path,
+                    Err(()) => {
+                        error!("Invalid path for file scheme: {}", adlist_conf.source);
+                        continue;
+                    }
+                };
+                info!("Reading adlist from {}...", path.display());
+
+                let file = match File::open(&path) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        error!("Failed to open adlist file: {}", e);
+                        continue;
+                    }
+                };
+                BufReader::new(Box::new(file) as Box<dyn Read>)
+            }
+            scheme => {
+                error!("Unsupported adlist source scheme: '{}'", scheme);
+                continue;
+            }
+        };
+
+        let mut count = 0;
+        for line in reader.lines() {
+            let line = match line {
+                Ok(l) => l,
+                Err(e) => {
+                    warn!("Invalid line in output. {}", e);
+                    continue;
+                }
+            };
+
+            let line = match adlist_conf.format {
+                AdlistFormat::Hosts => parse_hosts_line(line),
+                AdlistFormat::Domains => parse_domains_line(line),
+            };
+
+            if let Some(line) = line {
+                writeln!(&mut output, "{}", line)?;
+                total += 1;
+                count += 1;
+            }
+        }
+
+        info!("Read {} hosts from {}", count, adlist_conf.source);
+    }
+
+    info!("Read {} hosts in total from {} sources", total, cfg.adlists.len());
+    Ok(())
+}
+
+fn setup_logging(opt: &Opt) -> anyhow::Result<()> {
     logging::setup_logging(if opt.verbose {
         LevelFilter::Debug
     } else {
         LevelFilter::Info
     })?;
+    Ok(())
+}
 
-    let cfg: Config = match &opt.config {
+fn load_config(opt: &Opt) -> anyhow::Result<Config> {
+    Ok(match &opt.config {
         Some(path) => confy::load_path(path)?,
         None => confy::load(APP_NAME)?,
-    };
+    })
+}
 
-    debug!("{:?}", opt);
-    debug!("{:?}", cfg);
+fn parse_hosts_line(line: String) -> Option<String> {
+    if !line.starts_with('#') {
+        if let Some((address, host)) = line.split_once(" ") {
+            let address: IpAddr = address.parse().ok()?;
 
-    Ok(())
+            // assumes the address in the host mapping is the 'unspecified' address 0.0.0.0
+            if address.is_unspecified() {
+                // disallow having an IP address as the host
+                if host.parse::<IpAddr>().is_err() {
+                    return Some(host.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn parse_domains_line(line: String) -> Option<String> {
+    Some(line)
 }

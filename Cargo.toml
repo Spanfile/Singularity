@@ -11,4 +11,6 @@ fern = "0.6.0"
 log = "0.4.11"
 serde = {version = "1.0.115", features = ["derive"]}
 structopt = "0.3.17"
+thiserror = "1.0.20"
+ureq = "1.4.0"
 url = {version = "2.1.1", features = ["serde"]}
