@@ -1,11 +1,14 @@
 #![feature(str_split_once)]
 mod config;
 mod logging;
+mod output;
 
+use anyhow::Context;
 use config::{AdlistFormat, Config};
 use io::BufRead;
 use log::*;
-use std::{fmt::Display, fs::File, io, io::Write, net::IpAddr, path::PathBuf, str::FromStr};
+use output::Output;
+use std::{fmt::Display, io, net::IpAddr, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 
 const APP_NAME: &str = "singularity";
@@ -61,8 +64,10 @@ fn main() -> anyhow::Result<()> {
     debug!("{:?}", opt);
     debug!("{:?}", cfg);
 
-    info!("Writing hosts into {}", cfg.output.display());
-    let mut output = File::create(&cfg.output)?;
+    let mut outputs = Vec::new();
+    for output_cfg in &cfg.output {
+        outputs.push(Output::from_config(output_cfg).with_context(|| "Failed to create output")?);
+    }
 
     let mut total = 0;
     for adlist in &cfg.adlists {
@@ -83,7 +88,10 @@ fn main() -> anyhow::Result<()> {
                 };
 
                 if let Some(line) = line {
-                    writeln!(&mut output, "{}", host_blackhole(cfg.blackhole_address, &line))?;
+                    for output in &mut outputs {
+                        output.write(&line)?;
+                    }
+
                     total += 1;
                     count += 1;
                 }
@@ -93,12 +101,8 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    for include in &cfg.include {
-        debug!("Including extra hosts from {}", include.display());
-
-        let mut file = File::open(include)?;
-        writeln!(&mut output, "\n# extra hosts included from {}\n", include.display())?;
-        io::copy(&mut file, &mut output)?;
+    for output in &mut outputs {
+        output.finalise()?;
     }
 
     info!(
@@ -145,8 +149,4 @@ fn parse_hosts_line(line: String) -> Option<String> {
 
 fn parse_domains_line(line: String) -> Option<String> {
     Some(line)
-}
-
-fn host_blackhole(blackhole_address: IpAddr, host: &str) -> String {
-    format!("{} {}", blackhole_address, host)
 }

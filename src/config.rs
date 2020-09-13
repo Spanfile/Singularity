@@ -9,19 +9,31 @@ use std::{
 };
 use url::Url;
 
-const DEFAULT_OUTPUT: &str = "/etc/powerdns/hosts";
 const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
 const HTTP_READ_TIMEOUT: u64 = 1_000;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct Config {
     pub adlists: Vec<Adlist>,
-    #[serde(default = "default_output")]
-    pub output: PathBuf,
-    #[serde(rename = "blackhole-address", default = "default_blackhole_address")]
-    pub blackhole_address: IpAddr,
-    #[serde(default)]
-    pub include: Vec<PathBuf>,
+    pub output: Vec<OutputConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum OutputConfig {
+    Hosts {
+        hosts: PathBuf,
+        #[serde(default = "default_blackhole_address")]
+        blackhole_address: IpAddr,
+        #[serde(default)]
+        include: Vec<PathBuf>,
+    },
+    PdnsLua {
+        #[serde(rename = "pdns-lua")]
+        pdns_lua: PathBuf,
+        #[serde(default = "default_blackhole_address")]
+        blackhole_address: IpAddr,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,25 +50,10 @@ pub(crate) enum AdlistFormat {
     Domains,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            adlists: Default::default(),
-            output: default_output(),
-            blackhole_address: default_blackhole_address(),
-            include: Default::default(),
-        }
-    }
-}
-
 impl Default for AdlistFormat {
     fn default() -> Self {
         Self::Hosts
     }
-}
-
-fn default_output() -> PathBuf {
-    PathBuf::from(DEFAULT_OUTPUT)
 }
 
 fn default_blackhole_address() -> IpAddr {
