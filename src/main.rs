@@ -66,7 +66,9 @@ fn main() -> anyhow::Result<()> {
 
     let mut outputs = Vec::new();
     for output_cfg in &cfg.output {
-        outputs.push(Output::from_config(output_cfg).with_context(|| "Failed to create output")?);
+        let mut output = Output::from_config(output_cfg).with_context(|| "Failed to create output")?;
+        output.write_primer()?;
+        outputs.push(output);
     }
 
     let mut total = 0;
@@ -89,7 +91,7 @@ fn main() -> anyhow::Result<()> {
 
                 if let Some(line) = line {
                     for output in &mut outputs {
-                        output.write(&line)?;
+                        output.write_host(&line)?;
                     }
 
                     total += 1;

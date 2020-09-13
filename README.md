@@ -14,7 +14,7 @@ All CLI options can be seen with the `--help` flag. The options are:
 
 ### Configuration file
 
-By default, the tool will use a confiuration file in the current system-dependent location. On Linux, this is `$HOME/.config/singularity/singularity.conf`. The file will be created if it doesn't exist.
+By default, the tool will use a confiuration file in the current system-dependent location. On Linux, this is `$HOME/.config/singularity/singularity.conf`. The file will be created if it doesn't exist, but it will not contain usable values.
 
 Complete example configuration file:
 
@@ -36,26 +36,24 @@ include = ["extra-hosts"]
 [[output]]
 type = "pdns-lua"
 destination = "/etc/powerdns/blackhole.lua"
-blackhole-address = "0.0.0.0"
+blackhole-address = "::"
 
 ```
 
 #### `adlist`
 
 An array of objects describing adlist sources. They have two keys:
-* `source`: URL to the source of the adlist. The URL scheme can be `http`, `https` or `path`. If it's a `path` URL, its path will be interpreted as an absolute path.
-* `format`: the format the adlist's entries are in. It can be either:
-    * `hosts`: standard `/etc/hosts`-style entries; `0.0.0.0 malicious.domain`. It is assumed the address in the entry is the unspecfied `0.0.0.0` address. Entries that have a different address or have an address for the domain are ignored. This is the default value and will be assumed if the `format` key is missing.
+* `source`: URL to the source of the adlist. The URL scheme can be `http`, `https` or `file`. If it's a `file` URL, its path will be interpreted as an absolute filesystem path in the local system.
+* `format`: the format the adlist's entries are in. This option can be omitted for the default `hosts` value. The value can be either:
+    * `hosts`: standard `/etc/hosts`-style entries; `0.0.0.0 malicious.domain`. It is assumed the address in each entry is the unspecfied `0.0.0.0` IP address. Entries that have a different IP address or have an IP address as the domain are ignored.
     * `domains`: each line is just a domain name: `malicious.domain`.
 
-Regardless of the source or format, any lines in an adlist beginning with a `#` are ignored and won't be included in the output.
+Regardless of the source or format, any lines in an adlist beginning with a `#` are ignored and will not be included in the output.
 
 ### `output`
 
-An array of objects describing where and how to output the blacklisted domains. The type of each output is specified with the `type` key. The possible types are:
-* `hosts`: output a standard hosts-format where each line is in the format `<blackhole-address> <name>`. The `blackhole-address` is `0.0.0.0` by default and can be changed with the corresponding option. Additionally, more hosts-files can be included in the output by settings their paths in the `include` array option.
-* `pdns-lua`: TODO
+An array of objects describing where and how to output the blackholed domains. The type of each output is specified with the `type` key. The possible types are:
+* `hosts`: output a standard hosts-format where each line is in the format of `<blackhole-address> <name>`. Other hosts-files can be included in the output by settings their paths in the `include` array option.
+* `pdns-lua`: output a Lua script that can be used with the `lua-dns-script` configuration option in PDNS Recursor. The script will have each blackholed domain hardcoded into it. By using the `preresolve()` function, it will respond to queries for the blackholed domains with either an `A`-record or an `AAAA`-record containing the `blackhole-address`. The type of the record depends on whether the `blackhole-address` is an IPv4- or an IPv6-address.
 
-## PDNS Recursor configuration
-
-The included `blackhole.conf` file corresponds to the tool's default configuration and can be placed in `/etc/powerdns/recursor.d` to be included in the Recursor's configuration. If the Recursor is already configured to include some hosts-file, the configuration entries for it should be removed and the tool should be configured to include the wanted hosts-files (the `include`-configuration option).
+In all output types, the default `blackhole-address` is `0.0.0.0` and can be changed per-output.
