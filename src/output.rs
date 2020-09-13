@@ -2,7 +2,7 @@ use crate::config::{OutputConfig, OutputConfigType};
 use chrono::Utc;
 use std::{fs::File, io, io::Write, net::IpAddr, path::PathBuf};
 
-const PDNS_LUA_PRIMER: &str = "b=newDS();b:add{";
+const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
 enum OutputType {
     Hosts(Vec<PathBuf>),
@@ -49,7 +49,7 @@ impl Output {
         match self.ty {
             OutputType::Hosts(..) => writeln!(&mut self.destination, "{} {}", self.blackhole_address, host)?,
             OutputType::PdnsLua => {
-                let host = host.split_once('#').map(|(left, _)| left).unwrap_or(host);
+                let host = host.split_once('#').map(|(left, _)| left).unwrap_or(host).trim_end();
                 write!(&mut self.destination, r#""{}","#, host)?
             }
         }
@@ -69,7 +69,7 @@ impl Output {
             OutputType::PdnsLua => {
                 write!(
                     &mut self.destination,
-                    "}};function preresolve(q) if b:check(q.qname) then "
+                    "}} function preresolve(q) if b:check(q.qname) then "
                 )?;
 
                 let record = match self.blackhole_address {
@@ -84,7 +84,7 @@ impl Output {
                     addr = self.blackhole_address
                 )?;
 
-                writeln!(&mut self.destination, "return true end end return false end")?;
+                writeln!(&mut self.destination, " return true end end return false end")?;
             }
         }
 
