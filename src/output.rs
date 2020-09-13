@@ -1,4 +1,4 @@
-use crate::config::OutputConfig;
+use crate::config::{OutputConfig, OutputConfigType};
 use chrono::Utc;
 use std::{fs::File, io, io::Write, net::IpAddr, path::PathBuf};
 
@@ -16,24 +16,17 @@ pub(crate) struct Output {
 }
 
 impl Output {
-    pub fn from_config(output_config: &OutputConfig) -> anyhow::Result<Self> {
-        match output_config {
-            OutputConfig::Hosts {
-                destination,
-                blackhole_address,
-                include,
-            } => Ok(Self {
+    pub fn from_config(cfg: &OutputConfig) -> anyhow::Result<Self> {
+        match &cfg.ty {
+            OutputConfigType::Hosts { include } => Ok(Self {
                 ty: OutputType::Hosts(include.to_owned()),
-                destination: File::create(destination)?,
-                blackhole_address: *blackhole_address,
+                destination: File::create(&cfg.destination)?,
+                blackhole_address: cfg.blackhole_address,
             }),
-            OutputConfig::PdnsLua {
-                destination,
-                blackhole_address,
-            } => Ok(Self {
+            OutputConfigType::PdnsLua => Ok(Self {
                 ty: OutputType::PdnsLua,
-                destination: File::create(destination)?,
-                blackhole_address: *blackhole_address,
+                destination: File::create(&cfg.destination)?,
+                blackhole_address: cfg.blackhole_address,
             }),
         }
     }
@@ -69,7 +62,7 @@ impl Output {
             OutputType::Hosts(include) => {
                 for path in include {
                     let mut include_file = File::open(path)?;
-                    writeln!(&mut self.destination, "\nhosts included from {}\n", path.display())?;
+                    writeln!(&mut self.destination, "\n# hosts included from {}\n", path.display())?;
                     io::copy(&mut include_file, &mut self.destination)?;
                 }
             }

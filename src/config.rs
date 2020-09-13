@@ -19,22 +19,21 @@ pub(crate) struct Config {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct OutputConfig {
+    #[serde(flatten)]
+    pub ty: OutputConfigType,
+    pub destination: PathBuf,
+    #[serde(default = "default_blackhole_address")]
+    pub blackhole_address: IpAddr,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
-pub(crate) enum OutputConfig {
+pub(crate) enum OutputConfigType {
     #[serde(rename = "hosts")]
-    Hosts {
-        destination: PathBuf,
-        #[serde(default = "default_blackhole_address")]
-        blackhole_address: IpAddr,
-        #[serde(default)]
-        include: Vec<PathBuf>,
-    },
+    Hosts { include: Vec<PathBuf> },
     #[serde(rename = "pdns-lua")]
-    PdnsLua {
-        destination: PathBuf,
-        #[serde(default = "default_blackhole_address")]
-        blackhole_address: IpAddr,
-    },
+    PdnsLua,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
