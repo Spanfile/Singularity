@@ -1,7 +1,7 @@
 [package]
 authors = ["Spanfile <spansdev@gmail.com>"]
 edition = "2018"
-name = "pdns-singularity"
+name = "singularity"
 version = "0.1.0"
 
 [dependencies]

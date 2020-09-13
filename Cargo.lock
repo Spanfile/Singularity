@@ -282,21 +282,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "260e51e7efe62b592207e9e13a68e43692a7a279171d6ba57abd208bf23645ad"
 
 [[package]]
-name = "pdns-singularity"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "confy",
- "fern",
- "log",
- "serde",
- "structopt",
- "thiserror",
- "ureq",
- "url",
-]
-
-[[package]]
 name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -492,6 +477,21 @@ name = "sha1"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2579985fda508104f7587689507983eadd6a6e84dd35d6d115361f530916fa0d"
+
+[[package]]
+name = "singularity"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "confy",
+ "fern",
+ "log",
+ "serde",
+ "structopt",
+ "thiserror",
+ "ureq",
+ "url",
+]
 
 [[package]]
 name = "spin"
