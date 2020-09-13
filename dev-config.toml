@@ -11,3 +11,4 @@ adlists = [
 ]
 blackhole-address = "0.0.0.0"
 output = "dev-blackhole"
+include = ["extra-hosts"]

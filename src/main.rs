@@ -5,6 +5,7 @@ mod logging;
 use std::{
     fmt::Display,
     fs::File,
+    io,
     io::{BufRead, BufReader, Read, Write},
     net::IpAddr,
     path::PathBuf,
@@ -69,6 +70,7 @@ struct Config {
     output: PathBuf,
     #[serde(rename = "blackhole-address")]
     blackhole_address: IpAddr,
+    include: Vec<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -92,6 +94,7 @@ impl Default for Config {
             blackhole_address: DEFAULT_BLACKHOLE_ADDRESS
                 .parse()
                 .expect("failed to parse default blackhole address"),
+            include: Default::default(),
         }
     }
 }
@@ -137,7 +140,19 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    info!("Read {} hosts in total from {} source(s)", total, cfg.adlists.len());
+    for include in &cfg.include {
+        debug!("Including extra hosts from {}", include.display());
+
+        let mut file = File::open(include)?;
+        writeln!(&mut output, "\n# extra hosts included from {}\n", include.display())?;
+        io::copy(&mut file, &mut output)?;
+    }
+
+    info!(
+        "Read {} blackholed hosts in total from {} source(s)",
+        total,
+        cfg.adlists.len()
+    );
     Ok(())
 }
 
