@@ -18,7 +18,7 @@ use structopt::StructOpt;
 use url::Url;
 
 const APP_NAME: &str = "pdns-singularity";
-const DEFAULT_OUTPUT: &str = "/etc/pdns/blackhole-hosts";
+const DEFAULT_OUTPUT: &str = "/etc/powerdns/hosts";
 const HTTP_READ_TIMEOUT: u64 = 1_000;
 const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
 const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
