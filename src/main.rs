@@ -1,26 +1,15 @@
 #![feature(str_split_once)]
+mod config;
 mod logging;
 
-use std::{
-    fmt::Display,
-    fs::File,
-    io,
-    io::{BufRead, BufReader, Read, Write},
-    net::IpAddr,
-    path::PathBuf,
-    str::FromStr,
-};
-
+use config::{AdlistFormat, Config};
+use io::BufRead;
 use log::*;
-use serde::{Deserialize, Serialize};
+use std::{fmt::Display, fs::File, io, io::Write, net::IpAddr, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
-use url::Url;
 
 const APP_NAME: &str = "singularity";
-const DEFAULT_OUTPUT: &str = "/etc/powerdns/hosts";
-const HTTP_READ_TIMEOUT: u64 = 1_000;
 const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
-const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
 
 #[derive(Debug, Copy, Clone)]
 struct ConnectTimeout(u64);
@@ -61,58 +50,6 @@ struct Opt {
     /// The timeout to wait for HTTP requests to succeed in milliseconds.
     #[structopt(default_value, short, long)]
     timeout: ConnectTimeout,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Config {
-    adlists: Vec<Adlist>,
-    #[serde(default = "default_output")]
-    output: PathBuf,
-    #[serde(rename = "blackhole-address", default = "default_blackhole_address")]
-    blackhole_address: IpAddr,
-    #[serde(default)]
-    include: Vec<PathBuf>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Adlist {
-    source: Url,
-    #[serde(default)]
-    format: AdlistFormat,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum AdlistFormat {
-    Hosts,
-    Domains,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            adlists: Default::default(),
-            output: default_output(),
-            blackhole_address: default_blackhole_address(),
-            include: Default::default(),
-        }
-    }
-}
-
-impl Default for AdlistFormat {
-    fn default() -> Self {
-        Self::Hosts
-    }
-}
-
-fn default_output() -> PathBuf {
-    PathBuf::from(DEFAULT_OUTPUT)
-}
-
-fn default_blackhole_address() -> IpAddr {
-    DEFAULT_BLACKHOLE_ADDRESS
-        .parse()
-        .expect("failed to parse default blackhole address")
 }
 
 fn main() -> anyhow::Result<()> {
@@ -186,57 +123,6 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
         Some(path) => confy::load_path(path)?,
         None => confy::load(APP_NAME)?,
     })
-}
-
-impl Adlist {
-    fn get_reader(&self, connect_timeout: ConnectTimeout) -> Option<BufReader<Box<dyn Read>>> {
-        match self.source.scheme() {
-            "http" | "https" => {
-                info!("Requesting adlist from {}...", self.source);
-
-                let resp = ureq::get(self.source.as_str())
-                    .timeout_connect(connect_timeout.0)
-                    .timeout_read(HTTP_READ_TIMEOUT)
-                    .call();
-                debug!("Got response status {}", resp.status());
-
-                if resp.ok() {
-                    Some(BufReader::new(Box::new(resp.into_reader()) as Box<dyn Read>))
-                } else {
-                    error!(
-                        "Requesting adlist failed. Got response status {}. Response body:\n{}",
-                        resp.status(),
-                        resp.into_string()
-                            .expect("failed to turn error response body into string")
-                    );
-                    None
-                }
-            }
-            "file" => {
-                let path = match self.source.to_file_path() {
-                    Ok(path) => path,
-                    Err(()) => {
-                        error!("Invalid path for file scheme: {}", self.source);
-                        return None;
-                    }
-                };
-                info!("Reading adlist from {}...", path.display());
-
-                let file = match File::open(&path) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        error!("Failed to open adlist file: {}", e);
-                        return None;
-                    }
-                };
-                Some(BufReader::new(Box::new(file) as Box<dyn Read>))
-            }
-            scheme => {
-                error!("Unsupported adlist source scheme: '{}'", scheme);
-                None
-            }
-        }
-    }
 }
 
 fn parse_hosts_line(line: String) -> Option<String> {
