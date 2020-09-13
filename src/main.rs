@@ -21,7 +21,6 @@ const DEFAULT_OUTPUT: &str = "/etc/powerdns/hosts";
 const HTTP_READ_TIMEOUT: u64 = 1_000;
 const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
 const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
-const DEFAULT_BLACKHOLE_SOURCE: &str = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts";
 
 #[derive(Debug, Copy, Clone)]
 struct ConnectTimeout(u64);
@@ -49,7 +48,7 @@ impl Display for ConnectTimeout {
 #[derive(Debug, StructOpt)]
 #[structopt(
     name = APP_NAME,
-    about = "Gathers blacklisted DNS domains into a PDNS Recursor hosts-file."
+    about = "Gathers blacklisted DNS domains into a hosts-file."
 )]
 struct Opt {
     /// Enable verbose logging
@@ -67,15 +66,18 @@ struct Opt {
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
     adlists: Vec<Adlist>,
+    #[serde(default = "default_output")]
     output: PathBuf,
-    #[serde(rename = "blackhole-address")]
+    #[serde(rename = "blackhole-address", default = "default_blackhole_address")]
     blackhole_address: IpAddr,
+    #[serde(default)]
     include: Vec<PathBuf>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Adlist {
     source: Url,
+    #[serde(default)]
     format: AdlistFormat,
 }
 
@@ -89,17 +91,28 @@ enum AdlistFormat {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            adlists: vec![Adlist {
-                source: Url::from_str(DEFAULT_BLACKHOLE_SOURCE).expect("failed to parse default adlist source URL"),
-                format: AdlistFormat::Hosts,
-            }],
-            output: PathBuf::from(DEFAULT_OUTPUT),
-            blackhole_address: DEFAULT_BLACKHOLE_ADDRESS
-                .parse()
-                .expect("failed to parse default blackhole address"),
+            adlists: Default::default(),
+            output: default_output(),
+            blackhole_address: default_blackhole_address(),
             include: Default::default(),
         }
     }
+}
+
+impl Default for AdlistFormat {
+    fn default() -> Self {
+        Self::Hosts
+    }
+}
+
+fn default_output() -> PathBuf {
+    PathBuf::from(DEFAULT_OUTPUT)
+}
+
+fn default_blackhole_address() -> IpAddr {
+    DEFAULT_BLACKHOLE_ADDRESS
+        .parse()
+        .expect("failed to parse default blackhole address")
 }
 
 fn main() -> anyhow::Result<()> {
