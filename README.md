@@ -14,16 +14,33 @@ All CLI options can be seen with the `--help` flag. The options are:
 
 ### Configuration file
 
-By default, the tool will use a confiuration file in the current system-dependent location. On Linux, this is `$HOME/.config/singularity/singularity.conf`. The file will be created if it doesn't exist and filled with the default options:
+By default, the tool will use a confiuration file in the current system-dependent location. On Linux, this is `$HOME/.config/singularity/singularity.conf`. The file will be created if it doesn't exist.
+
+Complete example configuration file:
 
 ```toml
-adlists = []
+[[adlist]]
+source = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+format = "hosts"
+
+[[adlist]]
+source = "file:/absolute/path"
+format = "domains"
+
+[[output]]
+type = "hosts"
+destination = "/etc/powerdns/hosts"
 blackhole-address = "0.0.0.0"
-output = "/etc/powerdns/hosts"
-include = []
+include = ["extra-hosts"]
+
+[[output]]
+type = "pdns-lua"
+destination = "/etc/powerdns/blackhole.lua"
+blackhole-address = "0.0.0.0"
+
 ```
 
-#### `adlists`
+#### `adlist`
 
 An array of objects describing adlist sources. They have two keys:
 * `source`: URL to the source of the adlist. The URL scheme can be `http`, `https` or `path`. If it's a `path` URL, its path will be interpreted as an absolute path.
@@ -33,17 +50,11 @@ An array of objects describing adlist sources. They have two keys:
 
 Regardless of the source or format, any lines in an adlist beginning with a `#` are ignored and won't be included in the output.
 
-#### `blackhole-address`
+### `output`
 
-The blackhole address used in the output hosts-file. Can be omitted for the default value `0.0.0.0`.
-
-#### `output`
-
-Where to write the final hosts-file. Can be omitted for the default value `/etc/powerdns/hosts`.
-
-#### `include`
-
-Array of paths to additional hosts-files to include in the output. Can be omitted for the default value of an empty array.
+An array of objects describing where and how to output the blacklisted domains. The type of each output is specified with the `type` key. The possible types are:
+* `hosts`: output a standard hosts-format where each line is in the format `<blackhole-address> <name>`. The `blackhole-address` is `0.0.0.0` by default and can be changed with the corresponding option. Additionally, more hosts-files can be included in the output by settings their paths in the `include` array option.
+* `pdns-lua`: TODO
 
 ## PDNS Recursor configuration
 

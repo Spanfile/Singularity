@@ -14,23 +14,24 @@ const HTTP_READ_TIMEOUT: u64 = 1_000;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct Config {
-    pub adlists: Vec<Adlist>,
+    pub adlist: Vec<Adlist>,
     pub output: Vec<OutputConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "type")]
 pub(crate) enum OutputConfig {
+    #[serde(rename = "hosts")]
     Hosts {
-        hosts: PathBuf,
+        destination: PathBuf,
         #[serde(default = "default_blackhole_address")]
         blackhole_address: IpAddr,
         #[serde(default)]
         include: Vec<PathBuf>,
     },
+    #[serde(rename = "pdns-lua")]
     PdnsLua {
-        #[serde(rename = "pdns-lua")]
-        pdns_lua: PathBuf,
+        destination: PathBuf,
         #[serde(default = "default_blackhole_address")]
         blackhole_address: IpAddr,
     },

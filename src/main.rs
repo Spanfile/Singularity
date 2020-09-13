@@ -70,7 +70,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut total = 0;
-    for adlist in &cfg.adlists {
+    for adlist in &cfg.adlist {
         if let Some(reader) = adlist.get_reader(opt.timeout) {
             let mut count = 0;
             for line in reader.lines() {
@@ -108,7 +108,7 @@ fn main() -> anyhow::Result<()> {
     info!(
         "Read {} blackholed hosts in total from {} source(s)",
         total,
-        cfg.adlists.len()
+        cfg.adlist.len()
     );
     Ok(())
 }

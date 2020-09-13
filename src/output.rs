@@ -16,20 +16,20 @@ impl Output {
     pub fn from_config(output_config: &OutputConfig) -> anyhow::Result<Self> {
         match output_config {
             OutputConfig::Hosts {
-                hosts,
+                destination,
                 blackhole_address,
                 include,
             } => Ok(Self {
                 ty: OutputType::Hosts(include.to_owned()),
-                destination: File::create(hosts)?,
+                destination: File::create(destination)?,
                 blackhole_address: *blackhole_address,
             }),
             OutputConfig::PdnsLua {
-                pdns_lua,
+                destination,
                 blackhole_address,
             } => Ok(Self {
                 ty: OutputType::PdnsLua,
-                destination: File::create(pdns_lua)?,
+                destination: File::create(destination)?,
                 blackhole_address: *blackhole_address,
             }),
         }
