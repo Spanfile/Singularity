@@ -64,6 +64,16 @@ fn main() -> anyhow::Result<()> {
     debug!("{:?}", opt);
     debug!("{:?}", cfg);
 
+    if cfg.adlist.is_empty() {
+        warn!("No adlists configured. Please edit the configuration file and add one or more adlists.");
+        return Ok(());
+    }
+
+    if cfg.output.is_empty() {
+        warn!("No outputs configured. Please edit the configuration file and add one or more outputs.");
+        return Ok(());
+    }
+
     let mut outputs = Vec::new();
     for output_cfg in &cfg.output {
         let mut output = Output::from_config(output_cfg).with_context(|| "Failed to create output")?;

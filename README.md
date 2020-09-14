@@ -1,8 +1,10 @@
 # Singularity
 
-CLI tool for pulling known malicious domains into a blackhole list. Primarily meant to be used with PDNS Recursor. The output of the final blackhole list is in the standard hosts-format.
+CLI tool for pulling known malicious domains into a blackhole list. Primarily meant to be used with PDNS Recursor. The tool can pull in blackholed domains from multiple adlist sources and output them into multiple places in various formats.
 
 ## Usage
+
+* Basic usage: `singularity`
 
 ### CLI options
 
@@ -14,7 +16,7 @@ All CLI options can be seen with the `--help` flag. The options are:
 
 ### Configuration file
 
-By default, the tool will use a confiuration file in the current system-dependent location. On Linux, this is `$HOME/.config/singularity/singularity.conf`. The file will be created if it doesn't exist, but it will not contain usable values.
+By default, the tool will use a confiuration file in the current system-dependent location. On Linux, this is `$HOME/.config/singularity/singularity.conf`. The file will be created if it doesn't exist and will contain empty values.
 
 Complete example configuration file:
 
@@ -54,6 +56,6 @@ Regardless of the source or format, any lines in an adlist beginning with a `#` 
 
 An array of objects describing where and how to output the blackholed domains. The type of each output is specified with the `type` key. The possible types are:
 * `hosts`: output a standard hosts-format where each line is in the format of `<blackhole-address> <name>`. Other hosts-files can be included in the output by settings their paths in the `include` array option.
-* `pdns-lua`: output a Lua script that can be used with the `lua-dns-script` configuration option in PDNS Recursor. The script will have each blackholed domain hardcoded into it. By using the `preresolve()` function, it will respond to queries for the blackholed domains with either an `A`-record or an `AAAA`-record containing the `blackhole-address`. The type of the record depends on whether the `blackhole-address` is an IPv4- or an IPv6-address.
+* `pdns-lua`: output a Lua script that can be used with the `lua-dns-script` configuration option in PDNS Recursor. The script will have each blackholed domain hardcoded into it. By using the `preresolve()` function, the script will respond to queries for the blackholed domains with either an `A`-record or an `AAAA`-record containing the `blackhole-address`. The type of the record depends on whether the `blackhole-address` is an IPv4- or an IPv6-address.
 
 In all output types, the default `blackhole-address` is `0.0.0.0` and can be changed per-output.
