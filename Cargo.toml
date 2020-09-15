@@ -1,14 +1,14 @@
 [package]
 authors = ["Spanfile <spansdev@gmail.com>"]
 categories = ["command-line-interface"]
-description = "CLI tool for pulling known malicious domains into a blackhole list."
+description = "CLI tool for pulling known malicious domains into one or more blackhole lists in various formats."
 edition = "2018"
 keywords = ["cli", "dns", "blackhole"]
 license = "MIT"
 name = "singularity"
 readme = "README.md"
 repository = "https://github.com/Spanfile/Singularity"
-version = "0.3.0"
+version = "0.4.0"
 
 [dependencies]
 anyhow = "1.0.32"

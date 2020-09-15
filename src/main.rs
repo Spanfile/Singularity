@@ -51,8 +51,7 @@ impl Display for ConnectTimeout {
 
 #[derive(Debug, StructOpt)]
 #[structopt(
-    name = APP_NAME,
-    about = "Gathers blacklisted DNS domains into a hosts-file."
+    name = APP_NAME, author, about
 )]
 struct Opt {
     /// Enable verbose logging
