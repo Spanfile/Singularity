@@ -6,7 +6,7 @@ mod output;
 use anyhow::Context;
 use config::{AdlistFormat, Config};
 use indicatif::{ProgressBar, ProgressStyle};
-use io::BufRead;
+use io::{BufRead, BufReader};
 use log::*;
 use output::Output;
 use std::{fmt::Display, io, net::IpAddr, path::PathBuf, str::FromStr};
@@ -14,7 +14,6 @@ use structopt::StructOpt;
 
 const APP_NAME: &str = "singularity";
 const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
-const DOWNLOAD_UPDATE_FREQ: usize = 4_196;
 
 #[derive(Debug, Copy, Clone)]
 struct ConnectTimeout(u64);
@@ -85,39 +84,26 @@ fn main() -> anyhow::Result<()> {
 
     let mut total = 0;
     for adlist in &cfg.adlist {
-        match adlist.get_reader(opt.timeout) {
-            Ok((len, mut reader)) => {
+        match adlist.read(opt.timeout) {
+            Ok((len, reader)) => {
                 let pb = ProgressBar::new(len);
                 pb.set_style(
                     ProgressStyle::default_bar()
-                        .template("[{elapsed_precise}] [{bar:80}] {bytes}/{total_bytes} ({eta})")
+                        .template("[{elapsed_precise}] [{bar:80}] {bytes}/{total_bytes} ({bytes_per_sec})")
                         .progress_chars("=> "),
                 );
+                let reader = pb.wrap_read(reader);
+                let reader = BufReader::new(reader);
 
-                let mut read = 0;
-                let mut pb_update = 0;
-                loop {
-                    let mut buf = String::new();
-                    let l = match reader.read_line(&mut buf) {
+                for line in reader.lines() {
+                    let line = match line {
                         Ok(l) => l,
-                        Err(_e) => {
-                            continue;
-                        }
+                        Err(e) => continue,
                     };
 
-                    if l == 0 {
-                        break;
-                    }
-
-                    read += l;
-                    if read - pb_update > DOWNLOAD_UPDATE_FREQ {
-                        pb_update = read;
-                        pb.set_position(read as u64);
-                    }
-
                     let line = match adlist.format {
-                        AdlistFormat::Hosts => parse_hosts_line(buf),
-                        AdlistFormat::Domains => parse_domains_line(buf),
+                        AdlistFormat::Hosts => parse_hosts_line(line.trim()),
+                        AdlistFormat::Domains => parse_domains_line(line.trim()),
                     };
 
                     if let Some(line) = line {
@@ -163,7 +149,7 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
     })
 }
 
-fn parse_hosts_line(line: String) -> Option<String> {
+fn parse_hosts_line(line: &str) -> Option<String> {
     if !line.starts_with('#') {
         if let Some((address, host)) = split_once(&line, " ") {
             let address: IpAddr = address.parse().ok()?;
@@ -181,8 +167,8 @@ fn parse_hosts_line(line: String) -> Option<String> {
     None
 }
 
-fn parse_domains_line(line: String) -> Option<String> {
-    Some(line)
+fn parse_domains_line(line: &str) -> Option<String> {
+    Some(line.to_owned())
 }
 
 // TODO: replace with https://doc.rust-lang.org/nightly/std/primitive.str.html#method.split_once once stabilised

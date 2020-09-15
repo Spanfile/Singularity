@@ -1,12 +1,7 @@
 use crate::{error::SingularityError, ConnectTimeout};
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    io::{BufReader, Read},
-    net::IpAddr,
-    path::PathBuf,
-};
+use std::{fs::File, io::Read, net::IpAddr, path::PathBuf};
 use url::Url;
 
 const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
@@ -63,10 +58,7 @@ fn default_blackhole_address() -> IpAddr {
 }
 
 impl Adlist {
-    pub(crate) fn get_reader(
-        &self,
-        connect_timeout: ConnectTimeout,
-    ) -> anyhow::Result<(u64, BufReader<Box<dyn Read>>)> {
+    pub(crate) fn read(&self, connect_timeout: ConnectTimeout) -> anyhow::Result<(u64, Box<dyn Read>)> {
         match self.source.scheme() {
             "http" | "https" => {
                 info!("Requesting adlist from {}...", self.source);
@@ -82,7 +74,7 @@ impl Adlist {
                 debug!("Got response status {} with len {}", resp.status(), len);
 
                 if resp.ok() {
-                    Ok((len, BufReader::new(Box::new(resp.into_reader()) as Box<dyn Read>)))
+                    Ok((len, Box::new(resp.into_reader()) as Box<dyn Read>))
                 } else {
                     Err(SingularityError::RequestFailed(resp.status(), resp.into_string()?).into())
                 }
@@ -98,7 +90,7 @@ impl Adlist {
 
                 let file = File::open(&path)?;
                 let meta = file.metadata()?;
-                Ok((meta.len(), BufReader::new(Box::new(file) as Box<dyn Read>)))
+                Ok((meta.len(), Box::new(file) as Box<dyn Read>))
             }
             scheme => Err(SingularityError::UnsupportedUrlScheme(scheme.to_string()).into()),
         }
