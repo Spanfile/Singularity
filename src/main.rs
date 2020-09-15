@@ -24,7 +24,7 @@ use std::{
 use structopt::StructOpt;
 
 const APP_NAME: &str = "singularity";
-const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
+const HTTP_CONNECT_TIMEOUT: u64 = 5_000;
 
 #[derive(Debug, Copy, Clone)]
 struct ConnectTimeout(u64);

@@ -5,7 +5,7 @@ use std::{fs::File, io::Read, net::IpAddr, path::PathBuf};
 use url::Url;
 
 const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
-const HTTP_READ_TIMEOUT: u64 = 1_000;
+const HTTP_READ_TIMEOUT: u64 = 10_000;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct Config {
