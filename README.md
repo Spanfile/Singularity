@@ -2,6 +2,13 @@
 
 CLI tool for pulling known malicious domains into a blackhole list. Primarily meant to be used with PDNS Recursor. The tool can pull in blackholed domains from multiple adlist sources and output them into multiple places in various formats.
 
+## Install
+
+Requires a stable build of Rust, preferably the latest one. I haven't checked what is the minimum stable version the tool builds on.
+
+* From crates.io: `cargo install singularity`
+* From source: `cargo install --path .`
+
 ## Usage
 
 * Basic usage: `singularity`
@@ -39,7 +46,6 @@ include = ["extra-hosts"]
 type = "pdns-lua"
 destination = "/etc/powerdns/blackhole.lua"
 blackhole-address = "::"
-
 ```
 
 #### `adlist`

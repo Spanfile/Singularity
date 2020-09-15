@@ -1,4 +1,3 @@
-#![feature(str_split_once)]
 mod config;
 mod logging;
 mod output;
@@ -143,7 +142,7 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
 
 fn parse_hosts_line(line: String) -> Option<String> {
     if !line.starts_with('#') {
-        if let Some((address, host)) = line.split_once(" ") {
+        if let Some((address, host)) = split_once(&line, " ") {
             let address: IpAddr = address.parse().ok()?;
 
             // assumes the address in the host mapping is the 'unspecified' address 0.0.0.0
@@ -161,4 +160,19 @@ fn parse_hosts_line(line: String) -> Option<String> {
 
 fn parse_domains_line(line: String) -> Option<String> {
     Some(line)
+}
+
+// TODO: replace with https://doc.rust-lang.org/nightly/std/primitive.str.html#method.split_once once stabilised
+fn split_once<'a>(s: &'a str, separator: &str) -> Option<(&'a str, &'a str)> {
+    let mut split = s.split(separator);
+    let first = split.next();
+    let second = split.next();
+
+    if let Some(first) = first {
+        if let Some(second) = second {
+            return Some((first, second));
+        }
+    }
+
+    None
 }
