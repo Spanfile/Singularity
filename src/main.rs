@@ -1,9 +1,11 @@
 mod config;
+mod error;
 mod logging;
 mod output;
 
 use anyhow::Context;
 use config::{AdlistFormat, Config};
+use indicatif::{ProgressBar, ProgressStyle};
 use io::BufRead;
 use log::*;
 use output::Output;
@@ -12,6 +14,7 @@ use structopt::StructOpt;
 
 const APP_NAME: &str = "singularity";
 const HTTP_CONNECT_TIMEOUT: u64 = 1_000;
+const DOWNLOAD_UPDATE_FREQ: usize = 4_196;
 
 #[derive(Debug, Copy, Clone)]
 struct ConnectTimeout(u64);
@@ -82,34 +85,54 @@ fn main() -> anyhow::Result<()> {
 
     let mut total = 0;
     for adlist in &cfg.adlist {
-        if let Some(reader) = adlist.get_reader(opt.timeout) {
-            let mut count = 0;
-            for line in reader.lines() {
-                let line = match line {
-                    Ok(l) => l,
-                    Err(e) => {
-                        warn!("Invalid line in output. {}", e);
-                        continue;
+        match adlist.get_reader(opt.timeout) {
+            Ok((len, mut reader)) => {
+                let pb = ProgressBar::new(len);
+                pb.set_style(
+                    ProgressStyle::default_bar()
+                        .template("[{elapsed_precise}] [{bar:80}] {bytes}/{total_bytes} ({eta})")
+                        .progress_chars("=> "),
+                );
+
+                let mut read = 0;
+                let mut pb_update = 0;
+                loop {
+                    let mut buf = String::new();
+                    let l = match reader.read_line(&mut buf) {
+                        Ok(l) => l,
+                        Err(_e) => {
+                            continue;
+                        }
+                    };
+
+                    if l == 0 {
+                        break;
                     }
-                };
 
-                let line = match adlist.format {
-                    AdlistFormat::Hosts => parse_hosts_line(line),
-                    AdlistFormat::Domains => parse_domains_line(line),
-                };
-
-                if let Some(line) = line {
-                    for output in &mut outputs {
-                        output.write_host(&line)?;
+                    read += l;
+                    if read - pb_update > DOWNLOAD_UPDATE_FREQ {
+                        pb_update = read;
+                        pb.set_position(read as u64);
                     }
 
-                    total += 1;
-                    count += 1;
+                    let line = match adlist.format {
+                        AdlistFormat::Hosts => parse_hosts_line(buf),
+                        AdlistFormat::Domains => parse_domains_line(buf),
+                    };
+
+                    if let Some(line) = line {
+                        for output in &mut outputs {
+                            output.write_host(&line)?;
+                        }
+
+                        total += 1;
+                    }
                 }
-            }
 
-            info!("Read adlist with {} hosts", count);
-        }
+                // info!("Got {} hosts", count);
+            }
+            Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
+        };
     }
 
     for output in &mut outputs {

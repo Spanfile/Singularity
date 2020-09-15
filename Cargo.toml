@@ -15,6 +15,7 @@ anyhow = "1.0.32"
 chrono = "0.4.15"
 confy = "0.4.0"
 fern = "0.6.0"
+indicatif = "0.15.0"
 log = "0.4.11"
 serde = {version = "1.0.116", features = ["derive"]}
 structopt = "0.3.17"

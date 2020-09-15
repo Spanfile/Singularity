@@ -1,4 +1,4 @@
-use crate::ConnectTimeout;
+use crate::{error::SingularityError, ConnectTimeout};
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -63,7 +63,10 @@ fn default_blackhole_address() -> IpAddr {
 }
 
 impl Adlist {
-    pub(crate) fn get_reader(&self, connect_timeout: ConnectTimeout) -> Option<BufReader<Box<dyn Read>>> {
+    pub(crate) fn get_reader(
+        &self,
+        connect_timeout: ConnectTimeout,
+    ) -> anyhow::Result<(u64, BufReader<Box<dyn Read>>)> {
         match self.source.scheme() {
             "http" | "https" => {
                 info!("Requesting adlist from {}...", self.source);
@@ -72,43 +75,32 @@ impl Adlist {
                     .timeout_connect(connect_timeout.0)
                     .timeout_read(HTTP_READ_TIMEOUT)
                     .call();
-                debug!("Got response status {}", resp.status());
+                let len: u64 = resp
+                    .header("Content-Length")
+                    .ok_or(SingularityError::MissingContentLengthHeader)?
+                    .parse()?;
+                debug!("Got response status {} with len {}", resp.status(), len);
 
                 if resp.ok() {
-                    Some(BufReader::new(Box::new(resp.into_reader()) as Box<dyn Read>))
+                    Ok((len, BufReader::new(Box::new(resp.into_reader()) as Box<dyn Read>)))
                 } else {
-                    error!(
-                        "Requesting adlist failed. Got response status {}. Response body:\n{}",
-                        resp.status(),
-                        resp.into_string()
-                            .expect("failed to turn error response body into string")
-                    );
-                    None
+                    Err(SingularityError::RequestFailed(resp.status(), resp.into_string()?).into())
                 }
             }
             "file" => {
                 let path = match self.source.to_file_path() {
                     Ok(path) => path,
                     Err(()) => {
-                        error!("Invalid path for file scheme: {}", self.source);
-                        return None;
+                        return Err(SingularityError::InvalidFilePath(self.source.as_str().to_string()).into());
                     }
                 };
                 info!("Reading adlist from {}...", path.display());
 
-                let file = match File::open(&path) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        error!("Failed to open adlist file: {}", e);
-                        return None;
-                    }
-                };
-                Some(BufReader::new(Box::new(file) as Box<dyn Read>))
+                let file = File::open(&path)?;
+                let meta = file.metadata()?;
+                Ok((meta.len(), BufReader::new(Box::new(file) as Box<dyn Read>)))
             }
-            scheme => {
-                error!("Unsupported adlist source scheme: '{}'", scheme);
-                None
-            }
+            scheme => Err(SingularityError::UnsupportedUrlScheme(scheme.to_string()).into()),
         }
     }
 }
