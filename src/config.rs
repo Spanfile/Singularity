@@ -31,14 +31,14 @@ pub(crate) enum OutputConfigType {
     PdnsLua,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct Adlist {
     pub source: Url,
     #[serde(default)]
     pub format: AdlistFormat,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum AdlistFormat {
     Hosts,

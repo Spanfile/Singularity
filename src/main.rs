@@ -5,11 +5,22 @@ mod output;
 
 use anyhow::Context;
 use config::{AdlistFormat, Config};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use io::{BufRead, BufReader};
 use log::*;
 use output::Output;
-use std::{fmt::Display, io, net::IpAddr, path::PathBuf, str::FromStr};
+use std::{
+    fmt::Display,
+    io,
+    net::IpAddr,
+    path::PathBuf,
+    str::FromStr,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        mpsc, Arc,
+    },
+    thread,
+};
 use structopt::StructOpt;
 
 const APP_NAME: &str = "singularity";
@@ -82,52 +93,81 @@ fn main() -> anyhow::Result<()> {
         outputs.push(output);
     }
 
-    let mut total = 0;
-    for adlist in &cfg.adlist {
-        match adlist.read(opt.timeout) {
-            Ok((len, reader)) => {
-                let pb = ProgressBar::new(len);
-                pb.set_style(
-                    ProgressStyle::default_bar()
-                        .template("[{elapsed_precise}] [{bar:80}] {bytes}/{total_bytes} ({bytes_per_sec})")
-                        .progress_chars("=> "),
-                );
-                let reader = pb.wrap_read(reader);
-                let reader = BufReader::new(reader);
+    let mb = MultiProgress::new();
+    let style = ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] [{bar:80}] {bytes}/{total_bytes} ({bytes_per_sec})")
+        .progress_chars("=> ");
 
-                for line in reader.lines() {
-                    let line = match line {
-                        Ok(l) => l,
-                        Err(e) => continue,
-                    };
+    let (tx, rx) = mpsc::channel::<String>();
+    let total = Arc::new(AtomicUsize::new(0));
+    let total_c = Arc::clone(&total);
 
-                    let line = match adlist.format {
-                        AdlistFormat::Hosts => parse_hosts_line(line.trim()),
-                        AdlistFormat::Domains => parse_domains_line(line.trim()),
-                    };
-
-                    if let Some(line) = line {
-                        for output in &mut outputs {
-                            output.write_host(&line)?;
-                        }
-
-                        total += 1;
-                    }
-                }
-
-                // info!("Got {} hosts", count);
+    let pb = mb.add(ProgressBar::new_spinner().with_style(ProgressStyle::default_spinner()));
+    let _ = thread::spawn(move || {
+        while let Ok(line) = rx.recv() {
+            let old = total_c.fetch_add(1, Ordering::Relaxed);
+            let total = old + 1;
+            if total % 1000 == 0 {
+                pb.set_message(&format!("{} domains read so far...", total));
             }
-            Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
-        };
+
+            for output in &mut outputs {
+                output.write_host(&line).expect("failed to write host into output");
+            }
+        }
+
+        for output in &mut outputs {
+            output.finalise().expect("failed to finalise output");
+        }
+    });
+
+    // let mut total = 0;
+    for adlist in &cfg.adlist {
+        let tx = tx.clone();
+        let adlist = adlist.clone();
+        let timeout = opt.timeout;
+
+        let pb = mb.add(ProgressBar::new(0));
+        pb.set_style(style.clone());
+
+        let _ = thread::spawn(move || {
+            match adlist.read(timeout) {
+                Ok((len, reader)) => {
+                    pb.set_length(len);
+                    let reader = pb.wrap_read(reader);
+                    let reader = BufReader::new(reader);
+
+                    for line in reader.lines() {
+                        let line = match line {
+                            Ok(l) => l,
+                            Err(_e) => continue,
+                        };
+
+                        let line = match adlist.format {
+                            AdlistFormat::Hosts => parse_hosts_line(line.trim()),
+                            AdlistFormat::Domains => parse_domains_line(line.trim()),
+                        };
+
+                        if let Some(line) = line {
+                            tx.send(line).expect("failed to send parsed line");
+                        }
+                    }
+
+                    // info!("Got {} hosts", count);
+                }
+                Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
+            };
+        });
     }
 
-    for output in &mut outputs {
-        output.finalise()?;
-    }
+    // when the requester threads finish, they drop their clones of the channel tx. the output writer thread ends when
+    // all the tx's have been dropped. drop ours now since we don't need it
+    drop(tx);
+    mb.join_and_clear().unwrap();
 
     info!(
-        "Read {} blackholed hosts in total from {} source(s)",
-        total,
+        "Read {} domains from {} source(s)",
+        total.load(Ordering::Relaxed),
         cfg.adlist.len()
     );
     Ok(())
