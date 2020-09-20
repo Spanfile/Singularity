@@ -2,7 +2,7 @@ use crate::{
     config::{OutputConfig, OutputConfigType},
     split_once,
 };
-use chrono::Utc;
+use chrono::Local;
 use io::SeekFrom;
 use std::{
     fs::File,
@@ -111,5 +111,10 @@ impl Output {
 }
 
 fn get_generated_at_comment() -> String {
-    format!("Generated at {} by singularity", Utc::now().to_rfc3339())
+    format!(
+        "Generated at {} with {} v{}",
+        Local::now(),
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION")
+    )
 }

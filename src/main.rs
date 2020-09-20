@@ -23,7 +23,7 @@ use std::{
 };
 use structopt::StructOpt;
 
-const APP_NAME: &str = "singularity";
+const APP_NAME: &str = env!("CARGO_PKG_NAME");
 const HTTP_CONNECT_TIMEOUT: u64 = 5_000;
 
 #[derive(Debug, Copy, Clone)]
