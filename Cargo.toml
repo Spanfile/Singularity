@@ -19,6 +19,7 @@ indicatif = "0.15.0"
 log = "0.4.11"
 serde = {version = "1.0.116", features = ["derive"]}
 structopt = "0.3.17"
+tempfile = "3.1.0"
 thiserror = "1.0.20"
 ureq = "1.4.1"
 url = {version = "2.1.1", features = ["serde"]}

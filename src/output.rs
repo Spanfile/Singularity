@@ -3,7 +3,15 @@ use crate::{
     split_once,
 };
 use chrono::Utc;
-use std::{fs::File, io, io::Write, net::IpAddr, path::PathBuf};
+use io::SeekFrom;
+use std::{
+    fs::File,
+    io,
+    io::{Seek, Write},
+    net::IpAddr,
+    path::PathBuf,
+};
+use tempfile::tempfile;
 
 const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
@@ -15,6 +23,7 @@ enum OutputType {
 pub(crate) struct Output {
     ty: OutputType,
     destination: File,
+    final_path: PathBuf,
     blackhole_address: IpAddr,
 }
 
@@ -23,12 +32,14 @@ impl Output {
         match &cfg.ty {
             OutputConfigType::Hosts { include } => Ok(Self {
                 ty: OutputType::Hosts(include.to_owned()),
-                destination: File::create(&cfg.destination)?,
+                destination: tempfile()?,
+                final_path: cfg.destination.to_path_buf(),
                 blackhole_address: cfg.blackhole_address,
             }),
             OutputConfigType::PdnsLua => Ok(Self {
                 ty: OutputType::PdnsLua,
-                destination: File::create(&cfg.destination)?,
+                destination: tempfile()?,
+                final_path: cfg.destination.to_path_buf(),
                 blackhole_address: cfg.blackhole_address,
             }),
         }
@@ -90,6 +101,10 @@ impl Output {
                 writeln!(&mut self.destination, " return true end end return false end")?;
             }
         }
+
+        let mut final_file = File::create(&self.final_path)?;
+        self.destination.seek(SeekFrom::Start(0))?;
+        io::copy(&mut self.destination, &mut final_file)?;
 
         Ok(())
     }
