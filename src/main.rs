@@ -93,22 +93,22 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mb = MultiProgress::new();
-    let style = ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] [{bar:80}] {bytes}/{total_bytes} ({bytes_per_sec})")
+    let download_style = ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
         .progress_chars("=> ");
 
-    let (tx, rx) = mpsc::channel::<String>();
-    let total = Arc::new(AtomicUsize::new(0));
-    let total_c = Arc::clone(&total);
+    let (tx, rx) = mpsc::sync_channel::<String>(1024);
+    let count = Arc::new(AtomicUsize::new(0));
+    let count_c = Arc::clone(&count);
 
-    // let pb = mb.add(ProgressBar::new_spinner().with_style(ProgressStyle::default_spinner()));
-    // pb.tick(); // ensure this ticker progress bar is always displayed first
-    let _ = thread::spawn(move || {
+    let source_count = cfg.adlist.len();
+    let pb = mb.add(ProgressBar::new_spinner());
+    pb.enable_steady_tick(100);
+    thread::spawn(move || {
         while let Ok(line) = rx.recv() {
-            let old = total_c.fetch_add(1, Ordering::Relaxed);
-            let total = old + 1;
-            if total % 1000 == 0 {
-                // pb.set_message(&format!("{} domains read so far...", total));
+            let count = count_c.fetch_add(1, Ordering::Relaxed);
+            if (count + 1) % 1000 == 0 {
+                pb.set_message(&format!("{} domains read so far...", count + 1));
             }
 
             for output in &mut outputs {
@@ -119,20 +119,27 @@ fn main() -> anyhow::Result<()> {
         for output in &mut outputs {
             output.finalise().expect("failed to finalise output");
         }
+
+        pb.println(&format!(
+            "INFO Read {} domains from {} source(s)",
+            count_c.load(Ordering::Relaxed),
+            source_count,
+        ));
+        pb.finish_and_clear();
     });
 
-    // let mut total = 0;
     for adlist in &cfg.adlist {
         let tx = tx.clone();
         let adlist = adlist.clone();
         let timeout = opt.timeout;
 
         let pb = mb.add(ProgressBar::new(0));
-        pb.set_style(style.clone());
+        pb.set_style(download_style.clone());
 
-        let _ = thread::spawn(move || {
+        thread::spawn(move || {
             match adlist.read(timeout) {
                 Ok((len, reader)) => {
+                    pb.println(format!("INFO Reading adlist from {}...", adlist.source));
                     pb.set_length(len);
                     let reader = pb.wrap_read(reader);
                     let reader = BufReader::new(reader);
@@ -174,12 +181,10 @@ fn main() -> anyhow::Result<()> {
                             tx.send(parsed_line).expect("failed to send parsed line");
                         }
                     }
-
-                    pb.finish();
-                    // info!("Got {} hosts", count);
                 }
                 Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
             };
+            pb.finish_and_clear();
         });
     }
 
@@ -187,12 +192,6 @@ fn main() -> anyhow::Result<()> {
     // all the tx's have been dropped. drop ours now since we don't need it
     drop(tx);
     mb.join_and_clear().unwrap();
-
-    info!(
-        "Read {} domains from {} source(s)",
-        total.load(Ordering::Relaxed),
-        cfg.adlist.len()
-    );
     Ok(())
 }
 

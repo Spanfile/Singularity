@@ -61,8 +61,6 @@ impl Adlist {
     pub(crate) fn read(&self, connect_timeout: ConnectTimeout) -> anyhow::Result<(u64, Box<dyn Read>)> {
         match self.source.scheme() {
             "http" | "https" => {
-                info!("Requesting adlist from {}...", self.source);
-
                 let resp = ureq::get(self.source.as_str())
                     .timeout_connect(connect_timeout.0)
                     .timeout_read(HTTP_READ_TIMEOUT)
@@ -86,7 +84,6 @@ impl Adlist {
                         return Err(SingularityError::InvalidFilePath(self.source.as_str().to_string()).into());
                     }
                 };
-                info!("Reading adlist from {}...", path.display());
 
                 let file = File::open(&path)?;
                 let meta = file.metadata()?;
