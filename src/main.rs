@@ -101,13 +101,14 @@ fn main() -> anyhow::Result<()> {
     let total = Arc::new(AtomicUsize::new(0));
     let total_c = Arc::clone(&total);
 
-    let pb = mb.add(ProgressBar::new_spinner().with_style(ProgressStyle::default_spinner()));
+    // let pb = mb.add(ProgressBar::new_spinner().with_style(ProgressStyle::default_spinner()));
+    // pb.tick(); // ensure this ticker progress bar is always displayed first
     let _ = thread::spawn(move || {
         while let Ok(line) = rx.recv() {
             let old = total_c.fetch_add(1, Ordering::Relaxed);
             let total = old + 1;
             if total % 1000 == 0 {
-                pb.set_message(&format!("{} domains read so far...", total));
+                // pb.set_message(&format!("{} domains read so far...", total));
             }
 
             for output in &mut outputs {
@@ -136,7 +137,7 @@ fn main() -> anyhow::Result<()> {
                     let reader = pb.wrap_read(reader);
                     let reader = BufReader::new(reader);
 
-                    for line in reader.lines() {
+                    for (line_idx, line) in reader.lines().enumerate() {
                         let line = match line {
                             Ok(l) => l,
                             Err(_e) => continue,
@@ -149,7 +150,24 @@ fn main() -> anyhow::Result<()> {
 
                         if let Some(parsed_line) = parsed_line {
                             if parsed_line.is_empty() {
-                                pb.println(format!("WARN Line \"{}\" was parsed into empty line, ignoring", line));
+                                pb.println(format!(
+                                    "WARN While reading {}, line #{} (\"{}\") was parsed into an empty entry, so it \
+                                     was ignored",
+                                    adlist.source,
+                                    line_idx + 1,
+                                    line
+                                ));
+                                continue;
+                            }
+
+                            if parsed_line == "." {
+                                pb.println(format!(
+                                    "WARN While reading {}, line #{} (\"{}\") was parsed into an all-matching entry \
+                                     ('.'), so it was ignored",
+                                    adlist.source,
+                                    line_idx + 1,
+                                    line
+                                ));
                                 continue;
                             }
 
@@ -157,6 +175,7 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
 
+                    pb.finish();
                     // info!("Got {} hosts", count);
                 }
                 Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
@@ -202,7 +221,7 @@ fn parse_hosts_line(line: &str) -> Option<String> {
             if address.is_unspecified() {
                 // disallow having an IP address as the host
                 if host.parse::<IpAddr>().is_err() {
-                    return Some(host.to_string());
+                    return Some(host.trim().to_string());
                 }
             }
         }
