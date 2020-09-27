@@ -142,13 +142,18 @@ fn main() -> anyhow::Result<()> {
                             Err(_e) => continue,
                         };
 
-                        let line = match adlist.format {
+                        let parsed_line = match adlist.format {
                             AdlistFormat::Hosts => parse_hosts_line(line.trim()),
                             AdlistFormat::Domains => parse_domains_line(line.trim()),
                         };
 
-                        if let Some(line) = line {
-                            tx.send(line).expect("failed to send parsed line");
+                        if let Some(parsed_line) = parsed_line {
+                            if parsed_line.is_empty() {
+                                pb.println(format!("WARN Line \"{}\" was parsed into empty line, ignoring", line));
+                                continue;
+                            }
+
+                            tx.send(parsed_line).expect("failed to send parsed line");
                         }
                     }
 
@@ -189,7 +194,7 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
 }
 
 fn parse_hosts_line(line: &str) -> Option<String> {
-    if !line.starts_with('#') {
+    if !line.starts_with('#') && !line.is_empty() {
         if let Some((address, host)) = split_once(&line, " ") {
             let address: IpAddr = address.parse().ok()?;
 
