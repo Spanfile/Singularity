@@ -8,6 +8,7 @@ use config::{AdlistFormat, Config};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use io::{BufRead, BufReader};
 use log::*;
+use num_format::{SystemLocale, ToFormattedString};
 use output::Output;
 use std::{
     fmt::Display,
@@ -96,6 +97,7 @@ fn main() -> anyhow::Result<()> {
     let download_style = ProgressStyle::default_bar()
         .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
         .progress_chars("=> ");
+    let spinner_style = ProgressStyle::default_spinner().template("{spinner} {pos} domains read so far...");
 
     let (tx, rx) = mpsc::sync_channel::<String>(1024);
     let count = Arc::new(AtomicUsize::new(0));
@@ -103,13 +105,15 @@ fn main() -> anyhow::Result<()> {
 
     let source_count = cfg.adlist.len();
     let pb = mb.add(ProgressBar::new_spinner());
+    pb.set_style(spinner_style);
     pb.enable_steady_tick(100);
+    pb.set_draw_delta(500);
+
     thread::spawn(move || {
+        let locale = SystemLocale::default().unwrap();
         while let Ok(line) = rx.recv() {
-            let count = count_c.fetch_add(1, Ordering::Relaxed);
-            if (count + 1) % 1000 == 0 {
-                pb.set_message(&format!("{} domains read so far...", count + 1));
-            }
+            count_c.fetch_add(1, Ordering::Relaxed);
+            pb.inc(1);
 
             for output in &mut outputs {
                 output.write_host(&line).expect("failed to write host into output");
@@ -120,11 +124,8 @@ fn main() -> anyhow::Result<()> {
             output.finalise().expect("failed to finalise output");
         }
 
-        pb.println(&format!(
-            "INFO Read {} domains from {} source(s)",
-            count_c.load(Ordering::Relaxed),
-            source_count,
-        ));
+        let count = count_c.load(Ordering::Relaxed).to_formatted_string(&locale);
+        pb.println(&format!("INFO Read {} domains from {} source(s)", count, source_count,));
         pb.finish_and_clear();
     });
 
