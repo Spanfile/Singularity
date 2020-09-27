@@ -61,10 +61,10 @@ impl Output {
 
     pub fn write_host(&mut self, host: &str) -> anyhow::Result<()> {
         match self.ty {
-            OutputType::Hosts(..) => writeln!(&mut self.destination, "{} {}", self.blackhole_address, host)?,
+            OutputType::Hosts(..) => writeln!(&mut self.destination, "{} {}.", self.blackhole_address, host)?,
             OutputType::PdnsLua => {
                 let host = split_once(&host, "#").map(|(left, _)| left).unwrap_or(host).trim_end();
-                write!(&mut self.destination, r#""{}","#, host)?
+                write!(&mut self.destination, r#""{}.","#, host)?
             }
         }
 
@@ -91,14 +91,13 @@ impl Output {
                     IpAddr::V6(_) => "AAAA",
                 };
 
-                write!(
+                writeln!(
                     &mut self.destination,
-                    "if q.qtype==pdns.{record} then q:addAnswer(pdns.{record},\"{addr}\")",
+                    "if q.qtype==pdns.{record} then q:addAnswer(pdns.{record},\"{addr}\") return true end end return \
+                     false end",
                     record = record,
                     addr = self.blackhole_address
                 )?;
-
-                writeln!(&mut self.destination, " return true end end return false end")?;
             }
         }
 
