@@ -151,27 +151,20 @@ fn main() -> anyhow::Result<()> {
                             Err(_e) => continue,
                         };
 
+                        if line.starts_with('#') || line.is_empty() {
+                            continue;
+                        }
+
                         let parsed_line = match adlist.format {
                             AdlistFormat::Hosts => parse_hosts_line(line.trim()),
                             AdlistFormat::Domains => parse_domains_line(line.trim()),
                         };
 
                         if let Some(parsed_line) = parsed_line {
-                            if parsed_line.is_empty() {
+                            if parsed_line.is_empty() || parsed_line == "." {
                                 pb.println(format!(
-                                    "WARN While reading {}, line #{} (\"{}\") was parsed into an empty entry, so it \
-                                     was ignored",
-                                    adlist.source,
-                                    line_idx + 1,
-                                    line
-                                ));
-                                continue;
-                            }
-
-                            if parsed_line == "." {
-                                pb.println(format!(
-                                    "WARN While reading {}, line #{} (\"{}\") was parsed into an all-matching entry \
-                                     ('.'), so it was ignored",
+                                    "WARN While reading {}, line #{} (\"{}\") was parsed into an all-matching entry, \
+                                     so it was ignored",
                                     adlist.source,
                                     line_idx + 1,
                                     line
@@ -213,16 +206,14 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
 }
 
 fn parse_hosts_line(line: &str) -> Option<String> {
-    if !line.starts_with('#') && !line.is_empty() {
-        if let Some((address, host)) = split_once(&line, " ") {
-            let address: IpAddr = address.parse().ok()?;
+    if let Some((address, host)) = split_once(&line, " ") {
+        let address: IpAddr = address.parse().ok()?;
 
-            // assumes the address in the host mapping is the 'unspecified' address 0.0.0.0
-            if address.is_unspecified() {
-                // disallow having an IP address as the host
-                if host.parse::<IpAddr>().is_err() {
-                    return Some(host.trim().to_string());
-                }
+        // assumes the address in the host mapping is the 'unspecified' address 0.0.0.0
+        if address.is_unspecified() {
+            // disallow having an IP address as the host
+            if host.parse::<IpAddr>().is_err() {
+                return Some(host.trim().to_string());
             }
         }
     }
