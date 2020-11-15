@@ -17,7 +17,7 @@ const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
 enum OutputType {
     Hosts(Vec<PathBuf>),
-    PdnsLua,
+    PdnsLua { output_metric: bool, metric_name: String },
 }
 
 pub(crate) struct Output {
@@ -36,8 +36,14 @@ impl Output {
                 final_path: cfg.destination.to_path_buf(),
                 blackhole_address: cfg.blackhole_address,
             }),
-            OutputConfigType::PdnsLua => Ok(Self {
-                ty: OutputType::PdnsLua,
+            OutputConfigType::PdnsLua {
+                output_metric,
+                metric_name,
+            } => Ok(Self {
+                ty: OutputType::PdnsLua {
+                    output_metric: *output_metric,
+                    metric_name: metric_name.to_owned(),
+                },
                 destination: tempfile()?,
                 final_path: cfg.destination.to_path_buf(),
                 blackhole_address: cfg.blackhole_address,
@@ -48,7 +54,7 @@ impl Output {
     pub fn write_primer(&mut self) -> anyhow::Result<()> {
         match self.ty {
             OutputType::Hosts(_) => writeln!(&mut self.destination, "# {}", get_generated_at_comment())?,
-            OutputType::PdnsLua => write!(
+            OutputType::PdnsLua { .. } => write!(
                 &mut self.destination,
                 "-- {}\n{}",
                 get_generated_at_comment(),
@@ -61,8 +67,8 @@ impl Output {
 
     pub fn write_host(&mut self, host: &str) -> anyhow::Result<()> {
         match self.ty {
-            OutputType::Hosts(..) => writeln!(&mut self.destination, "{} {}", self.blackhole_address, host)?,
-            OutputType::PdnsLua => {
+            OutputType::Hosts(_) => writeln!(&mut self.destination, "{} {}", self.blackhole_address, host)?,
+            OutputType::PdnsLua { .. } => {
                 let host = split_once(&host, "#").map(|(left, _)| left).unwrap_or(host).trim_end();
                 write!(&mut self.destination, r#""{}","#, host)?
             }
@@ -71,16 +77,19 @@ impl Output {
         Ok(())
     }
 
-    pub fn finalise(&mut self) -> anyhow::Result<()> {
-        match &self.ty {
+    pub fn finalise(mut self) -> anyhow::Result<()> {
+        match self.ty {
             OutputType::Hosts(include) => {
-                for path in include {
+                for path in &include {
                     let mut include_file = File::open(path)?;
                     writeln!(&mut self.destination, "\n# hosts included from {}\n", path.display())?;
                     io::copy(&mut include_file, &mut self.destination)?;
                 }
             }
-            OutputType::PdnsLua => {
+            OutputType::PdnsLua {
+                output_metric,
+                metric_name,
+            } => {
                 write!(
                     &mut self.destination,
                     "}} function preresolve(q) if b:check(q.qname) then "
@@ -91,13 +100,18 @@ impl Output {
                     IpAddr::V6(_) => "AAAA",
                 };
 
-                writeln!(
+                write!(
                     &mut self.destination,
-                    "if q.qtype==pdns.{record} then q:addAnswer(pdns.{record},\"{addr}\") return true end end return \
-                     false end",
+                    "if q.qtype==pdns.{record} then q:addAnswer(pdns.{record},\"{addr}\") ",
                     record = record,
                     addr = self.blackhole_address
                 )?;
+
+                if output_metric {
+                    write!(&mut self.destination, "m=getMetric(\"{}\") m:inc() ", metric_name)?;
+                }
+
+                writeln!(&mut self.destination, "return true end end return false end")?;
             }
         }
 

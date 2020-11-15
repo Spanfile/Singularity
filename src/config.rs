@@ -28,7 +28,12 @@ pub(crate) enum OutputConfigType {
     #[serde(rename = "hosts")]
     Hosts { include: Vec<PathBuf> },
     #[serde(rename = "pdns-lua")]
-    PdnsLua,
+    PdnsLua {
+        #[serde(default = "default_output_metric")]
+        output_metric: bool,
+        #[serde(default = "default_metric_name")]
+        metric_name: String,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -55,6 +60,14 @@ fn default_blackhole_address() -> IpAddr {
     DEFAULT_BLACKHOLE_ADDRESS
         .parse()
         .expect("failed to parse default blackhole address")
+}
+
+fn default_output_metric() -> bool {
+    true
+}
+
+fn default_metric_name() -> String {
+    String::from("blocked-queries")
 }
 
 impl Adlist {

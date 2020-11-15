@@ -1,3 +1,10 @@
+#![warn(clippy::if_not_else)]
+#![warn(clippy::needless_pass_by_value)]
+#![warn(clippy::non_ascii_literal)]
+#![warn(clippy::panic_in_result_fn)]
+#![warn(clippy::clippy::too_many_lines)]
+#![warn(clippy::clippy::single_match_else)]
+
 mod config;
 mod error;
 mod logging;
@@ -120,7 +127,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        for output in &mut outputs {
+        for output in outputs {
             output.finalise().expect("failed to finalise output");
         }
 
