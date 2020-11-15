@@ -48,6 +48,8 @@ include = ["extra-hosts"]
 type = "pdns-lua"
 destination = "/etc/powerdns/blackhole.lua"
 blackhole-address = "::"
+output_metric = true
+metric_name = "blocked-queries"
 ```
 
 #### `adlist`
@@ -64,6 +66,6 @@ Regardless of the source or format, any lines in an adlist beginning with a `#` 
 
 An array of objects describing where and how to output the blackholed domains. The type of each output is specified with the `type` key. The possible types are:
 * `hosts`: output a standard hosts-format where each line is in the format of `<blackhole-address> <name>`. Other hosts-files can be included in the output by settings their paths in the `include` array option.
-* `pdns-lua`: output a Lua script that can be used with the `lua-dns-script` configuration option in PDNS Recursor. The script will have each blackholed domain hardcoded into it. By using the `preresolve()` function, the script will respond to queries for the blackholed domains with either an `A`-record or an `AAAA`-record containing the `blackhole-address`. The type of the record depends on whether the `blackhole-address` is an IPv4- or an IPv6-address.
+* `pdns-lua`: output a Lua script that can be used with the `lua-dns-script` configuration option in PDNS Recursor. The script will have each blackholed domain hardcoded into it. By using the `preresolve()` function, the script will respond to queries for the blackholed domains with either an `A`-record or an `AAAA`-record containing the `blackhole-address`. The type of the record depends on whether the `blackhole-address` is an IPv4- or an IPv6-address. By default, the script will output a metric called `blocked-queries` that is incremented every time the script responds to a blocked domain. It is accessible through the same means as every other Recursor metric. It can be disabled with the `output_metric` setting, and the metric's name can be customised with the `metric_name` setting. Both settings can be omitted for their default values.
 
 In all output types, the default `blackhole-address` is `0.0.0.0` and can be changed per-output.
