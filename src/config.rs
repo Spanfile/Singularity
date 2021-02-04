@@ -26,7 +26,10 @@ pub(crate) struct OutputConfig {
 #[serde(tag = "type")]
 pub(crate) enum OutputConfigType {
     #[serde(rename = "hosts")]
-    Hosts { include: Vec<PathBuf> },
+    Hosts {
+        #[serde(default)]
+        include: Vec<PathBuf>,
+    },
     #[serde(rename = "pdns-lua")]
     PdnsLua {
         #[serde(default = "default_output_metric")]
