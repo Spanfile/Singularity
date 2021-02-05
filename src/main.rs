@@ -32,7 +32,7 @@ use std::{
 use structopt::StructOpt;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
-const HTTP_CONNECT_TIMEOUT: u64 = 5_000;
+const HTTP_CONNECT_TIMEOUT: u64 = 30_000;
 
 #[derive(Debug, Copy, Clone)]
 struct ConnectTimeout(u64);
@@ -228,6 +228,9 @@ fn parse_hosts_line(line: &str) -> Option<String> {
     None
 }
 
+// this function has to have the same signature as parse_hosts_line() above, so allow the lint about the unnecessary
+// Option<>
+#[allow(clippy::unnecessary_wraps)]
 fn parse_domains_line(line: &str) -> Option<String> {
     Some(line.to_owned())
 }

@@ -8,19 +8,19 @@ license = "MIT"
 name = "singularity"
 readme = "README.md"
 repository = "https://github.com/Spanfile/Singularity"
-version = "0.6.0"
+version = "0.6.1"
 
 [dependencies]
-anyhow = "1.0.34"
+anyhow = "1.0.38"
 chrono = "0.4.19"
 confy = "0.4.0"
 fern = "0.6.0"
 indicatif = {version = "0.15.0", features = ["improved_unicode"]}
-log = "0.4.11"
+log = "0.4.14"
 num-format = {version = "0.4.0", features = ["with-system-locale"]}
-serde = {version = "1.0.117", features = ["derive"]}
-structopt = "0.3.20"
-tempfile = "3.1.0"
-thiserror = "1.0.22"
-ureq = "1.5.2"
+serde = {version = "1.0.123", features = ["derive"]}
+structopt = "0.3.21"
+tempfile = "3.2.0"
+thiserror = "1.0.23"
+ureq = "2.0.1"
 url = {version = "2.2.0", features = ["serde"]}

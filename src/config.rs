@@ -1,7 +1,8 @@
 use crate::{error::SingularityError, ConnectTimeout};
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, io::Read, net::IpAddr, path::PathBuf};
+use std::{fs::File, io::Read, net::IpAddr, path::PathBuf, time::Duration};
+use ureq::Error;
 use url::Url;
 
 const DEFAULT_BLACKHOLE_ADDRESS: &str = "0.0.0.0";
@@ -77,21 +78,23 @@ impl Adlist {
     pub(crate) fn read(&self, connect_timeout: ConnectTimeout) -> anyhow::Result<(u64, Box<dyn Read>)> {
         match self.source.scheme() {
             "http" | "https" => {
-                let resp = ureq::get(self.source.as_str())
-                    .timeout_connect(connect_timeout.0)
-                    .timeout_read(HTTP_READ_TIMEOUT)
-                    .call();
+                let agent = ureq::AgentBuilder::new()
+                    .timeout_connect(Duration::from_millis(connect_timeout.0))
+                    .timeout_read(Duration::from_millis(HTTP_READ_TIMEOUT))
+                    .build();
+                let resp: ureq::Response = match agent.get(self.source.as_str()).call() {
+                    Ok(resp) => resp,
+                    Err(Error::Status(code, resp)) => {
+                        return Err(SingularityError::RequestFailed(code, resp.into_string()?).into())
+                    }
+                    Err(e) => return Err(e.into()),
+                };
                 let len: u64 = resp
                     .header("Content-Length")
                     .ok_or(SingularityError::MissingContentLengthHeader)?
                     .parse()?;
                 debug!("Got response status {} with len {}", resp.status(), len);
-
-                if resp.ok() {
-                    Ok((len, Box::new(resp.into_reader()) as Box<dyn Read>))
-                } else {
-                    Err(SingularityError::RequestFailed(resp.status(), resp.into_string()?).into())
-                }
+                Ok((len, Box::new(resp.into_reader()) as Box<dyn Read>))
             }
             "file" => {
                 let path = match self.source.to_file_path() {
