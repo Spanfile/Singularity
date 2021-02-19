@@ -30,6 +30,8 @@ By default, the tool will use a confiuration file in the current system-dependen
 Complete example configuration file:
 
 ```toml
+whitelist = ["my-cool-domain.com"]
+
 [[adlist]]
 source = "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
 format = "hosts"
@@ -51,6 +53,10 @@ blackhole-address = "::"
 output_metric = true
 metric_name = "blocked-queries"
 ```
+
+#### `whitelist`
+
+An array of domains you wish to not include in the final output. These are matched exactly, so `google.com` will match only `google.com`, but not any of its subdomains. The configuration option can be left out entirely for a default empty whitelist.
 
 #### `adlist`
 
