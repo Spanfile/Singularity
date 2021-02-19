@@ -10,6 +10,7 @@ const HTTP_READ_TIMEOUT: u64 = 10_000;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct Config {
+    #[serde(default)]
     pub whitelist: HashSet<String>,
     pub adlist: Vec<Adlist>,
     pub output: Vec<OutputConfig>,
