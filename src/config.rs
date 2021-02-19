@@ -1,7 +1,7 @@
 use crate::{error::SingularityError, ConnectTimeout};
 use log::*;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, io::Read, net::IpAddr, path::PathBuf, time::Duration};
+use std::{collections::HashSet, fs::File, io::Read, net::IpAddr, path::PathBuf, time::Duration};
 use ureq::Error;
 use url::Url;
 
@@ -10,6 +10,7 @@ const HTTP_READ_TIMEOUT: u64 = 10_000;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct Config {
+    pub whitelist: HashSet<String>,
     pub adlist: Vec<Adlist>,
     pub output: Vec<OutputConfig>,
 }

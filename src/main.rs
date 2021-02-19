@@ -11,13 +11,15 @@ mod logging;
 mod output;
 
 use anyhow::Context;
-use config::{AdlistFormat, Config};
+use config::{Adlist, AdlistFormat, Config};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use io::{BufRead, BufReader};
 use log::*;
+use mpsc::Receiver;
 use num_format::{SystemLocale, ToFormattedString};
 use output::Output;
 use std::{
+    collections::HashSet,
     fmt::Display,
     io,
     net::IpAddr,
@@ -25,7 +27,8 @@ use std::{
     str::FromStr,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        mpsc, Arc,
+        mpsc::{self, SyncSender},
+        Arc,
     },
     thread,
 };
@@ -101,25 +104,37 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mb = MultiProgress::new();
-    let download_style = ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
-        .progress_chars("=> ");
-    let spinner_style = ProgressStyle::default_spinner().template("{spinner} {pos} domains read so far...");
-
     let (tx, rx) = mpsc::sync_channel::<String>(1024);
-    let count = Arc::new(AtomicUsize::new(0));
-    let count_c = Arc::clone(&count);
+    spawn_writer_thread(&mb, rx, outputs, cfg.adlist.len());
 
-    let source_count = cfg.adlist.len();
+    // move the whitelist out of the config (partial move) and stick it into an Arc, so it can be shared between all
+    // reader threads
+    let whitelist = Arc::new(cfg.whitelist);
+    // move each adlist out of the config (also a partial move)
+    for adlist in cfg.adlist {
+        let tx = tx.clone();
+        spawn_reader_thread(&mb, adlist, tx, opt.timeout, Arc::clone(&whitelist));
+    }
+
+    // when the requester threads finish, they drop their clones of the channel tx. the output writer thread ends when
+    // all the tx's have been dropped. drop ours now since we don't need it
+    drop(tx);
+    mb.join_and_clear().unwrap();
+    Ok(())
+}
+
+fn spawn_writer_thread(mb: &MultiProgress, rx: Receiver<String>, mut outputs: Vec<Output>, source_count: usize) {
+    let spinner_style = ProgressStyle::default_spinner().template("{spinner} {pos} domains read so far...");
     let pb = mb.add(ProgressBar::new_spinner());
     pb.set_style(spinner_style);
     pb.enable_steady_tick(100);
     pb.set_draw_delta(500);
 
+    let count = Arc::new(AtomicUsize::new(0));
     thread::spawn(move || {
         let locale = SystemLocale::default().unwrap();
         while let Ok(line) = rx.recv() {
-            count_c.fetch_add(1, Ordering::Relaxed);
+            count.fetch_add(1, Ordering::Relaxed);
             pb.inc(1);
 
             for output in &mut outputs {
@@ -131,69 +146,73 @@ fn main() -> anyhow::Result<()> {
             output.finalise().expect("failed to finalise output");
         }
 
-        let count = count_c.load(Ordering::Relaxed).to_formatted_string(&locale);
-        pb.println(&format!("INFO Read {} domains from {} source(s)", count, source_count,));
+        let count = count.load(Ordering::Relaxed).to_formatted_string(&locale);
+        pb.println(&format!("INFO Read {} domains from {} source(s)", count, source_count));
         pb.finish_and_clear();
     });
+}
 
-    for adlist in &cfg.adlist {
-        let tx = tx.clone();
-        let adlist = adlist.clone();
-        let timeout = opt.timeout;
+fn spawn_reader_thread(
+    mb: &MultiProgress,
+    adlist: Adlist,
+    tx: SyncSender<String>,
+    timeout: ConnectTimeout,
+    whitelist: Arc<HashSet<String>>,
+) {
+    let download_style = ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
+        .progress_chars("=> ");
+    let pb = mb.add(ProgressBar::new(0));
+    pb.set_style(download_style);
 
-        let pb = mb.add(ProgressBar::new(0));
-        pb.set_style(download_style.clone());
+    thread::spawn(move || {
+        match adlist.read(timeout) {
+            Ok((len, reader)) => {
+                pb.println(format!("INFO Reading adlist from {}...", adlist.source));
+                pb.set_length(len);
+                let reader = pb.wrap_read(reader);
+                let reader = BufReader::new(reader);
 
-        thread::spawn(move || {
-            match adlist.read(timeout) {
-                Ok((len, reader)) => {
-                    pb.println(format!("INFO Reading adlist from {}...", adlist.source));
-                    pb.set_length(len);
-                    let reader = pb.wrap_read(reader);
-                    let reader = BufReader::new(reader);
+                for (line_idx, line) in reader.lines().enumerate() {
+                    let line = match line {
+                        Ok(l) => l,
+                        Err(_e) => continue,
+                    };
 
-                    for (line_idx, line) in reader.lines().enumerate() {
-                        let line = match line {
-                            Ok(l) => l,
-                            Err(_e) => continue,
-                        };
+                    if line.starts_with('#') || line.is_empty() {
+                        continue;
+                    }
 
-                        if line.starts_with('#') || line.is_empty() {
+                    let parsed_line = match adlist.format {
+                        AdlistFormat::Hosts => parse_hosts_line(line.trim()),
+                        AdlistFormat::Domains => Some(line.trim().to_owned()),
+                    };
+
+                    if let Some(parsed_line) = parsed_line {
+                        if parsed_line.is_empty() || parsed_line == "." {
+                            pb.println(format!(
+                                "WARN While reading {}, line #{} (\"{}\") was parsed into an all-matching entry, so \
+                                 it was ignored",
+                                adlist.source,
+                                line_idx + 1,
+                                line
+                            ));
                             continue;
                         }
 
-                        let parsed_line = match adlist.format {
-                            AdlistFormat::Hosts => parse_hosts_line(line.trim()),
-                            AdlistFormat::Domains => parse_domains_line(line.trim()),
-                        };
-
-                        if let Some(parsed_line) = parsed_line {
-                            if parsed_line.is_empty() || parsed_line == "." {
-                                pb.println(format!(
-                                    "WARN While reading {}, line #{} (\"{}\") was parsed into an all-matching entry, \
-                                     so it was ignored",
-                                    adlist.source,
-                                    line_idx + 1,
-                                    line
-                                ));
-                                continue;
-                            }
-
-                            tx.send(parsed_line).expect("failed to send parsed line");
+                        if whitelist.contains(&parsed_line) {
+                            pb.println(format!("INFO Ignoring whitelisted entry '{}'", parsed_line));
+                            continue;
                         }
+
+                        tx.send(parsed_line).expect("failed to send parsed line");
                     }
                 }
-                Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
-            };
-            pb.finish_and_clear();
-        });
-    }
-
-    // when the requester threads finish, they drop their clones of the channel tx. the output writer thread ends when
-    // all the tx's have been dropped. drop ours now since we don't need it
-    drop(tx);
-    mb.join_and_clear().unwrap();
-    Ok(())
+            }
+            Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
+        };
+        pb.finish_and_clear();
+    });
 }
 
 fn setup_logging(opt: &Opt) -> anyhow::Result<()> {
@@ -226,13 +245,6 @@ fn parse_hosts_line(line: &str) -> Option<String> {
     }
 
     None
-}
-
-// this function has to have the same signature as parse_hosts_line() above, so allow the lint about the unnecessary
-// Option<>
-#[allow(clippy::unnecessary_wraps)]
-fn parse_domains_line(line: &str) -> Option<String> {
-    Some(line.to_owned())
 }
 
 // TODO: replace with https://doc.rust-lang.org/nightly/std/primitive.str.html#method.split_once once stabilised
