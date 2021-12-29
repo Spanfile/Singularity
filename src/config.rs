@@ -21,6 +21,7 @@ pub(crate) struct OutputConfig {
     #[serde(flatten)]
     pub ty: OutputConfigType,
     pub destination: PathBuf,
+    #[serde(rename = "blackhole-address")]
     #[serde(default = "default_blackhole_address")]
     pub blackhole_address: IpAddr,
 }
