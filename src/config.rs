@@ -54,6 +54,7 @@ pub(crate) struct Adlist {
 pub(crate) enum AdlistFormat {
     Hosts,
     Domains,
+    DnsMasq,
 }
 
 impl Default for AdlistFormat {
