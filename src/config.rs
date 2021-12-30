@@ -93,7 +93,10 @@ impl Adlist {
                 };
                 let len: u64 = resp
                     .header("Content-Length")
-                    .ok_or(SingularityError::MissingContentLengthHeader)?
+                    .ok_or_else(|| {
+                        warn!("expected content-length but did not see it, not processing {}", self.source);
+                        SingularityError::MissingContentLengthHeader
+                    })?
                     .parse()?;
                 debug!("Got response status {} with len {}", resp.status(), len);
                 Ok((len, Box::new(resp.into_reader()) as Box<dyn Read>))
