@@ -84,13 +84,18 @@ fn default_deduplicate() -> bool {
 }
 
 impl Adlist {
-    pub(crate) fn read(&self, connect_timeout: ConnectTimeout) -> anyhow::Result<(u64, Box<dyn Read>)> {
+    /// Returns a tuple of the possible elength of the content, and a reader for the content.
+    ///
+    /// When reading from an HTTP source, the server's response may use chunk transfer encoding in which case the
+    /// content cannot be determined ahead of time.
+    pub(crate) fn read(&self, connect_timeout: ConnectTimeout) -> anyhow::Result<(Option<u64>, Box<dyn Read>)> {
         match self.source.scheme() {
             "http" | "https" => {
                 let agent = ureq::AgentBuilder::new()
                     .timeout_connect(Duration::from_millis(connect_timeout.0))
                     .timeout_read(Duration::from_millis(HTTP_READ_TIMEOUT))
                     .build();
+
                 let resp: ureq::Response = match agent.get(self.source.as_str()).call() {
                     Ok(resp) => resp,
                     Err(Error::Status(code, resp)) => {
@@ -98,17 +103,20 @@ impl Adlist {
                     }
                     Err(e) => return Err(e.into()),
                 };
-                let len: u64 = resp
+
+                // the header names may or may not be lowercased
+                let len = resp
                     .header("Content-Length")
-                    .ok_or_else(|| {
-                        warn!(
-                            "expected content-length but did not see it, not processing {}",
-                            self.source
-                        );
-                        SingularityError::MissingContentLengthHeader
-                    })?
-                    .parse()?;
-                debug!("Got response status {} with len {}", resp.status(), len);
+                    .or_else(|| resp.header("content-length"))
+                    .map(str::parse::<u64>)
+                    .transpose()?;
+
+                if let Some(len) = len {
+                    debug!("Got response status {} with length {}", resp.status(), len);
+                } else {
+                    debug!("Got response status {} with indeterminate length", resp.status());
+                }
+
                 Ok((len, Box::new(resp.into_reader()) as Box<dyn Read>))
             }
             "file" => {
@@ -121,7 +129,7 @@ impl Adlist {
 
                 let file = File::open(&path)?;
                 let meta = file.metadata()?;
-                Ok((meta.len(), Box::new(file) as Box<dyn Read>))
+                Ok((Some(meta.len()), Box::new(file) as Box<dyn Read>))
             }
             scheme => Err(SingularityError::UnsupportedUrlScheme(scheme.to_string()).into()),
         }

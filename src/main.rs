@@ -160,17 +160,24 @@ fn spawn_reader_thread(
     timeout: ConnectTimeout,
     whitelist: Arc<HashSet<String>>,
 ) {
-    let download_style = ProgressStyle::default_bar()
+    let bar = ProgressStyle::default_bar()
         .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
         .progress_chars("=> ");
+    let spinner = ProgressStyle::default_spinner().template("{spinner} [{elapsed_precise}] {bytes} ({bytes_per_sec})");
     let pb = mb.add(ProgressBar::new(0));
-    pb.set_style(download_style);
 
     thread::spawn(move || {
         match adlist.read(timeout) {
             Ok((len, reader)) => {
+                if let Some(len) = len {
+                    pb.set_style(bar);
+                    pb.set_length(len);
+                } else {
+                    pb.set_style(spinner);
+                }
+
                 pb.println(format!("INFO Reading adlist from {}...", adlist.source));
-                pb.set_length(len);
+
                 let reader = pb.wrap_read(reader);
                 let reader = BufReader::new(reader);
 
@@ -212,7 +219,8 @@ fn spawn_reader_thread(
                 }
             }
             Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
-        };
+        }
+
         pb.finish_and_clear();
     });
 }
