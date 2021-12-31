@@ -1,7 +1,4 @@
-use crate::{
-    config::{OutputConfig, OutputConfigType},
-    split_once,
-};
+use crate::config::{OutputConfig, OutputConfigType};
 use chrono::Local;
 use io::SeekFrom;
 use std::{
@@ -82,7 +79,7 @@ impl Output {
         match self.ty {
             OutputType::Hosts(_) => writeln!(&mut self.destination, "{} {}", self.blackhole_address, host)?,
             OutputType::PdnsLua { .. } => {
-                let host = split_once(host, "#").map(|(left, _)| left).unwrap_or(host).trim_end();
+                let host = host.split_once('#').map(|(left, _)| left).unwrap_or(host).trim_end();
                 write!(&mut self.destination, r#""{}","#, host)?
             }
         }
