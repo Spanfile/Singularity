@@ -24,3 +24,4 @@ tempfile = "3.2.0"
 thiserror = "1.0.23"
 ureq = "2.0.1"
 url = {version = "2.2.0", features = ["serde"]}
+regex = "1.5.4"

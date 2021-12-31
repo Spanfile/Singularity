@@ -2,8 +2,8 @@
 #![warn(clippy::needless_pass_by_value)]
 #![warn(clippy::non_ascii_literal)]
 #![warn(clippy::panic_in_result_fn)]
-#![warn(clippy::clippy::too_many_lines)]
-#![warn(clippy::clippy::single_match_else)]
+#![warn(clippy::too_many_lines)]
+#![warn(clippy::single_match_else)]
 
 mod config;
 mod error;
@@ -18,6 +18,7 @@ use log::*;
 use mpsc::Receiver;
 use num_format::{SystemLocale, ToFormattedString};
 use output::Output;
+use regex::Regex;
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -32,6 +33,7 @@ use std::{
     },
     thread,
 };
+use structopt::lazy_static::lazy_static;
 use structopt::StructOpt;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
@@ -185,6 +187,7 @@ fn spawn_reader_thread(
 
                     let parsed_line = match adlist.format {
                         AdlistFormat::Hosts => parse_hosts_line(line.trim()),
+                        AdlistFormat::DnsMasq => parse_dnsmasq_line(line.trim()),
                         AdlistFormat::Domains => Some(line.trim().to_owned()),
                     };
 
@@ -245,6 +248,15 @@ fn parse_hosts_line(line: &str) -> Option<String> {
     }
 
     None
+}
+
+fn parse_dnsmasq_line(line: &str) -> Option<String> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r#"(?:address|server)=/(.*)/.*"#).unwrap();
+    }
+
+    let cap = RE.captures(line)?;
+    Some(String::from(&cap[1]))
 }
 
 // TODO: replace with https://doc.rust-lang.org/nightly/std/primitive.str.html#method.split_once once stabilised
