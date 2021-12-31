@@ -23,6 +23,8 @@ pub(crate) struct OutputConfig {
     pub destination: PathBuf,
     #[serde(default = "default_blackhole_address")]
     pub blackhole_address: IpAddr,
+    #[serde(default = "default_deduplicate")]
+    pub deduplicate: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,6 +77,10 @@ fn default_output_metric() -> bool {
 
 fn default_metric_name() -> String {
     String::from("blocked-queries")
+}
+
+fn default_deduplicate() -> bool {
+    false
 }
 
 impl Adlist {
