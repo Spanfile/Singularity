@@ -101,7 +101,10 @@ impl Adlist {
                 let len: u64 = resp
                     .header("Content-Length")
                     .ok_or_else(|| {
-                        warn!("expected content-length but did not see it, not processing {}", self.source);
+                        warn!(
+                            "expected content-length but did not see it, not processing {}",
+                            self.source
+                        );
                         SingularityError::MissingContentLengthHeader
                     })?
                     .parse()?;

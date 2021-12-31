@@ -33,8 +33,7 @@ use std::{
     },
     thread,
 };
-use structopt::lazy_static::lazy_static;
-use structopt::StructOpt;
+use structopt::{lazy_static::lazy_static, StructOpt};
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
 const HTTP_CONNECT_TIMEOUT: u64 = 30_000;
@@ -235,7 +234,7 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
 }
 
 fn parse_hosts_line(line: &str) -> Option<String> {
-    if let Some((address, host)) = split_once(&line, " ") {
+    if let Some((address, host)) = split_once(line, " ") {
         let address: IpAddr = address.parse().ok()?;
 
         // assumes the address in the host mapping is the 'unspecified' address 0.0.0.0
