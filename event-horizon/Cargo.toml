@@ -1,0 +1,27 @@
+[package]
+authors = ["Spanfile <spansdev@gmail.com>"]
+edition = "2021"
+license = "MIT"
+name = "event-horizon"
+readme = "README.md"
+repository = "https://github.com/Spanfile/Singularity"
+version = "0.1.0"
+
+[dependencies]
+singularity = {path = "../singularity", default-features = false}
+
+actix-files = "0.6.0-beta.12"
+actix-web = "4.0.0-beta.18"
+anyhow = "1.0.52"
+chrono = "0.4.19"
+dotenv = "0.15.0"
+envy = "0.4.2"
+fern = {version = "0.6.0", features = ["colored"]}
+log = "0.4.14"
+maud = "0.23.0"
+serde = {version = "1.0.130", features = ["derive"]}
+serde_with = "1.11.0"
+toml = "0.5.8"
+
+[build-dependencies]
+built = "0.5.1"
