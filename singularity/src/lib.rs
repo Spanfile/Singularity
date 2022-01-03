@@ -2,6 +2,7 @@ mod adlist;
 mod builder;
 mod error;
 mod output;
+mod progress_read;
 
 pub use adlist::Adlist;
 pub use error::{Result, SingularityError};
@@ -9,9 +10,10 @@ pub use output::{Output, OutputConfig, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_BLA
 
 use adlist::AdlistFormat;
 use builder::SingularityBuilder;
-use crossbeam_utils::thread;
+use crossbeam_utils::{atomic::AtomicCell, thread};
 use lazy_static::lazy_static;
 use output::ActiveOutput;
+use progress_read::ProgressRead;
 use regex::Regex;
 use std::{
     collections::HashSet,
@@ -40,6 +42,14 @@ pub enum Progress<'a> {
     BeginAdlistRead {
         source: &'a str,
         length: Option<u64>,
+    },
+    ReadProgress {
+        source: &'a str,
+        bytes: u64,
+        delta: u64,
+    },
+    FinishAdlistRead {
+        source: &'a str,
     },
     ReadingAdlistFailed {
         source: &'a str,
@@ -122,17 +132,23 @@ fn reader_thread(
     whitelist: Arc<HashSet<String>>,
     cb: Arc<ProgressCallback>,
 ) {
+    let source = adlist.source.as_str();
+
     match adlist.read(timeout) {
         Ok((length, reader)) => {
-            cb(Progress::BeginAdlistRead {
-                source: adlist.source.as_str(),
-                length,
-            });
+            cb(Progress::BeginAdlistRead { source, length });
 
-            // TODO: report progress from this reader
+            let read_amount = AtomicCell::<u64>::new(0);
+            let last_read_amount = AtomicCell::<u64>::new(0);
+            let reader = ProgressRead::new(reader, &read_amount);
             let reader = BufReader::new(reader);
 
             for (line_idx, line) in reader.lines().enumerate() {
+                let bytes = read_amount.load();
+                let delta = bytes - last_read_amount.swap(bytes);
+
+                cb(Progress::ReadProgress { source, bytes, delta });
+
                 let line = match line {
                     Ok(l) => l,
                     Err(_e) => continue,
@@ -171,6 +187,10 @@ fn reader_thread(
                     tx.send(parsed_line).expect("failed to send parsed line");
                 }
             }
+
+            cb(Progress::FinishAdlistRead {
+                source: adlist.source.as_str(),
+            });
         }
         Err(e) => cb(Progress::ReadingAdlistFailed {
             source: adlist.source.as_str(),

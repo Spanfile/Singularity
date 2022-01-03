@@ -2,7 +2,8 @@ mod config;
 mod logging;
 
 use config::Config;
-use crossbeam_utils::atomic::AtomicCell;
+use crossbeam_utils::{atomic::AtomicCell, thread};
+use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::*;
 use num_format::{SystemLocale, ToFormattedString};
@@ -72,7 +73,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     let adlists = cfg.adlist.len();
-
     let singularity = Singularity::builder()
         .add_many_adlists(cfg.adlist)
         .add_outputs_from_configs(cfg.output)
@@ -80,45 +80,98 @@ fn main() -> anyhow::Result<()> {
         .http_timeout(opt.timeout.0)
         .build();
 
-    let count = AtomicCell::<usize>::new(0);
-    let start = Instant::now();
-
-    singularity
-        .progress_callback(|progress| match progress {
-            Progress::BeginAdlistRead { source, length } => {
-                if let Some(len) = length {
-                    info!("Reading {} with length {}", source, len)
-                } else {
-                    info!("Reading {} with indeterminate length", source)
-                }
-            }
-            Progress::DomainWritten(_) => {
-                count.fetch_add(1);
-            }
-
-            Progress::WhitelistedDomainIgnored { source, domain } => {
-                info!("Ignoring whitelisted domain {} from {}", domain, source)
-            }
-            Progress::AllMatchingLineIgnored {
-                source,
-                line_number,
-                line,
-            } => warn!(
-                "Line {} in {} parsed to an all-matching entry ({}), so it was ignored",
-                line_number, source, line
-            ),
-
-            _ => (),
-        })
-        .run()?;
-
-    let locale = SystemLocale::default().expect("failed to get system locale");
-    info!(
-        "Read {} domains from {} sources in {}s",
-        count.into_inner().to_formatted_string(&locale),
-        adlists,
-        start.elapsed().as_secs_f32()
+    let mp = MultiProgress::new();
+    let domain_spinner = mp.add(ProgressBar::new_spinner());
+    domain_spinner.set_style(
+        ProgressStyle::default_spinner().template("{spinner} [{elapsed_precise}] {pos} domains read so far..."),
     );
+    domain_spinner.enable_steady_tick(100);
+    domain_spinner.set_draw_delta(500);
+
+    thread::scope(|s| -> anyhow::Result<()> {
+        s.spawn(|_| -> anyhow::Result<()> {
+            let count = AtomicCell::<usize>::new(0);
+            let start = Instant::now();
+            let pbs = DashMap::new();
+
+            singularity
+                .progress_callback(|progress| match progress {
+                    Progress::BeginAdlistRead { source, length } => {
+                        let pb = mp.add(ProgressBar::new(0));
+
+                        if let Some(len) = length {
+                            domain_spinner.println(format!("INFO Reading {} with length {}", source, len));
+
+                            pb.set_style(
+                                ProgressStyle::default_bar()
+                                    .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
+                                    .progress_chars("=> "),
+                            );
+                            pb.set_length(len);
+                        } else {
+                            domain_spinner.println(format!("INFO Reading {} with indeterminate length", source));
+
+                            pb.set_style(
+                                ProgressStyle::default_spinner()
+                                    .template("{spinner} [{elapsed_precise}] {bytes} ({bytes_per_sec})"),
+                            );
+                        }
+
+                        pbs.insert(source.to_string(), pb);
+                    }
+                    Progress::ReadProgress {
+                        source,
+                        bytes: _,
+                        delta,
+                    } => pbs.get(source).expect("progress bar missing from pbs").inc(delta),
+
+                    Progress::FinishAdlistRead { source } => pbs
+                        .get(source)
+                        .expect("progress bar missing from pbs")
+                        .finish_and_clear(),
+
+                    Progress::DomainWritten(_) => {
+                        count.fetch_add(1);
+                        domain_spinner.inc(1);
+                    }
+
+                    Progress::WhitelistedDomainIgnored { source, domain } => pbs
+                        .get(source)
+                        .expect("progress bar missing from pbs")
+                        .println(format!("INFO Ignoring whitelisted domain {} from {}", domain, source)),
+                    Progress::AllMatchingLineIgnored {
+                        source,
+                        line_number,
+                        line,
+                    } => pbs.get(source).expect("progress bar missing from pbs").println(format!(
+                        "WARN Line {} in {} parsed to an all-matching entry ({}), so it was ignored",
+                        line_number, source, line
+                    )),
+
+                    _ => (),
+                })
+                .run()?;
+
+            let locale = SystemLocale::default().expect("failed to get system locale");
+            domain_spinner.println(format!(
+                "INFO Read {} domains from {} sources in {}s",
+                count.into_inner().to_formatted_string(&locale),
+                adlists,
+                start.elapsed().as_secs_f32()
+            ));
+            domain_spinner.finish_and_clear();
+
+            Ok(())
+        });
+
+        s.spawn(|_| -> anyhow::Result<()> {
+            mp.join_and_clear()?;
+            Ok(())
+        });
+
+        Ok(())
+    })
+    .unwrap()?;
 
     Ok(())
 }

@@ -11,7 +11,7 @@ repository = "https://github.com/Spanfile/Singularity"
 version = "0.8.0"
 
 [features]
-bin = ["anyhow", "confy", "fern", "indicatif", "log", "num-format", "structopt", "serde"]
+bin = ["anyhow", "confy", "dashmap", "fern", "indicatif", "log", "num-format", "structopt", "serde"]
 default = ["bin", "serde"]
 
 [dependencies]
@@ -29,6 +29,7 @@ url = {version = "2.2.2", features = ["serde"]}
 # binary dependencies
 anyhow = {version = "1.0.52", optional = true}
 confy = {version = "0.4.0", optional = true}
+dashmap = {version = "5.0.0", optional = true}
 fern = {version = "0.6.0", optional = true}
 indicatif = {version = "0.16.2", features = ["improved_unicode"], optional = true}
 log = {version = "0.4.14", optional = true}

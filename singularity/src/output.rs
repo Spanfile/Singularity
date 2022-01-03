@@ -141,6 +141,7 @@ impl ActiveOutput {
         match self.ty {
             OutputType::Hosts { .. } => writeln!(&mut self.destination, "{} {}", self.blackhole_address, host)?,
             OutputType::PdnsLua { .. } => {
+                // get rid of any comment on the same line as the host
                 let host = host.split_once('#').map(|(left, _)| left).unwrap_or(host).trim_end();
                 write!(&mut self.destination, r#""{}","#, host)?
             }
