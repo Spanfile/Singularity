@@ -812,6 +812,7 @@ dependencies = [
  "confy",
  "fern",
  "indicatif",
+ "lazy_static",
  "log",
  "num-format",
  "regex",

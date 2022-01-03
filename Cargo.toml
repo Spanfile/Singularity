@@ -1,27 +1,3 @@
-[package]
-authors = ["Spanfile <spansdev@gmail.com>"]
-categories = ["command-line-interface"]
-description = "CLI tool for pulling known malicious domains into one or more blackhole lists in various formats."
-edition = "2021"
-keywords = ["cli", "dns", "blackhole"]
-license = "MIT"
-name = "singularity"
-readme = "README.md"
-repository = "https://github.com/Spanfile/Singularity"
-version = "0.8.0"
-
-[dependencies]
-anyhow = "1.0.52"
-chrono = "0.4.19"
-confy = "0.4.0"
-fern = "0.6.0"
-indicatif = {version = "0.16.2", features = ["improved_unicode"]}
-log = "0.4.14"
-num-format = {version = "0.4.0", features = ["with-system-locale"]}
-regex = "1.5.4"
-serde = {version = "1.0.132", features = ["derive"]}
-structopt = "0.3.25"
-tempfile = "3.2.0"
-thiserror = "1.0.30"
-ureq = "2.4.0"
-url = {version = "2.2.2", features = ["serde"]}
+[workspace]
+default-members = ["singularity"]
+members = ["singularity"]
