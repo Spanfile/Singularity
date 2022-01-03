@@ -1,4 +1,4 @@
-use crate::error::SingularityError;
+use crate::{error::SingularityError, Result};
 use log::*;
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read, time::Duration};
@@ -38,7 +38,7 @@ impl Adlist {
     ///
     /// When reading from an HTTP source, the server's response may use chunk transfer encoding in which case the
     /// content cannot be determined ahead of time.
-    pub(crate) fn read(&self, connect_timeout: u64) -> anyhow::Result<(Option<u64>, Box<dyn Read>)> {
+    pub(crate) fn read(&self, connect_timeout: u64) -> Result<(Option<u64>, Box<dyn Read>)> {
         match self.source.scheme() {
             "http" | "https" => {
                 let agent = ureq::AgentBuilder::new()
@@ -49,7 +49,7 @@ impl Adlist {
                 let resp: ureq::Response = match agent.get(self.source.as_str()).call() {
                     Ok(resp) => resp,
                     Err(ureq::Error::Status(code, resp)) => {
-                        return Err(SingularityError::RequestFailed(code, resp.into_string()?).into())
+                        return Err(SingularityError::RequestFailed(code, resp.into_string()?))
                     }
                     Err(e) => return Err(e.into()),
                 };
@@ -59,7 +59,13 @@ impl Adlist {
                     .header("Content-Length")
                     .or_else(|| resp.header("content-length"))
                     .map(str::parse::<u64>)
-                    .transpose()?;
+                    .transpose()
+                    .map_err(|e| {
+                        SingularityError::InvalidResponse(format!(
+                            "invalid content-length header (not an integer): {}",
+                            e
+                        ))
+                    })?;
 
                 if let Some(len) = len {
                     debug!("Got response status {} with length {}", resp.status(), len);
@@ -73,7 +79,7 @@ impl Adlist {
                 let path = match self.source.to_file_path() {
                     Ok(path) => path,
                     Err(()) => {
-                        return Err(SingularityError::InvalidFilePath(self.source.as_str().to_string()).into());
+                        return Err(SingularityError::InvalidFilePath(self.source.as_str().to_string()));
                     }
                 };
 
@@ -81,7 +87,7 @@ impl Adlist {
                 let meta = file.metadata()?;
                 Ok((Some(meta.len()), Box::new(file) as Box<dyn Read>))
             }
-            scheme => Err(SingularityError::UnsupportedUrlScheme(scheme.to_string()).into()),
+            scheme => Err(SingularityError::UnsupportedUrlScheme(scheme.to_string())),
         }
     }
 }

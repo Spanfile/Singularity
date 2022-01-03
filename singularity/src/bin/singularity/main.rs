@@ -2,11 +2,12 @@ mod config;
 mod logging;
 
 use config::Config;
+use crossbeam_utils::atomic::AtomicCell;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::*;
 use num_format::{SystemLocale, ToFormattedString};
-use singularity::{Singularity, HTTP_CONNECT_TIMEOUT};
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use singularity::{Progress, Singularity, HTTP_CONNECT_TIMEOUT};
+use std::{fmt::Display, path::PathBuf, str::FromStr, time::Instant};
 use structopt::StructOpt;
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
@@ -70,6 +71,8 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    let adlists = cfg.adlist.len();
+
     let singularity = Singularity::builder()
         .add_many_adlists(cfg.adlist)
         .add_outputs_from_configs(cfg.output)
@@ -77,110 +80,48 @@ fn main() -> anyhow::Result<()> {
         .http_timeout(opt.timeout.0)
         .build();
 
-    singularity.progress_callback(move |progress| {}).run()?;
+    let count = AtomicCell::<usize>::new(0);
+    let start = Instant::now();
+
+    singularity
+        .progress_callback(|progress| match progress {
+            Progress::BeginAdlistRead { source, length } => {
+                if let Some(len) = length {
+                    info!("Reading {} with length {}", source, len)
+                } else {
+                    info!("Reading {} with indeterminate length", source)
+                }
+            }
+            Progress::DomainWritten(_) => {
+                count.fetch_add(1);
+            }
+
+            Progress::WhitelistedDomainIgnored { source, domain } => {
+                info!("Ignoring whitelisted domain {} from {}", domain, source)
+            }
+            Progress::AllMatchingLineIgnored {
+                source,
+                line_number,
+                line,
+            } => warn!(
+                "Line {} in {} parsed to an all-matching entry ({}), so it was ignored",
+                line_number, source, line
+            ),
+
+            _ => (),
+        })
+        .run()?;
+
+    let locale = SystemLocale::default().expect("failed to get system locale");
+    info!(
+        "Read {} domains from {} sources in {}s",
+        count.into_inner().to_formatted_string(&locale),
+        adlists,
+        start.elapsed().as_secs_f32()
+    );
+
     Ok(())
 }
-
-// fn spawn_writer_thread(mb: &MultiProgress, rx: Receiver<String>, mut outputs: Vec<Output>, source_count: usize) {
-//     let spinner_style = ProgressStyle::default_spinner().template("{spinner} {pos} domains read so far...");
-//     let pb = mb.add(ProgressBar::new_spinner());
-//     pb.set_style(spinner_style);
-//     pb.enable_steady_tick(100);
-//     pb.set_draw_delta(500);
-
-//     let count = Arc::new(AtomicUsize::new(0));
-//     thread::spawn(move || {
-//         let locale = SystemLocale::default().unwrap();
-//         while let Ok(line) = rx.recv() {
-//             count.fetch_add(1, Ordering::Relaxed);
-//             pb.inc(1);
-
-//             for output in &mut outputs {
-//                 output.write_host(&line).expect("failed to write host into output");
-//             }
-//         }
-
-//         for output in outputs {
-//             output.finalise().expect("failed to finalise output");
-//         }
-
-//         let count = count.load(Ordering::Relaxed).to_formatted_string(&locale);
-//         pb.println(&format!("INFO Read {} domains from {} source(s)", count, source_count));
-//         pb.finish_and_clear();
-//     });
-// }
-
-// fn spawn_reader_thread(
-//     mb: &MultiProgress,
-//     adlist: Adlist,
-//     tx: SyncSender<String>,
-//     timeout: ConnectTimeout,
-//     whitelist: Arc<HashSet<String>>,
-// ) {
-//     let bar = ProgressStyle::default_bar()
-//         .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
-//         .progress_chars("=> ");
-//     let spinner = ProgressStyle::default_spinner().template("{spinner} [{elapsed_precise}] {bytes}
-// ({bytes_per_sec})");     let pb = mb.add(ProgressBar::new(0));
-
-//     thread::spawn(move || {
-//         match adlist.read(timeout) {
-//             Ok((len, reader)) => {
-//                 if let Some(len) = len {
-//                     pb.set_style(bar);
-//                     pb.set_length(len);
-//                 } else {
-//                     pb.set_style(spinner);
-//                 }
-
-//                 pb.println(format!("INFO Reading adlist from {}...", adlist.source));
-
-//                 let reader = pb.wrap_read(reader);
-//                 let reader = BufReader::new(reader);
-
-//                 for (line_idx, line) in reader.lines().enumerate() {
-//                     let line = match line {
-//                         Ok(l) => l,
-//                         Err(_e) => continue,
-//                     };
-
-//                     if line.starts_with('#') || line.is_empty() {
-//                         continue;
-//                     }
-
-//                     let parsed_line = match adlist.format {
-//                         AdlistFormat::Hosts => parse_hosts_line(line.trim()),
-//                         AdlistFormat::DnsMasq => parse_dnsmasq_line(line.trim()),
-//                         AdlistFormat::Domains => Some(line.trim().to_owned()),
-//                     };
-
-//                     if let Some(parsed_line) = parsed_line {
-//                         if parsed_line.is_empty() || parsed_line == "." {
-//                             pb.println(format!(
-//                                 "WARN While reading {}, line #{} (\"{}\") was parsed into an all-matching entry, so \
-//                                  it was ignored",
-//                                 adlist.source,
-//                                 line_idx + 1,
-//                                 line
-//                             ));
-//                             continue;
-//                         }
-
-//                         if whitelist.contains(&parsed_line) {
-//                             pb.println(format!("INFO Ignoring whitelisted entry '{}'", parsed_line));
-//                             continue;
-//                         }
-
-//                         tx.send(parsed_line).expect("failed to send parsed line");
-//                     }
-//                 }
-//             }
-//             Err(e) => warn!("Reading adlist from {} failed: {}", adlist.source, e),
-//         }
-
-//         pb.finish_and_clear();
-//     });
-// }
 
 fn setup_logging(opt: &Opt) -> anyhow::Result<()> {
     logging::setup_logging(if opt.verbose {

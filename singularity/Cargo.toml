@@ -11,13 +11,12 @@ repository = "https://github.com/Spanfile/Singularity"
 version = "0.8.0"
 
 [features]
-bin = ["anyhow", "confy", "indicatif", "structopt", "serde"]
+bin = ["anyhow", "confy", "crossbeam-utils", "fern", "indicatif", "structopt", "serde"]
 default = ["bin", "serde"]
 
 [dependencies]
 # library dependencies
 chrono = "0.4.19"
-fern = "0.6.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
 num-format = {version = "0.4.0", features = ["with-system-locale"]}
@@ -31,6 +30,8 @@ url = {version = "2.2.2", features = ["serde"]}
 # binary dependencies
 anyhow = {version = "1.0.52", optional = true}
 confy = {version = "0.4.0", optional = true}
+crossbeam-utils = {version = "0.8.5", optional = true}
+fern = {version = "0.6.0", optional = true}
 indicatif = {version = "0.16.2", features = ["improved_unicode"], optional = true}
 structopt = {version = "0.3.25", optional = true}
 

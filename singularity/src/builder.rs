@@ -1,4 +1,4 @@
-use crate::{Adlist, Output, OutputConfig, Singularity, HTTP_CONNECT_TIMEOUT};
+use crate::{noop_callback, Adlist, Output, OutputConfig, Singularity, HTTP_CONNECT_TIMEOUT};
 use std::collections::HashSet;
 
 pub struct SingularityBuilder {
@@ -8,7 +8,7 @@ pub struct SingularityBuilder {
     http_timeout: u64,
 }
 
-impl SingularityBuilder {
+impl<'a> SingularityBuilder {
     pub(crate) fn new() -> Self {
         Self {
             adlists: Vec::new(),
@@ -18,13 +18,13 @@ impl SingularityBuilder {
         }
     }
 
-    pub fn build(self) -> Singularity {
+    pub fn build(self) -> Singularity<'a> {
         Singularity {
             adlists: self.adlists,
             outputs: self.outputs,
             whitelist: self.whitelist,
             http_timeout: self.http_timeout,
-            prog_callback: None,
+            prog_callback: Box::new(noop_callback),
         }
     }
 
