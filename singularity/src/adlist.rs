@@ -1,13 +1,11 @@
 use crate::{error::SingularityError, Result};
-use log::*;
-use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read, time::Duration};
 use url::Url;
 
 const HTTP_READ_TIMEOUT: u64 = 10_000;
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Adlist {
     pub(crate) source: Url,
     #[cfg_attr(feature = "serde", serde(default))]
@@ -15,7 +13,11 @@ pub struct Adlist {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(rename_all = "lowercase"))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(rename_all = "lowercase")
+)]
 pub enum AdlistFormat {
     Hosts,
     Domains,
@@ -66,12 +68,6 @@ impl Adlist {
                             e
                         ))
                     })?;
-
-                if let Some(len) = len {
-                    debug!("Got response status {} with length {}", resp.status(), len);
-                } else {
-                    debug!("Got response status {} with indeterminate length", resp.status());
-                }
 
                 Ok((len, Box::new(resp.into_reader()) as Box<dyn Read>))
             }

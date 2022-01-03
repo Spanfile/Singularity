@@ -1,7 +1,6 @@
 use crate::Result;
 use chrono::Local;
 use io::SeekFrom;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
     fs::File,
@@ -17,7 +16,7 @@ pub const DEFAULT_BLACKHOLE_ADDRESS_V6: &str = "::";
 const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct OutputConfig {
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub ty: OutputType,
@@ -29,11 +28,11 @@ pub struct OutputConfig {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize), serde(tag = "type"))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize), serde(tag = "type"))]
 pub enum OutputType {
     #[cfg_attr(feature = "serde", serde(rename = "hosts"))]
     Hosts {
-        #[serde(default)]
+        #[cfg_attr(feature = "serde", serde(default))]
         include: Vec<PathBuf>,
     },
     #[cfg_attr(feature = "serde", serde(rename = "pdns-lua"))]
@@ -211,10 +210,12 @@ fn default_blackhole_address() -> IpAddr {
         .expect("failed to parse default blackhole address")
 }
 
+#[cfg(feature = "serde")]
 fn default_output_metric() -> bool {
     true
 }
 
+#[cfg(feature = "serde")]
 fn default_metric_name() -> String {
     String::from("blocked-queries")
 }
