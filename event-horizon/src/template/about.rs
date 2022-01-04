@@ -1,9 +1,8 @@
 use super::ResponseBuilder;
 use crate::built_info::*;
-use actix_web::HttpResponse;
 use maud::html;
 
-pub fn about() -> HttpResponse {
+pub fn about() -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
         .row {
             ."col-lg-6" ."offset-lg-3" {
@@ -34,6 +33,4 @@ pub fn about() -> HttpResponse {
             }
         }
     })
-    .current_path("/about")
-    .build()
 }

@@ -2,10 +2,10 @@ use crate::template;
 use actix_web::{web, Responder};
 
 pub fn config(cfg: &mut web::ServiceConfig) {
-    cfg.service(index);
+    cfg.service(web::scope("/").service(index));
 }
 
-#[actix_web::get("/")]
+#[actix_web::get("")]
 async fn index() -> impl Responder {
-    template::index::index()
+    template::index().current_path("/").build()
 }
