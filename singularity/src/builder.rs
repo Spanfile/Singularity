@@ -1,4 +1,4 @@
-use crate::{noop_callback, Adlist, Output, OutputConfig, Singularity, HTTP_CONNECT_TIMEOUT};
+use crate::{noop_callback, Adlist, Output, Singularity, HTTP_CONNECT_TIMEOUT};
 use std::collections::HashSet;
 
 pub struct SingularityBuilder {
@@ -52,9 +52,9 @@ impl<'a> SingularityBuilder {
     #[must_use]
     pub fn add_outputs_from_configs<I>(mut self, output_configs: I) -> Self
     where
-        I: IntoIterator<Item = OutputConfig>,
+        I: IntoIterator<Item = Output>,
     {
-        self.outputs.extend(output_configs.into_iter().map(Output::from_config));
+        self.outputs.extend(output_configs.into_iter());
         self
     }
 

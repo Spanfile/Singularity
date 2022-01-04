@@ -1,4 +1,5 @@
 use super::ResponseBuilder;
+use crate::singularity::SingularityConfig;
 use maud::{html, Markup};
 
 #[derive(PartialEq, Eq)]
@@ -8,7 +9,7 @@ pub enum SettingsPage {
     Recursor,
 }
 
-pub fn settings(page: SettingsPage) -> ResponseBuilder<'static> {
+pub fn settings(page: SettingsPage, singularity_config: &SingularityConfig) -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
         .row {
             ."col-lg-2" {
@@ -22,7 +23,7 @@ pub fn settings(page: SettingsPage) -> ResponseBuilder<'static> {
             ."col-lg-10" {
                 @match page {
                     SettingsPage::EventHorizon => (event_horizon()),
-                    SettingsPage::Singularity => (singularity()),
+                    SettingsPage::Singularity => (singularity(singularity_config)),
                     SettingsPage::Recursor => (recursor()),
                 }
             }
@@ -37,7 +38,7 @@ fn event_horizon() -> Markup {
     }
 }
 
-fn singularity() -> Markup {
+fn singularity(singularity_config: &SingularityConfig) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "General" }
@@ -86,25 +87,17 @@ fn singularity() -> Markup {
                         }
                     }
                     tbody {
-                        tr {
-                            td ."align-middle" { a href="https://penis" { "https://penis" } }
-                            td ."align-middle" { "Hosts" }
-                            td {
-                                form method="POST" {
-                                    input name="submitted_form" value="remove_adlist" type="hidden";
-                                    input name="source" value="https://penis" type="hidden";
-                                    button .btn ."btn-danger" ."btn-sm" ."float-end" type="submit" { "Delete" }
-                                }
-                            }
-                        }
-                        tr {
-                            td ."align-middle" { a href="https://dick" { "https://dick" } }
-                            td ."align-middle" { "dnsmasq" }
-                            td {
-                                form method="POST" {
-                                    input name="submitted_form" value="remove_adlist" type="hidden";
-                                    input name="source" value="https://dick" type="hidden";
-                                    button .btn ."btn-danger" ."btn-sm" ."float-end" type="submit" { "Delete" }
+                        @for (_, adlist) in singularity_config.adlists() {
+                            tr {
+                                // TODO: horizontal overflow to this element
+                                td ."align-middle" {a href=(adlist.source()) { (adlist.source()) } }
+                                td ."align-middle" { (adlist.format()) }
+                                td {
+                                    form method="POST" {
+                                        input name="submitted_form" value="remove_adlist" type="hidden";
+                                        input name="source" value=(adlist.source()) type="hidden";
+                                        button .btn ."btn-danger" ."btn-sm" ."float-end" type="submit" { "Delete" }
+                                    }
                                 }
                             }
                         }

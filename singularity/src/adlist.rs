@@ -12,7 +12,7 @@ pub struct Adlist {
     pub(crate) format: AdlistFormat,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
@@ -21,7 +21,7 @@ pub struct Adlist {
 pub enum AdlistFormat {
     Hosts,
     Domains,
-    DnsMasq,
+    Dnsmasq,
 }
 
 impl Default for AdlistFormat {
@@ -30,10 +30,42 @@ impl Default for AdlistFormat {
     }
 }
 
+impl std::fmt::Display for AdlistFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AdlistFormat::Hosts => write!(f, "Hosts"),
+            AdlistFormat::Domains => write!(f, "Domains"),
+            AdlistFormat::Dnsmasq => write!(f, "Dnsmasq"),
+        }
+    }
+}
+
 impl Adlist {
-    /// Returns a new adlist with the given source and format.
-    pub fn new(source: Url, format: AdlistFormat) -> Adlist {
-        Adlist { source, format }
+    /// Returns a new adlist with the given source and format. The given source string will be parsed into an URL and if
+    /// it fails, its error is returned. If you wish to supply an already constructed URL, please use the
+    /// [with_url](with_url) method.
+    pub fn new<S>(source: S, format: AdlistFormat) -> Result<Self>
+    where
+        S: AsRef<str>,
+    {
+        let source = Url::parse(source.as_ref())?;
+        Ok(Self { source, format })
+    }
+
+    /// Returns a new adlist with the given source and format. If you have the URL as a string, it may be more
+    /// convenient to use the [new](new) method instead that will attempt to parse the string into an URL.
+    pub fn with_url_source(source: Url, format: AdlistFormat) -> Self {
+        Self { source, format }
+    }
+
+    /// Returns a reference to the adlist's source URL.
+    pub fn source(&self) -> &Url {
+        &self.source
+    }
+
+    /// Returns the adlist's format.
+    pub fn format(&self) -> AdlistFormat {
+        self.format
     }
 
     /// Returns a tuple of the possible elength of the content, and a reader for the content.

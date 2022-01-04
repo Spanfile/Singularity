@@ -17,4 +17,6 @@ pub enum SingularityError {
     IO(#[from] std::io::Error),
     #[error(transparent)]
     HTTP(#[from] ureq::Error),
+    #[error("Invalid URL: {0}")]
+    Url(#[from] url::ParseError),
 }

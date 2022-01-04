@@ -4,11 +4,10 @@ mod error;
 mod output;
 mod progress_read;
 
-pub use adlist::Adlist;
+pub use adlist::{Adlist, AdlistFormat};
 pub use error::{Result, SingularityError};
-pub use output::{Output, OutputConfig, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_BLACKHOLE_ADDRESS_V6};
+pub use output::{Output, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_BLACKHOLE_ADDRESS_V6};
 
-use adlist::AdlistFormat;
 use builder::SingularityBuilder;
 use crossbeam_utils::{atomic::AtomicCell, thread};
 use lazy_static::lazy_static;
@@ -160,7 +159,7 @@ fn reader_thread(
 
                 let parsed_line = match adlist.format {
                     AdlistFormat::Hosts => parse_hosts_line(line.trim()),
-                    AdlistFormat::DnsMasq => parse_dnsmasq_line(line.trim()),
+                    AdlistFormat::Dnsmasq => parse_dnsmasq_line(line.trim()),
                     AdlistFormat::Domains => Some(line.trim().to_owned()),
                 };
 

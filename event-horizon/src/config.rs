@@ -7,7 +7,7 @@ with_prefix!(listen "listen_");
 
 const EVH_ENV_PREFIX: &str = "EVH_";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     #[serde(default)]
     pub log_level: LogLevel,
@@ -15,7 +15,7 @@ pub struct Config {
     pub listen: Listen,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "socket", rename_all = "snake_case")]
 pub enum Listen {
     Http {
