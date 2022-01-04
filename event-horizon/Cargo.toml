@@ -8,7 +8,7 @@ repository = "https://github.com/Spanfile/Singularity"
 version = "0.1.0"
 
 [dependencies]
-singularity = {path = "../singularity", default-features = false}
+singularity = {path = "../singularity", default-features = false, features = ["serde"]}
 
 actix-files = "0.6.0-beta.12"
 actix-web = "4.0.0-beta.18"
@@ -21,6 +21,7 @@ log = "0.4.14"
 maud = "0.23.0"
 serde = {version = "1.0.130", features = ["derive"]}
 serde_with = "1.11.0"
+thiserror = "1.0.30"
 toml = "0.5.8"
 
 [build-dependencies]

@@ -1,4 +1,4 @@
-use crate::template::{self, Alert};
+use crate::template;
 use actix_web::{web, Responder};
 
 pub fn config(cfg: &mut web::ServiceConfig) {
@@ -7,5 +7,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 
 #[actix_web::get("")]
 async fn about() -> impl Responder {
-    template::about().current_path("/about").build()
+    template::about().current_path("/about").ok()
 }

@@ -7,5 +7,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 
 #[actix_web::get("")]
 async fn index() -> impl Responder {
-    template::index().current_path("/").build()
+    template::index().current_path("/").ok()
 }

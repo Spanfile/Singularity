@@ -1,7 +1,8 @@
-mod about;
-mod index;
-mod settings;
+pub mod about;
+pub mod index;
+pub mod settings;
 
+// re-exported for convenience
 pub use about::about;
 pub use index::index;
 pub use settings::settings;
@@ -31,8 +32,14 @@ impl<'a> ResponseBuilder<'a> {
         }
     }
 
-    pub fn build(self) -> HttpResponse {
+    pub fn ok(self) -> HttpResponse {
         HttpResponse::build(StatusCode::OK)
+            .content_type("text/html; charset=utf-8")
+            .body(self.markup_base().into_string())
+    }
+
+    pub fn bad_request(self) -> HttpResponse {
+        HttpResponse::build(StatusCode::BAD_REQUEST)
             .content_type("text/html; charset=utf-8")
             .body(self.markup_base().into_string())
     }

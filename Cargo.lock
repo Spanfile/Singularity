@@ -729,6 +729,7 @@ dependencies = [
  "serde",
  "serde_with",
  "singularity",
+ "thiserror",
  "toml",
 ]
 
