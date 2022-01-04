@@ -51,7 +51,7 @@ fn singularity() -> Markup {
             ."card-header" { "Adlists" }
             ."card-body" {
                 form method="POST" {
-                    input #saved_form name="saved_form" value="adlist" type="hidden";
+                    input name="submitted_form" value="add_adlist" type="hidden";
                     .row ."g-3" ."align-items-center" {
                         ."col-auto" {
                             label ."col-form-label" for="source" { "Source URL" }
@@ -61,7 +61,7 @@ fn singularity() -> Markup {
                         }
 
                         ."col-auto" {
-                            label ."col-form-label" for="format" { "Type" }
+                            label ."col-form-label" for="format" { "Format" }
                         }
                         ."col-auto" {
                             select ."form-select" #format name="format" {
@@ -73,6 +73,40 @@ fn singularity() -> Markup {
 
                         ."col-auto" {
                             button .btn ."btn-primary" type="submit" { "Add new adlist" }
+                        }
+                    }
+                }
+
+                table .table ."mt-3" {
+                    thead {
+                        tr {
+                            th scope="col" { "Source URL" }
+                            th scope="col" { "Format" }
+                            th scope="col" ."w-auto" { }
+                        }
+                    }
+                    tbody {
+                        tr {
+                            td ."align-middle" { a href="https://penis" { "https://penis" } }
+                            td ."align-middle" { "Hosts" }
+                            td {
+                                form method="POST" {
+                                    input name="submitted_form" value="remove_adlist" type="hidden";
+                                    input name="source" value="https://penis" type="hidden";
+                                    button .btn ."btn-danger" ."btn-sm" ."float-end" type="submit" { "Delete" }
+                                }
+                            }
+                        }
+                        tr {
+                            td ."align-middle" { a href="https://dick" { "https://dick" } }
+                            td ."align-middle" { "dnsmasq" }
+                            td {
+                                form method="POST" {
+                                    input name="submitted_form" value="remove_adlist" type="hidden";
+                                    input name="source" value="https://dick" type="hidden";
+                                    button .btn ."btn-danger" ."btn-sm" ."float-end" type="submit" { "Delete" }
+                                }
+                            }
                         }
                     }
                 }

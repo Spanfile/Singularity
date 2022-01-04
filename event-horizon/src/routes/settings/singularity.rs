@@ -13,10 +13,11 @@ enum SettingsError {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "saved_form", rename_all = "snake_case")]
-enum SettingsForm {
+#[serde(tag = "submitted_form", rename_all = "snake_case")]
+enum SubmittedForm {
     General,
-    Adlist(Adlist),
+    AddAdlist(Adlist),
+    RemoveAdlist(String),
     Output(OutputConfig),
 }
 
@@ -49,15 +50,16 @@ async fn singularity() -> impl Responder {
     template::settings(SettingsPage::Singularity).ok()
 }
 
-async fn post_form(form: web::Form<SettingsForm>) -> impl Responder {
+async fn post_form(form: web::Form<SubmittedForm>) -> impl Responder {
     debug!("Singularity POST form: {:?}", form);
 
     match form.into_inner() {
-        SettingsForm::General => todo!(),
-        SettingsForm::Adlist(_) => template::settings(SettingsPage::Singularity)
+        SubmittedForm::General => todo!(),
+        SubmittedForm::AddAdlist(_) => template::settings(SettingsPage::Singularity)
             .alert(Alert::Success("New adlist succesfully added!".to_string()))
             .ok(),
-        SettingsForm::Output(_) => todo!(),
+        SubmittedForm::RemoveAdlist(source) => todo!(),
+        SubmittedForm::Output(_) => todo!(),
     }
 }
 
