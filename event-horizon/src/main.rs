@@ -59,20 +59,26 @@ async fn main() -> anyhow::Result<()> {
         AdlistFormat::Dnsmasq,
     )?);
 
-    singularity_config.add_output(Output::new(
-        OutputType::PdnsLua {
-            output_metric: false,
-            metric_name: String::from("metric"),
-        },
-        "test/path",
-    ));
+    singularity_config.add_output(
+        Output::new(
+            OutputType::PdnsLua {
+                output_metric: false,
+                metric_name: String::from("metric"),
+            },
+            "test/path",
+        )
+        .unwrap(),
+    );
 
-    singularity_config.add_output(Output::new(
-        OutputType::Hosts {
-            include: vec!["hosts1".into(), "hosts2".into(), "hosts3".into()],
-        },
-        "test/path",
-    ));
+    singularity_config.add_output(
+        Output::new(
+            OutputType::Hosts {
+                include: vec!["hosts1".into(), "hosts2".into(), "hosts3".into()],
+            },
+            "test/path",
+        )
+        .unwrap(),
+    );
 
     let singularity_config = web::Data::new(RwLock::new(singularity_config));
 

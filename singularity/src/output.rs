@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::{Result, SingularityError};
 use chrono::Local;
 use io::SeekFrom;
 use std::{
@@ -70,16 +70,31 @@ impl std::fmt::Display for OutputType {
 }
 
 impl Output {
-    pub fn new<P>(ty: OutputType, destination: P) -> Self
+    pub fn new<P>(ty: OutputType, destination: P) -> Result<Self>
     where
         P: Into<PathBuf>,
     {
-        Self {
+        let destination = destination.into();
+        if destination.as_os_str().is_empty() {
+            return Err(SingularityError::EmptyDestination);
+        }
+
+        if let OutputType::PdnsLua {
+            output_metric,
+            metric_name,
+        } = &ty
+        {
+            if *output_metric && metric_name.is_empty() {
+                return Err(SingularityError::EmptyMetricName);
+            }
+        }
+
+        Ok(Self {
             ty,
-            destination: destination.into(),
+            destination,
             blackhole_address: default_blackhole_address(),
             deduplicate: default_deduplicate(),
-        }
+        })
     }
 
     #[must_use]

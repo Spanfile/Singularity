@@ -133,12 +133,12 @@ fn common_output_form(ty: &str) -> Markup {
 
         ."mb-3" {
             label ."form-label" for="destination" { "Destination" }
-            input #source ."form-control" name="destination" type="text";
+            input #source ."form-control" name="destination" type="text" required;
         }
 
         ."mb-3" {
             label ."form-label" for="blackhole_address" { "Blackhole address" }
-            input #source ."form-control" name="blackhole_address" type="text" value=(DEFAULT_BLACKHOLE_ADDRESS_V4);
+            input #source ."form-control" name="blackhole_address" type="text" value=(DEFAULT_BLACKHOLE_ADDRESS_V4) required;
         }
 
         ."mb-3" ."form-check" {

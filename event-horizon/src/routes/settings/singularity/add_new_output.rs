@@ -61,8 +61,8 @@ enum OutputTypeForm {
 }
 
 impl OutputForm {
-    fn into_output(self) -> Output {
-        Output::new(
+    fn try_into_output(self) -> anyhow::Result<Output> {
+        Ok(Output::new(
             match self.ty {
                 OutputTypeForm::Hosts { include } => OutputType::Hosts { include },
                 OutputTypeForm::PdnsLua {
@@ -74,9 +74,9 @@ impl OutputForm {
                 },
             },
             self.destination,
-        )
+        )?
         .blackhole_address(self.blackhole_address)
-        .deduplicate(cursed_checkbox_option(self.deduplicate))
+        .deduplicate(cursed_checkbox_option(self.deduplicate)))
     }
 }
 
@@ -138,27 +138,37 @@ async fn submit_form(
 
     let mut cfg = cfg.write().expect("failed to lock write singularity config");
 
-    if cfg.add_output(output.into_inner().into_output()) {
-        info!("Output succesfully added");
+    match output.into_inner().try_into_output() {
+        Ok(output) => {
+            if cfg.add_output(output) {
+                info!("Output succesfully added");
 
-        HttpResponse::build(StatusCode::SEE_OTHER)
-            .append_header((header::LOCATION, "/settings/singularity"))
-            .finish()
-    } else {
-        warn!("Failed to add output: identical output already exists");
-
-        template::settings(
-            SettingsPage::Singularity(match action.into_inner() {
-                Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
-                Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
-            }),
-            &cfg,
-        )
-        .alert(Alert::Warning(
-            "Failed to add output: identical output already exists.".to_string(),
-        ))
-        .ok()
+                HttpResponse::build(StatusCode::SEE_OTHER)
+                    .append_header((header::LOCATION, "/settings/singularity"))
+                    .finish()
+            } else {
+                form_error_page("identical output already exists", action.into_inner(), &cfg)
+            }
+        }
+        Err(e) => form_error_page(e.to_string(), action.into_inner(), &cfg),
     }
+}
+
+fn form_error_page<D>(msg: D, action: Action, cfg: &SingularityConfig) -> HttpResponse
+where
+    D: std::fmt::Display,
+{
+    warn!("Failed to add output: {}", msg);
+
+    template::settings(
+        SettingsPage::Singularity(match action {
+            Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
+            Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
+        }),
+        cfg,
+    )
+    .alert(Alert::Warning(format!("Failed to add output: {}", msg)))
+    .bad_request()
 }
 
 // see the comment at OutputForm

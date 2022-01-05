@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use singularity::{Adlist, Output};
 use std::{collections::HashMap, path::Path};
 
@@ -49,7 +50,7 @@ impl SingularityConfig {
     }
 
     pub fn adlists(&self) -> impl Iterator<Item = (u64, &Adlist)> {
-        self.adlists.iter().map(|(k, v)| (*k, v))
+        self.adlists.iter().map(|(k, v)| (*k, v)).sorted_by_key(|(k, _)| *k)
     }
 
     /// Adds a new output to the configuration. Returns whether the output was succesfully added.
@@ -79,7 +80,7 @@ impl SingularityConfig {
     }
 
     pub fn outputs(&self) -> impl Iterator<Item = (u64, &Output)> {
-        self.outputs.iter().map(|(k, v)| (*k, v))
+        self.outputs.iter().map(|(k, v)| (*k, v)).sorted_by_key(|(k, _)| *k)
     }
 
     /// Adds a new domain to the whitelist. Returns whether the domain was succesfully added.
@@ -109,6 +110,9 @@ impl SingularityConfig {
     }
 
     pub fn whitelist(&self) -> impl Iterator<Item = (u64, &str)> {
-        self.whitelist.iter().map(|(k, v)| (*k, v.as_ref()))
+        self.whitelist
+            .iter()
+            .map(|(k, v)| (*k, v.as_ref()))
+            .sorted_by_key(|(k, _)| *k)
     }
 }

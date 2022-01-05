@@ -12,6 +12,10 @@ pub enum SingularityError {
     UnsupportedUrlScheme(String),
     #[error("Invalid file path: {0}")]
     InvalidFilePath(String),
+    #[error("Invalid output: empty destination path")]
+    EmptyDestination,
+    #[error("Invalid output: metric name is empty while metric is enabled")]
+    EmptyMetricName,
 
     #[error(transparent)]
     IO(#[from] std::io::Error),
