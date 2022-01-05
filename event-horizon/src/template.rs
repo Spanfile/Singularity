@@ -75,6 +75,9 @@ impl<'a> ResponseBuilder<'a> {
             meta name="viewport" content="width=device-width, initial-scale=1";
             link rel="stylesheet" href="/static/bootstrap-5.1.3-dist/css/bootstrap.min.css";
             script src="/static/bootstrap-5.1.3-dist/js/bootstrap.min.js" {}
+            // TODO: figure out a way to get rid of JS
+            // this is needed for:
+            // - the navbar
 
             svg xmlns="http://www.w3.org/2000/svg" style="display: none;" {
                 symbol id="check-circle-fill" fill="currentColor" viewBox="0 0 16 16" {
