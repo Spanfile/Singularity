@@ -13,22 +13,27 @@ use actix_web::{
     web, HttpRequest, HttpResponse, Responder,
 };
 use log::*;
-use singularity::Adlist;
+use serde::Deserialize;
 use std::sync::RwLock;
+
+#[derive(Debug, Deserialize)]
+struct RemoveSource {
+    source: String,
+}
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/add_new_adlist").service(
+        web::scope("/remove_adlist").service(
             web::resource("")
                 .app_data(web::FormConfig::default().error_handler(form_error_handler))
-                .route(web::get().to(add_new_adlist))
+                .route(web::get().to(remove_adlist))
                 .route(web::post().to(submit_form)),
         ),
     );
 }
 
 fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
-    warn!("Add new adlist POST failed: {}", err);
+    warn!("Remove adlist POST failed: {}", err);
     warn!("{:?}", req);
 
     let req = req.clone();
@@ -38,44 +43,60 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
             .and_then(|cfg| cfg.read().ok())
             .expect("failed to lock read singularity config");
 
-        template::settings(SettingsPage::Singularity(SingularitySubPage::AddNewAdlist), &cfg)
-            .alert(Alert::Warning(err.to_string()))
-            .bad_request()
+        let source = web::Query::<RemoveSource>::from_query(req.query_string())
+            .expect("failed to extract source parameter from query");
+
+        template::settings(
+            SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(&source.source)),
+            &cfg,
+        )
+        .alert(Alert::Warning(format!("Failed to remove adlist: {}", err)))
+        .bad_request()
     })
     .into()
 }
 
-async fn add_new_adlist(singularity_config: web::Data<RwLock<SingularityConfig>>) -> impl Responder {
+async fn remove_adlist(
+    source: web::Query<RemoveSource>,
+    singularity_config: web::Data<RwLock<SingularityConfig>>,
+) -> impl Responder {
     let cfg = singularity_config
         .read()
         .expect("failed to lock read singularity config");
 
-    template::settings(SettingsPage::Singularity(SingularitySubPage::AddNewAdlist), &cfg).ok()
+    template::settings(
+        SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(&source.source)),
+        &cfg,
+    )
+    .ok()
 }
 
 async fn submit_form(
-    adlist: web::Form<Adlist>,
+    source: web::Form<RemoveSource>,
     singularity_config: web::Data<RwLock<SingularityConfig>>,
 ) -> impl Responder {
-    info!("Adding new adlist: {:?}", adlist);
+    info!("Removing adlist: {:?}", source);
 
     let mut cfg = singularity_config
         .write()
         .expect("failed to lock write singularity config");
 
-    if cfg.add_adlist(adlist.into_inner()) {
-        info!("Adlist succesfully added");
+    if cfg.remove_adlist(&source.source) {
+        info!("Adlist succesfully removed");
 
         HttpResponse::build(StatusCode::SEE_OTHER)
             .append_header((header::LOCATION, "/settings/singularity"))
             .finish()
     } else {
-        warn!("Failed to add adlist: adlist with the same source URL already exists");
+        warn!("Failed to remove adlist: no adlist with the source exists");
 
-        template::settings(SettingsPage::Singularity(SingularitySubPage::AddNewAdlist), &cfg)
-            .alert(Alert::Warning(
-                "Failed to add new adlist: adlist with the same source URL already exists.".to_string(),
-            ))
-            .ok()
+        template::settings(
+            SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(&source.source)),
+            &cfg,
+        )
+        .alert(Alert::Warning(
+            "Failed to remove adlist: no adlist with the source exists".to_string(),
+        ))
+        .bad_request()
     }
 }

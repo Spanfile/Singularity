@@ -10,8 +10,8 @@ version = "0.1.0"
 [dependencies]
 singularity = {path = "../singularity", default-features = false, features = ["serde"]}
 
-actix-files = "0.6.0-beta.12"
-actix-web = "4.0.0-beta.18"
+actix-files = "0.6.0-beta.13"
+actix-web = "4.0.0-beta.19"
 anyhow = "1.0.52"
 chrono = "0.4.19"
 dotenv = "0.15.0"

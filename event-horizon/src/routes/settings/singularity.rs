@@ -1,4 +1,5 @@
 mod add_new_adlist;
+mod remove_adlist;
 
 use crate::{
     singularity::SingularityConfig,
@@ -14,7 +15,8 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/singularity")
             .service(web::resource("").route(web::get().to(singularity)))
-            .configure(add_new_adlist::config),
+            .configure(add_new_adlist::config)
+            .configure(remove_adlist::config),
     );
 }
 

@@ -2,15 +2,17 @@ use crate::singularity::SingularityConfig;
 use maud::{html, Markup};
 
 #[derive(PartialEq, Eq)]
-pub enum SingularitySubPage {
+pub enum SingularitySubPage<'a> {
     Main,
     AddNewAdlist,
+    RemoveAdlist(&'a str),
 }
 
 pub fn singularity(sub_page: SingularitySubPage, singularity_config: &SingularityConfig) -> Markup {
     match sub_page {
         SingularitySubPage::Main => main(singularity_config),
         SingularitySubPage::AddNewAdlist => add_new_adlist(),
+        SingularitySubPage::RemoveAdlist(source) => remove_adlist(source),
     }
 }
 
@@ -44,11 +46,7 @@ fn main(singularity_config: &SingularityConfig) -> Markup {
                                 td ."align-middle" {a href=(adlist.source()) { (adlist.source()) } }
                                 td ."align-middle" { (adlist.format()) }
                                 td {
-                                    form method="POST" {
-                                        input name="submitted_form" value="remove_adlist" type="hidden";
-                                        input name="source" value=(adlist.source()) type="hidden";
-                                        button .btn ."btn-danger" ."btn-sm" ."float-end" type="submit" { "Delete" }
-                                    }
+                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={ "/settings/singularity/remove_adlist?source=" (adlist.source()) } { "Delete" }
                                 }
                             }
                         }
@@ -87,6 +85,26 @@ fn add_new_adlist() -> Markup {
                     button .btn ."btn-primary" ."me-3" type="submit" { "Add new adlist" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
 
+                }
+            }
+        }
+    }
+}
+
+fn remove_adlist(source: &str) -> Markup {
+    html! {
+        .card ."w-100" ."mb-3" {
+            ."card-header" ."bg-danger" ."text-white" { "Remove adlist" }
+            ."card-body" {
+                p ."card-text" { "Are you sure you want to delete this adlist? The operation is irreversible!" }
+                p ."card-text" {
+                    a href=(source) { (source) }
+                }
+
+                form method="POST" {
+                    input name="source" value=(source) type="hidden";
+                    button .btn ."btn-danger" ."me-3" type="submit" { "Delete" }
+                    a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }
         }
