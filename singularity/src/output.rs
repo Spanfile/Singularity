@@ -13,6 +13,10 @@ use tempfile::tempfile;
 
 pub const DEFAULT_BLACKHOLE_ADDRESS_V4: &str = "0.0.0.0";
 pub const DEFAULT_BLACKHOLE_ADDRESS_V6: &str = "::";
+pub const DEFAULT_DEDUPLICATE: bool = false;
+pub const DEFAULT_OUTPUT_METRIC: bool = true;
+pub const DEFAULT_METRIC_NAME: &str = "blocked-queries";
+
 const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -28,14 +32,16 @@ pub struct Output {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize), serde(tag = "type"))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize, serde::Serialize),
+    serde(tag = "type", rename_all = "kebab-case")
+)]
 pub enum OutputType {
-    #[cfg_attr(feature = "serde", serde(rename = "hosts"))]
     Hosts {
         #[cfg_attr(feature = "serde", serde(default))]
         include: Vec<PathBuf>,
     },
-    #[cfg_attr(feature = "serde", serde(rename = "pdns-lua"))]
     PdnsLua {
         #[cfg_attr(feature = "serde", serde(default = "default_output_metric"))]
         output_metric: bool,
@@ -205,14 +211,14 @@ fn default_blackhole_address() -> IpAddr {
 
 #[cfg(feature = "serde")]
 fn default_output_metric() -> bool {
-    true
+    DEFAULT_OUTPUT_METRIC
 }
 
 #[cfg(feature = "serde")]
 fn default_metric_name() -> String {
-    String::from("blocked-queries")
+    String::from(DEFAULT_METRIC_NAME)
 }
 
 fn default_deduplicate() -> bool {
-    false
+    DEFAULT_DEDUPLICATE
 }

@@ -13,7 +13,7 @@ pub enum SettingsPage {
     Recursor,
 }
 
-pub fn settings(page: SettingsPage, singularity_config: &SingularityConfig) -> ResponseBuilder<'static> {
+pub fn settings(page: SettingsPage, cfg: &SingularityConfig) -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
         .row {
             ."col-lg-2" {
@@ -27,7 +27,7 @@ pub fn settings(page: SettingsPage, singularity_config: &SingularityConfig) -> R
             ."col-lg-10" {
                 @match page {
                     SettingsPage::EventHorizon => (event_horizon()),
-                    SettingsPage::Singularity(sub) => (singularity::singularity(sub, singularity_config)),
+                    SettingsPage::Singularity(sub) => (singularity::singularity(sub, cfg)),
                     SettingsPage::Recursor => (recursor()),
                 }
             }

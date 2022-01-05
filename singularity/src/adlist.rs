@@ -4,7 +4,7 @@ use url::Url;
 
 const HTTP_READ_TIMEOUT: u64 = 10_000;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Adlist {
     pub(crate) source: Url,
@@ -12,7 +12,7 @@ pub struct Adlist {
     pub(crate) format: AdlistFormat,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),

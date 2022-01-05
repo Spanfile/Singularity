@@ -24,13 +24,14 @@ impl SingularityConfig {
 
     /// Adds a new adlist to the configuration. Returns whether the adlist was succesfully added.
     pub fn add_adlist(&mut self, adlist: Adlist) -> bool {
-        if self.adlists.insert(self.last_id, adlist).is_none() {
-            self.last_id += 1;
-            self.dirty = true;
-            true
-        } else {
-            false
+        if self.adlists.values().any(|other| &adlist == other) {
+            return false;
         }
+
+        self.adlists.insert(self.last_id, adlist);
+        self.last_id += 1;
+        self.dirty = true;
+        true
     }
 
     /// Removes a given adlist from the configuration. Returns whether the adlist was succesfully removed.
@@ -53,13 +54,14 @@ impl SingularityConfig {
 
     /// Adds a new output to the configuration. Returns whether the output was succesfully added.
     pub fn add_output(&mut self, output: Output) -> bool {
-        if self.outputs.insert(self.last_id, output).is_none() {
-            self.last_id += 1;
-            self.dirty = true;
-            true
-        } else {
-            false
+        if self.outputs.values().any(|other| &output == other) {
+            return false;
         }
+
+        self.outputs.insert(self.last_id, output);
+        self.last_id += 1;
+        self.dirty = true;
+        true
     }
 
     /// Removes a given output from the configuration. Returns whether the output was succesfully removed.
@@ -82,13 +84,14 @@ impl SingularityConfig {
 
     /// Adds a new domain to the whitelist. Returns whether the domain was succesfully added.
     pub fn add_whitelisted_domain(&mut self, domain: String) -> bool {
-        if self.whitelist.insert(self.last_id, domain).is_none() {
-            self.last_id += 1;
-            self.dirty = true;
-            true
-        } else {
-            false
+        if self.whitelist.values().any(|other| &domain == other) {
+            return false;
         }
+
+        self.whitelist.insert(self.last_id, domain);
+        self.last_id += 1;
+        self.dirty = true;
+        true
     }
 
     /// Removes a given domain from the whitelist. Returns whether the domain was succesfully removed.
