@@ -110,7 +110,7 @@ pub fn add_new_lua_output() -> Markup {
                     (common_output_form("pdns-lua"))
 
                     ."mb-3" ."form-check" {
-                        input ."form-check-input" #output_metric name="output_metric" type="checkbox" value="true" checked[DEFAULT_OUTPUT_METRIC];
+                        input ."form-check-input" #output_metric name="output_metric" type="checkbox" checked[DEFAULT_OUTPUT_METRIC];
                         label ."form-check-label" for="output_metric" { "Metric enabled" }
                     }
 
@@ -142,7 +142,7 @@ fn common_output_form(ty: &str) -> Markup {
         }
 
         ."mb-3" ."form-check" {
-            input ."form-check-input" #deduplicate name="deduplicate" type="checkbox" value="true" checked[DEFAULT_DEDUPLICATE];
+            input ."form-check-input" #deduplicate name="deduplicate" type="checkbox" checked[DEFAULT_DEDUPLICATE];
             label ."form-check-label" for="deduplicate" { "Deduplicate" }
         }
     }
