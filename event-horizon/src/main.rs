@@ -69,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
 
     singularity_config.add_output(Output::new(
         OutputType::Hosts {
-            include: vec!["hosts1".into(), "hosts2".into()],
+            include: vec!["hosts1".into(), "hosts2".into(), "hosts3".into()],
         },
         "test/path",
     ));

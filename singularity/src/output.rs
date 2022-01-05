@@ -58,7 +58,7 @@ impl std::fmt::Display for OutputType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             OutputType::Hosts { .. } => write!(f, "Hosts-file"),
-            OutputType::PdnsLua { .. } => write!(f, "PDNS Recursor Lua script"),
+            OutputType::PdnsLua { .. } => write!(f, "Recursor Lua script"),
         }
     }
 }

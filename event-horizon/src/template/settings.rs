@@ -7,9 +7,9 @@ use crate::singularity::SingularityConfig;
 use maud::{html, Markup};
 
 #[derive(PartialEq, Eq)]
-pub enum SettingsPage<'a> {
+pub enum SettingsPage {
     EventHorizon,
-    Singularity(SingularitySubPage<'a>),
+    Singularity(SingularitySubPage),
     Recursor,
 }
 

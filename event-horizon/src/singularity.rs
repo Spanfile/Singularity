@@ -1,18 +1,17 @@
 use singularity::{Adlist, Output};
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::{collections::HashMap, path::Path};
 
 #[derive(Debug, Default)]
 pub struct SingularityConfig {
     /// If true, Singularity hasn't yet been ran with this config.
     dirty: bool,
 
-    adlists: HashMap<String, Adlist>,
-    outputs: HashSet<Output>,
-    whitelist: HashSet<String>,
+    adlists: HashMap<u64, Adlist>,
+    outputs: HashMap<u64, Output>,
+    whitelist: HashMap<u64, String>,
     http_timeout: u64,
+
+    last_id: u64,
 }
 
 impl SingularityConfig {
@@ -25,7 +24,8 @@ impl SingularityConfig {
 
     /// Adds a new adlist to the configuration. Returns whether the adlist was succesfully added.
     pub fn add_adlist(&mut self, adlist: Adlist) -> bool {
-        if self.adlists.insert(adlist.source().to_string(), adlist).is_none() {
+        if self.adlists.insert(self.last_id, adlist).is_none() {
+            self.last_id += 1;
             self.dirty = true;
             true
         } else {
@@ -34,8 +34,8 @@ impl SingularityConfig {
     }
 
     /// Removes a given adlist from the configuration. Returns whether the adlist was succesfully removed.
-    pub fn remove_adlist(&mut self, source: &str) -> bool {
-        if self.adlists.remove(source).is_some() {
+    pub fn remove_adlist(&mut self, id: u64) -> bool {
+        if self.adlists.remove(&id).is_some() {
             self.dirty = true;
             true
         } else {
@@ -43,13 +43,18 @@ impl SingularityConfig {
         }
     }
 
-    pub fn adlists(&self) -> impl Iterator<Item = (&str, &Adlist)> {
-        self.adlists.iter().map(|(k, v)| (k.as_ref(), v))
+    pub fn get_adlist(&self, id: u64) -> Option<&Adlist> {
+        self.adlists.get(&id)
+    }
+
+    pub fn adlists(&self) -> impl Iterator<Item = (u64, &Adlist)> {
+        self.adlists.iter().map(|(k, v)| (*k, v))
     }
 
     /// Adds a new output to the configuration. Returns whether the output was succesfully added.
     pub fn add_output(&mut self, output: Output) -> bool {
-        if self.outputs.insert(output) {
+        if self.outputs.insert(self.last_id, output).is_none() {
+            self.last_id += 1;
             self.dirty = true;
             true
         } else {
@@ -58,8 +63,8 @@ impl SingularityConfig {
     }
 
     /// Removes a given output from the configuration. Returns whether the output was succesfully removed.
-    pub fn remove_output(&mut self, output: Output) -> bool {
-        if self.outputs.remove(&output) {
+    pub fn remove_output(&mut self, id: u64) -> bool {
+        if self.outputs.remove(&id).is_some() {
             self.dirty = true;
             true
         } else {
@@ -67,13 +72,18 @@ impl SingularityConfig {
         }
     }
 
-    pub fn outputs(&self) -> impl Iterator<Item = &Output> {
-        self.outputs.iter()
+    pub fn get_output(&self, id: u64) -> Option<&Output> {
+        self.outputs.get(&id)
+    }
+
+    pub fn outputs(&self) -> impl Iterator<Item = (u64, &Output)> {
+        self.outputs.iter().map(|(k, v)| (*k, v))
     }
 
     /// Adds a new domain to the whitelist. Returns whether the domain was succesfully added.
     pub fn add_whitelisted_domain(&mut self, domain: String) -> bool {
-        if self.whitelist.insert(domain) {
+        if self.whitelist.insert(self.last_id, domain).is_none() {
+            self.last_id += 1;
             self.dirty = true;
             true
         } else {
@@ -82,8 +92,8 @@ impl SingularityConfig {
     }
 
     /// Removes a given domain from the whitelist. Returns whether the domain was succesfully removed.
-    pub fn remove_whitelisted_domain(&mut self, domain: &str) -> bool {
-        if self.whitelist.remove(domain) {
+    pub fn remove_whitelisted_domain(&mut self, id: u64) -> bool {
+        if self.whitelist.remove(&id).is_some() {
             self.dirty = true;
             true
         } else {
@@ -91,7 +101,11 @@ impl SingularityConfig {
         }
     }
 
-    pub fn whitelist(&self) -> impl Iterator<Item = &str> {
-        self.whitelist.iter().map(|s| s.as_ref())
+    pub fn get_whitelist(&self, id: u64) -> Option<&str> {
+        self.whitelist.get(&id).map(|s| s.as_str())
+    }
+
+    pub fn whitelist(&self) -> impl Iterator<Item = (u64, &str)> {
+        self.whitelist.iter().map(|(k, v)| (*k, v.as_ref()))
     }
 }

@@ -1,23 +1,31 @@
 use crate::singularity::SingularityConfig;
 use maud::{html, Markup};
-use singularity::OutputType;
+use singularity::{Output, OutputType};
 
 #[derive(PartialEq, Eq)]
-pub enum SingularitySubPage<'a> {
+pub enum SingularitySubPage {
     Main,
     AddNewAdlist,
-    RemoveAdlist(&'a str),
+    RemoveAdlist(u64),
 }
 
 pub fn singularity(sub_page: SingularitySubPage, singularity_config: &SingularityConfig) -> Markup {
     match sub_page {
         SingularitySubPage::Main => main(singularity_config),
         SingularitySubPage::AddNewAdlist => add_new_adlist(),
-        SingularitySubPage::RemoveAdlist(source) => remove_adlist(source),
+        SingularitySubPage::RemoveAdlist(id) => remove_adlist(id, singularity_config),
     }
 }
 
-fn main(singularity_config: &SingularityConfig) -> Markup {
+fn main(cfg: &SingularityConfig) -> Markup {
+    html! {
+            (general_card(cfg))
+            (adlists_card(cfg))
+            (outputs_card(cfg))
+    }
+}
+
+fn general_card(cfg: &SingularityConfig) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "General" }
@@ -26,7 +34,11 @@ fn main(singularity_config: &SingularityConfig) -> Markup {
                 // - whitelists
             }
         }
+    }
+}
 
+fn adlists_card(cfg: &SingularityConfig) -> Markup {
+    html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Adlists" }
             ."card-body" {
@@ -41,13 +53,13 @@ fn main(singularity_config: &SingularityConfig) -> Markup {
                         }
                     }
                     tbody {
-                        @for (_, adlist) in singularity_config.adlists() {
+                        @for (id, adlist) in cfg.adlists() {
                             tr {
                                 // TODO: horizontal overflow to this element
                                 td ."align-middle" {a href=(adlist.source()) { (adlist.source()) } }
                                 td ."align-middle" { (adlist.format()) }
                                 td {
-                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={ "/settings/singularity/remove_adlist?source=" (adlist.source()) } { "Delete" }
+                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={ "/settings/singularity/remove_adlist?id=" (id) } { "Delete" }
                                 }
                             }
                         }
@@ -55,7 +67,11 @@ fn main(singularity_config: &SingularityConfig) -> Markup {
                 }
             }
         }
+    }
+}
 
+fn outputs_card(cfg: &SingularityConfig) -> Markup {
+    html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Outputs" }
             ."card-body" {
@@ -70,34 +86,62 @@ fn main(singularity_config: &SingularityConfig) -> Markup {
                 }
 
                 ."list-group" ."mt-3" {
-                    @for output in singularity_config.outputs() {
-                        li ."list-group-item" {
-                            dl .row {
-                                dt ."col-lg-3" { "Destination" }
-                                dd ."col-lg-9" { (output.destination.display()) }
+                    @for (id, output) in cfg.outputs() {
+                        (single_output_card(id, output))
+                    }
+                }
+            }
+        }
+    }
+}
 
-                                dt ."col-lg-3" { "Type" }
-                                dd ."col-lg-9" {
-                                    (output.ty)
-                                    @match &output.ty {
-                                        OutputType::Hosts { include } => { },
-                                        OutputType::PdnsLua { output_metric, metric_name } => {
-                                            dl .row ."mb-0" {
-                                                dt ."col-lg-4" { "Metric enabled" }
-                                                dd ."col-lg-8" { (output_metric) }
+fn single_output_card(id: u64, output: &Output) -> Markup {
+    html! {
+        .card ."w-100" ."mb-3" {
+            ."card-header" ."container-fluid" {
+                .row ."g-3" {
+                    ."col-auto" ."me-auto" ."d-flex" ."align-items-center" { (output.ty) " - " (output.destination.display()) }
+                    ."col-auto" {
+                        a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={ "/settings/singularity/edit_output?id=" (id) } { "Edit" }
+                    }
+                    ."col-auto" {
+                        a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } { "Delete" }
+                    }
+                }
+            }
 
-                                                dt ."col-lg-4" { "Metric name" }
-                                                dd ."col-lg-8" { (metric_name) }
+            ."card-body" {
+                .row {
+                    ."col-md" {
+                        dl .row {
+                            dt ."col-lg-6" { "Blackhole address" }
+                            dd ."col-lg-6" { (output.blackhole_address) }
+
+                            dt ."col-lg-6" { "Deduplicate" }
+                            dd ."col-lg-6" { (output.deduplicate) }
+                        }
+                    }
+
+                    ."col-md" {
+                        dl .row {
+                            @match &output.ty {
+                                OutputType::Hosts { include } => {
+                                    dt ."col-xl-12" { "Included files" }
+                                    dd ."col-xl-12" {
+                                        ul ."list-group" ."list-group-flush" {
+                                            @for file in include {
+                                                li ."list-group-item" { (file.display()) }
                                             }
-                                        },
+                                        }
                                     }
-                                }
+                                },
+                                OutputType::PdnsLua { output_metric, metric_name } => {
+                                    dt ."col-lg-6" { "Metric enabled" }
+                                    dd ."col-lg-6" { (output_metric) }
 
-                                dt ."col-lg-3" { "Blackhole address" }
-                                dd ."col-lg-9" { (output.blackhole_address) }
-
-                                dt ."col-lg-3" { "Deduplicate" }
-                                dd ."col-lg-9" { (output.deduplicate) }
+                                    dt ."col-lg-6" { "Metric name" }
+                                    dd ."col-lg-6" { (metric_name) }
+                                },
                             }
                         }
                     }
@@ -136,18 +180,20 @@ fn add_new_adlist() -> Markup {
     }
 }
 
-fn remove_adlist(source: &str) -> Markup {
+fn remove_adlist(id: u64, cfg: &SingularityConfig) -> Markup {
+    let adlist = cfg.get_adlist(id).expect("no adlist found when generating template");
+
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Remove adlist" }
             ."card-body" {
                 p ."card-text" { "Are you sure you want to delete this adlist? The operation is irreversible!" }
                 p ."card-text" {
-                    a href=(source) { (source) }
+                    a href=(adlist.source()) { (adlist.source()) }
                 }
 
                 form method="POST" {
-                    input name="source" value=(source) type="hidden";
+                    input name="source" value=(id) type="hidden";
                     button .btn ."btn-danger" ."me-3" type="submit" { "Delete" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }

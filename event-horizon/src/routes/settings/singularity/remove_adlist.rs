@@ -17,8 +17,8 @@ use serde::Deserialize;
 use std::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
-struct RemoveSource {
-    source: String,
+struct RemoveId {
+    id: u64,
 }
 
 pub fn config(cfg: &mut web::ServiceConfig) {
@@ -43,11 +43,11 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
             .and_then(|cfg| cfg.read().ok())
             .expect("failed to lock read singularity config");
 
-        let source = web::Query::<RemoveSource>::from_query(req.query_string())
+        let source = web::Query::<RemoveId>::from_query(req.query_string())
             .expect("failed to extract source parameter from query");
 
         template::settings(
-            SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(&source.source)),
+            SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(source.id)),
             &cfg,
         )
         .alert(Alert::Warning(format!("Failed to remove adlist: {}", err)))
@@ -57,31 +57,27 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
 }
 
 async fn remove_adlist(
-    source: web::Query<RemoveSource>,
+    id: web::Query<RemoveId>,
     singularity_config: web::Data<RwLock<SingularityConfig>>,
 ) -> impl Responder {
     let cfg = singularity_config
         .read()
         .expect("failed to lock read singularity config");
 
-    template::settings(
-        SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(&source.source)),
-        &cfg,
-    )
-    .ok()
+    template::settings(SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(id.id)), &cfg).ok()
 }
 
 async fn submit_form(
-    source: web::Form<RemoveSource>,
+    id: web::Form<RemoveId>,
     singularity_config: web::Data<RwLock<SingularityConfig>>,
 ) -> impl Responder {
-    info!("Removing adlist: {:?}", source);
+    info!("Removing adlist: {:?}", id);
 
     let mut cfg = singularity_config
         .write()
         .expect("failed to lock write singularity config");
 
-    if cfg.remove_adlist(&source.source) {
+    if cfg.remove_adlist(id.id) {
         info!("Adlist succesfully removed");
 
         HttpResponse::build(StatusCode::SEE_OTHER)
@@ -90,13 +86,10 @@ async fn submit_form(
     } else {
         warn!("Failed to remove adlist: no adlist with the source exists");
 
-        template::settings(
-            SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(&source.source)),
-            &cfg,
-        )
-        .alert(Alert::Warning(
-            "Failed to remove adlist: no adlist with the source exists".to_string(),
-        ))
-        .bad_request()
+        template::settings(SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(id.id)), &cfg)
+            .alert(Alert::Warning(
+                "Failed to remove adlist: no adlist with the source exists".to_string(),
+            ))
+            .bad_request()
     }
 }
