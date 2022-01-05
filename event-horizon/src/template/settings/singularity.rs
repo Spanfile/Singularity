@@ -1,5 +1,6 @@
 use crate::singularity::SingularityConfig;
 use maud::{html, Markup};
+use singularity::OutputType;
 
 #[derive(PartialEq, Eq)]
 pub enum SingularitySubPage<'a> {
@@ -29,7 +30,7 @@ fn main(singularity_config: &SingularityConfig) -> Markup {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Adlists" }
             ."card-body" {
-                a .btn ."btn-primary" href="singularity/add_new_adlist" { "Add new adlist" }
+                a .btn ."btn-primary" href="/settings/singularity/add_new_adlist" { "Add new adlist" }
 
                 table .table ."mt-3" {
                     thead {
@@ -57,7 +58,51 @@ fn main(singularity_config: &SingularityConfig) -> Markup {
 
         .card ."w-100" ."mb-3" {
             ."card-header" { "Outputs" }
-            ."card-body" { }
+            ."card-body" {
+                .row ."g-3" {
+                    ."col-auto" {
+                        a .btn ."btn-primary" href="/settings/singularity/add_new_pdns_lua_output" { "Add new PDNS Lua script output" }
+                    }
+
+                    ."col-auto" {
+                        a .btn ."btn-primary" href="/settings/singularity/add_new_hosts_output" { "Add new hosts-file output" }
+                    }
+                }
+
+                ."list-group" ."mt-3" {
+                    @for output in singularity_config.outputs() {
+                        li ."list-group-item" {
+                            dl .row {
+                                dt ."col-lg-3" { "Destination" }
+                                dd ."col-lg-9" { (output.destination.display()) }
+
+                                dt ."col-lg-3" { "Type" }
+                                dd ."col-lg-9" {
+                                    (output.ty)
+                                    @match &output.ty {
+                                        OutputType::Hosts { include } => { },
+                                        OutputType::PdnsLua { output_metric, metric_name } => {
+                                            dl .row ."mb-0" {
+                                                dt ."col-lg-4" { "Metric enabled" }
+                                                dd ."col-lg-8" { (output_metric) }
+
+                                                dt ."col-lg-4" { "Metric name" }
+                                                dd ."col-lg-8" { (metric_name) }
+                                            }
+                                        },
+                                    }
+                                }
+
+                                dt ."col-lg-3" { "Blackhole address" }
+                                dd ."col-lg-9" { (output.blackhole_address) }
+
+                                dt ."col-lg-3" { "Deduplicate" }
+                                dd ."col-lg-9" { (output.deduplicate) }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

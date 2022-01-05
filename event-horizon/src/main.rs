@@ -13,7 +13,7 @@ use crate::{
     config::{Config, Listen},
     singularity::SingularityConfig,
 };
-use ::singularity::{Adlist, AdlistFormat};
+use ::singularity::{Adlist, AdlistFormat, Output, OutputType};
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};
 use log::*;
@@ -48,14 +48,31 @@ async fn main() -> anyhow::Result<()> {
         "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
         AdlistFormat::Hosts,
     )?);
+
     singularity_config.add_adlist(Adlist::new(
         "https://raw.githubusercontent.com/VeleSila/yhosts/master/hosts",
         AdlistFormat::Hosts,
     )?);
+
     singularity_config.add_adlist(Adlist::new(
         "https://github.com/notracking/hosts-blocklists/raw/master/dnsmasq/dnsmasq.blacklist.txt",
         AdlistFormat::Dnsmasq,
     )?);
+
+    singularity_config.add_output(Output::new(
+        OutputType::PdnsLua {
+            output_metric: false,
+            metric_name: String::from("metric"),
+        },
+        "test/path",
+    ));
+
+    singularity_config.add_output(Output::new(
+        OutputType::Hosts {
+            include: vec!["hosts1".into(), "hosts2".into()],
+        },
+        "test/path",
+    ));
 
     let singularity_config = web::Data::new(RwLock::new(singularity_config));
 

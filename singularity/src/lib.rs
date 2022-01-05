@@ -6,7 +6,7 @@ mod progress_read;
 
 pub use adlist::{Adlist, AdlistFormat};
 pub use error::{Result, SingularityError};
-pub use output::{Output, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_BLACKHOLE_ADDRESS_V6};
+pub use output::{Output, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_BLACKHOLE_ADDRESS_V6};
 
 use builder::SingularityBuilder;
 use crossbeam_utils::{atomic::AtomicCell, thread};
