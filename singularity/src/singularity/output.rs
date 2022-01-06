@@ -133,22 +133,22 @@ impl Output {
         }
     }
 
-    /// Returns a reference to the builder's [output type](OutputType).
+    /// Returns a reference to the output's [type](OutputType).
     pub fn ty(&self) -> &OutputType {
         &self.ty
     }
 
-    /// Returns a reference to the builder's destination.
+    /// Returns a reference to the output's destination.
     pub fn destination(&self) -> &Path {
         self.destination.as_path()
     }
 
-    /// Returns the builder's blackhole address.
+    /// Returns the outputs's blackhole address.
     pub fn blackhole_address(&self) -> IpAddr {
         self.blackhole_address
     }
 
-    /// Returns the builder's deduplication setting.
+    /// Returns the outputs's deduplication setting.
     pub fn deduplicate(&self) -> bool {
         self.deduplicate
     }
@@ -343,4 +343,256 @@ fn default_metric_name() -> String {
 
 fn default_deduplicate() -> bool {
     DEFAULT_DEDUPLICATE
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Output, OutputType};
+    use crate::{SingularityError, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_METRIC_NAME};
+    use std::io::{Read, Write};
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn default_fields() {
+        let output = Output::builder(OutputType::Hosts { include: vec![] }, "path").build();
+        assert!(matches!(output, Ok(_)));
+    }
+
+    #[test]
+    fn all_valid_fields() {
+        let output = Output::builder(
+            OutputType::PdnsLua {
+                output_metric: true,
+                metric_name: String::from("test"),
+            },
+            "path",
+        )
+        .blackhole_address("1.2.3.4")
+        .expect("failed to set blackhole address")
+        .deduplicate(true)
+        .build();
+        assert!(matches!(output, Ok(_)));
+    }
+
+    #[test]
+    fn empty_destination() {
+        let output = Output::builder(OutputType::Hosts { include: vec![] }, "").build();
+        assert!(matches!(output, Err(SingularityError::EmptyDestination)));
+    }
+
+    #[test]
+    fn empty_lua_metric_name() {
+        let output = Output::builder(
+            OutputType::PdnsLua {
+                output_metric: true,
+                metric_name: String::new(),
+            },
+            "path",
+        )
+        .build();
+        assert!(matches!(output, Err(SingularityError::EmptyMetricName)));
+    }
+
+    #[test]
+    fn invalid_blackhole_address() {
+        let builder =
+            Output::builder(OutputType::Hosts { include: vec![] }, "path").blackhole_address("invalid ip address");
+        assert!(matches!(builder, Err(SingularityError::InvalidIpAddress(_))));
+    }
+
+    #[test]
+    fn activation() {
+        let output = Output::builder(OutputType::Hosts { include: vec![] }, "path")
+            .build()
+            .expect("failed to build output");
+
+        let activate = output.activate();
+        assert!(matches!(activate, Ok(_)));
+    }
+
+    #[test]
+    fn write_host() {
+        let mut output = Output::builder(OutputType::Hosts { include: vec![] }, "path")
+            .build()
+            .expect("failed to build output")
+            .activate()
+            .expect("failed to activate output");
+
+        let write = output.write_host("host");
+        assert!(matches!(write, Ok(_)));
+    }
+
+    #[test]
+    fn finalise_hosts() {
+        let mut dest = NamedTempFile::new().expect("failed to create dest tempfile");
+        let path = dest.path();
+
+        println!("Using dest: {}", path.display());
+        let mut output = Output::builder(OutputType::Hosts { include: vec![] }, path)
+            .build()
+            .expect("failed to build output")
+            .activate()
+            .expect("failed to activate output");
+
+        output.write_host("example.com").expect("failed to write host");
+        output.write_host("google.com").expect("failed to write host");
+        output.finalise().expect("failed to finalise output");
+
+        let mut buf = String::new();
+        dest.read_to_string(&mut buf).expect("failed to read output");
+
+        // the generated-at comment cannot be tested for
+        let out = buf.split_once('\n').expect("failed to split output").1;
+
+        assert_eq!(
+            out,
+            format!("{bh} example.com\n{bh} google.com\n", bh = DEFAULT_BLACKHOLE_ADDRESS_V4)
+        );
+    }
+
+    #[test]
+    fn finalise_pdns_lua() {
+        let mut dest = NamedTempFile::new().expect("failed to create dest tempfile");
+        let path = dest.path();
+
+        println!("Using dest: {}", path.display());
+        let mut output = Output::builder(
+            OutputType::PdnsLua {
+                output_metric: true,
+                metric_name: String::from(DEFAULT_METRIC_NAME),
+            },
+            path,
+        )
+        .build()
+        .expect("failed to build output")
+        .activate()
+        .expect("failed to activate output");
+
+        output.write_host("example.com").expect("failed to write host");
+        output.write_host("google.com").expect("failed to write host");
+        output.finalise().expect("failed to finalise output");
+
+        let mut buf = String::new();
+        dest.read_to_string(&mut buf).expect("failed to read output");
+
+        // the generated-at comment cannot be tested for
+        let script = buf.split_once('\n').expect("failed to split output").1;
+
+        assert_eq!(
+            script,
+            format!(
+                "b=newDS() b:add{{\"example.com\",\"google.com\",}} function preresolve(q) if b:check(q.qname) then \
+                 if q.qtype==pdns.A then q:addAnswer(pdns.A,\"{}\") m=getMetric(\"{}\") m:inc() return true end end \
+                 return false end\n",
+                DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_METRIC_NAME
+            )
+        );
+    }
+
+    #[test]
+    fn finalise_pdns_lua_no_metric() {
+        let mut dest = NamedTempFile::new().expect("failed to create dest tempfile");
+        let path = dest.path();
+
+        println!("Using dest: {}", path.display());
+        let mut output = Output::builder(
+            OutputType::PdnsLua {
+                output_metric: false,
+                metric_name: String::from(DEFAULT_METRIC_NAME),
+            },
+            path,
+        )
+        .build()
+        .expect("failed to build output")
+        .activate()
+        .expect("failed to activate output");
+
+        output.write_host("example.com").expect("failed to write host");
+        output.write_host("google.com").expect("failed to write host");
+        output.finalise().expect("failed to finalise output");
+
+        let mut buf = String::new();
+        dest.read_to_string(&mut buf).expect("failed to read output");
+
+        // the generated-at comment cannot be tested for
+        let script = buf.split_once('\n').expect("failed to split output").1;
+
+        assert_eq!(
+            script,
+            format!(
+                "b=newDS() b:add{{\"example.com\",\"google.com\",}} function preresolve(q) if b:check(q.qname) then \
+                 if q.qtype==pdns.A then q:addAnswer(pdns.A,\"{}\") return true end end return false end\n",
+                DEFAULT_BLACKHOLE_ADDRESS_V4
+            )
+        );
+    }
+
+    #[test]
+    fn deduplication() {
+        let mut dest = NamedTempFile::new().expect("failed to create dest tempfile");
+        let path = dest.path();
+
+        println!("Using dest: {}", path.display());
+        let mut output = Output::builder(OutputType::Hosts { include: vec![] }, path)
+            .deduplicate(true)
+            .build()
+            .expect("failed to build output")
+            .activate()
+            .expect("failed to activate output");
+
+        output.write_host("example.com").expect("failed to write host");
+        output.write_host("example.com").expect("failed to write host");
+        output.finalise().expect("failed to finalise output");
+
+        let mut buf = String::new();
+        dest.read_to_string(&mut buf).expect("failed to read output");
+
+        // the generated-at comment cannot be tested for
+        let out = buf.split_once('\n').expect("failed to split output").1;
+
+        assert_eq!(out, format!("{} example.com\n", DEFAULT_BLACKHOLE_ADDRESS_V4));
+    }
+
+    #[test]
+    fn include_hosts() {
+        const INCLUDE_HOSTS: &str = "0.0.0.0 google.com";
+
+        let mut include = NamedTempFile::new().expect("failed to create include tempfile");
+        include
+            .write_all(INCLUDE_HOSTS.as_bytes())
+            .expect("failed to write include hosts");
+
+        let mut dest = NamedTempFile::new().expect("failed to create dest tempfile");
+        let path = dest.path();
+
+        println!("Using dest: {}", path.display());
+        let mut output = Output::builder(
+            OutputType::Hosts {
+                include: vec![include.path().to_path_buf()],
+            },
+            path,
+        )
+        .build()
+        .expect("failed to build output")
+        .activate()
+        .expect("failed to activate output");
+
+        output.write_host("example.com").expect("failed to write host");
+        output.finalise().expect("failed to finalise output");
+
+        let mut buf = String::new();
+        dest.read_to_string(&mut buf).expect("failed to read output");
+
+        // the generated-at comment cannot be tested for
+        let out = buf.split_once('\n').expect("failed to split output").1;
+
+        assert_eq!(
+            out,
+            format!(
+                "{bh} example.com\n\n# hosts included from {inc}\n\n{bh} google.com",
+                bh = DEFAULT_BLACKHOLE_ADDRESS_V4,
+                inc = include.path().display()
+            )
+        );
+    }
 }

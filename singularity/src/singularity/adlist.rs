@@ -1,4 +1,4 @@
-use crate::{error::SingularityError, Result};
+use crate::{Result, SingularityError};
 use std::{fs::File, io::Read, time::Duration};
 use url::Url;
 
@@ -152,5 +152,76 @@ impl Adlist {
             }
             scheme => Err(SingularityError::UnsupportedUrlScheme(scheme.to_string())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Adlist, AdlistFormat};
+    use crate::{SingularityError, HTTP_CONNECT_TIMEOUT};
+    use httptest::{matchers::request, responders::status_code, Expectation, Server};
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    const HOSTS: &str = r#"
+        0.0.0.0 example.com
+        0.0.0.0 google.com
+    "#;
+
+    #[test]
+    fn valid_url() {
+        let adlist = Adlist::new("https://example.com", AdlistFormat::Hosts);
+        assert!(matches!(adlist, Ok(_)));
+    }
+
+    #[test]
+    fn invalid_url() {
+        let adlist = Adlist::new("invalid", AdlistFormat::Hosts);
+        assert!(matches!(adlist, Err(SingularityError::Url(_))));
+    }
+
+    #[test]
+    fn read_unsupported_url_scheme() {
+        let adlist = Adlist::new("gopher://example", AdlistFormat::Hosts).unwrap();
+        let read = adlist.read(0);
+        assert!(matches!(read, Err(SingularityError::UnsupportedUrlScheme(_))));
+    }
+
+    #[test]
+    fn read_http_source() {
+        let server = Server::run();
+        server.expect(
+            Expectation::matching(request::method_path("GET", "/hosts")).respond_with(status_code(200).body(HOSTS)),
+        );
+        let url = server.url("/hosts");
+
+        println!("Using URL: {}", url);
+        let adlist = Adlist::new(url.to_string(), AdlistFormat::Hosts).expect("failed to create adlist");
+        let (len, mut reader) = adlist.read(HTTP_CONNECT_TIMEOUT).expect("failed to get adlist reader");
+
+        println!("Got length: {:?}", len);
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf).expect("failed to read adlist");
+
+        assert_eq!(buf, HOSTS);
+    }
+
+    #[test]
+    fn read_file_hosts() {
+        let mut hosts_file = NamedTempFile::new().expect("failed to create hosts tempfile");
+        hosts_file
+            .write_all(HOSTS.as_bytes())
+            .expect("failed to write hosts to tempfile");
+        let url = format!("file:///{}", hosts_file.path().display());
+
+        println!("Using URL: {}", url);
+        let adlist = Adlist::new(url, AdlistFormat::Hosts).expect("failed to create adlist");
+        let (len, mut reader) = adlist.read(HTTP_CONNECT_TIMEOUT).expect("failed to get adlist reader");
+
+        println!("Got length: {:?}", len);
+        let mut buf = String::new();
+        reader.read_to_string(&mut buf).expect("failed to read adlist");
+
+        assert_eq!(buf, HOSTS);
     }
 }

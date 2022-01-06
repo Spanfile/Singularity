@@ -36,6 +36,9 @@ log = {version = "0.4.14", optional = true}
 num-format = {version = "0.4.0", features = ["with-system-locale"], optional = true}
 structopt = {version = "0.3.25", optional = true}
 
+[dev-dependencies]
+httptest = "0.15.4"
+
 [[bin]]
 name = "singularity"
 required-features = ["bin"]
