@@ -60,23 +60,25 @@ async fn main() -> anyhow::Result<()> {
     )?);
 
     singularity_config.add_output(
-        Output::new(
+        Output::builder(
             OutputType::PdnsLua {
                 output_metric: false,
                 metric_name: String::from("metric"),
             },
             "test/path",
         )
+        .build()
         .unwrap(),
     );
 
     singularity_config.add_output(
-        Output::new(
+        Output::builder(
             OutputType::Hosts {
                 include: vec!["hosts1".into(), "hosts2".into(), "hosts3".into()],
             },
             "test/path",
         )
+        .build()
         .unwrap(),
     );
 

@@ -62,7 +62,7 @@ enum OutputTypeForm {
 
 impl OutputForm {
     fn try_into_output(self) -> anyhow::Result<Output> {
-        Ok(Output::new(
+        Ok(Output::builder(
             match self.ty {
                 OutputTypeForm::Hosts { include } => OutputType::Hosts { include },
                 OutputTypeForm::PdnsLua {
@@ -74,9 +74,10 @@ impl OutputForm {
                 },
             },
             self.destination,
-        )?
+        )
         .blackhole_address(self.blackhole_address)
-        .deduplicate(cursed_checkbox_option(self.deduplicate)))
+        .deduplicate(cursed_checkbox_option(self.deduplicate))
+        .build()?)
     }
 }
 
@@ -178,8 +179,6 @@ fn cursed_checkbox_option(opt: Option<String>) -> bool {
 
 fn default_blackhole_address() -> IpAddr {
     DEFAULT_BLACKHOLE_ADDRESS_V4
-        .parse()
-        .expect("failed to parse default blackhole address")
 }
 
 fn default_output_metric() -> Option<String> {

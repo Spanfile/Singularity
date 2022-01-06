@@ -6,13 +6,13 @@ use std::{
     fs::File,
     io,
     io::{Seek, Write},
-    net::IpAddr,
-    path::PathBuf,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    path::{Path, PathBuf},
 };
 use tempfile::tempfile;
 
-pub const DEFAULT_BLACKHOLE_ADDRESS_V4: &str = "0.0.0.0";
-pub const DEFAULT_BLACKHOLE_ADDRESS_V6: &str = "::";
+pub const DEFAULT_BLACKHOLE_ADDRESS_V4: IpAddr = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+pub const DEFAULT_BLACKHOLE_ADDRESS_V6: IpAddr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0));
 pub const DEFAULT_DEDUPLICATE: bool = false;
 pub const DEFAULT_OUTPUT_METRIC: bool = true;
 pub const DEFAULT_METRIC_NAME: &str = "blocked-queries";
@@ -23,12 +23,12 @@ const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Output {
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub ty: OutputType,
-    pub destination: PathBuf,
+    ty: OutputType,
+    destination: PathBuf,
     #[cfg_attr(feature = "serde", serde(default = "default_blackhole_address"))]
-    pub blackhole_address: IpAddr,
+    blackhole_address: IpAddr,
     #[cfg_attr(feature = "serde", serde(default = "default_deduplicate"))]
-    pub deduplicate: bool,
+    deduplicate: bool,
 }
 
 #[derive(Debug, Hash, PartialEq, Eq)]
@@ -60,6 +60,14 @@ pub(crate) struct ActiveOutput {
     seen: HashSet<String>,
 }
 
+#[derive(Debug)]
+pub struct OutputBuilder {
+    ty: OutputType,
+    destination: PathBuf,
+    blackhole_address: IpAddr,
+    deduplicate: bool,
+}
+
 impl std::fmt::Display for OutputType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -70,46 +78,32 @@ impl std::fmt::Display for OutputType {
 }
 
 impl Output {
-    pub fn new<P>(ty: OutputType, destination: P) -> Result<Self>
+    pub fn builder<P>(ty: OutputType, destination: P) -> OutputBuilder
     where
         P: Into<PathBuf>,
     {
-        let destination = destination.into();
-        if destination.as_os_str().is_empty() {
-            return Err(SingularityError::EmptyDestination);
-        }
-
-        if let OutputType::PdnsLua {
-            output_metric,
-            metric_name,
-        } = &ty
-        {
-            if *output_metric && metric_name.is_empty() {
-                return Err(SingularityError::EmptyMetricName);
-            }
-        }
-
-        Ok(Self {
+        OutputBuilder {
             ty,
-            destination,
+            destination: destination.into(),
             blackhole_address: default_blackhole_address(),
             deduplicate: default_deduplicate(),
-        })
+        }
     }
 
-    #[must_use]
-    pub fn blackhole_address<I>(mut self, blackhole_address: I) -> Self
-    where
-        I: Into<IpAddr>,
-    {
-        self.blackhole_address = blackhole_address.into();
-        self
+    pub fn ty(&self) -> &OutputType {
+        &self.ty
     }
 
-    #[must_use]
-    pub fn deduplicate(mut self, deduplicate: bool) -> Self {
-        self.deduplicate = deduplicate;
-        self
+    pub fn destination(&self) -> &Path {
+        self.destination.as_path()
+    }
+
+    pub fn blackhole_address(&self) -> IpAddr {
+        self.blackhole_address
+    }
+
+    pub fn deduplicate(&self) -> bool {
+        self.deduplicate
     }
 
     pub(crate) fn activate(self) -> Result<ActiveOutput> {
@@ -209,6 +203,46 @@ impl ActiveOutput {
     }
 }
 
+impl OutputBuilder {
+    pub fn build(self) -> Result<Output> {
+        if self.destination.as_os_str().is_empty() {
+            return Err(SingularityError::EmptyDestination);
+        }
+
+        if let OutputType::PdnsLua {
+            output_metric,
+            metric_name,
+        } = &self.ty
+        {
+            if *output_metric && metric_name.is_empty() {
+                return Err(SingularityError::EmptyMetricName);
+            }
+        }
+
+        Ok(Output {
+            ty: self.ty,
+            destination: self.destination,
+            blackhole_address: self.blackhole_address,
+            deduplicate: self.deduplicate,
+        })
+    }
+
+    #[must_use]
+    pub fn blackhole_address<I>(mut self, blackhole_address: I) -> Self
+    where
+        I: Into<IpAddr>,
+    {
+        self.blackhole_address = blackhole_address.into();
+        self
+    }
+
+    #[must_use]
+    pub fn deduplicate(mut self, deduplicate: bool) -> Self {
+        self.deduplicate = deduplicate;
+        self
+    }
+}
+
 fn get_generated_at_comment() -> String {
     format!(
         "Generated at {} with {} v{}",
@@ -220,8 +254,6 @@ fn get_generated_at_comment() -> String {
 
 fn default_blackhole_address() -> IpAddr {
     DEFAULT_BLACKHOLE_ADDRESS_V4
-        .parse()
-        .expect("failed to parse default blackhole address")
 }
 
 #[cfg(feature = "serde")]

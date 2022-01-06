@@ -34,7 +34,7 @@ pub fn single_output_card(id: u64, output: &Output) -> Markup {
         .card ."w-100" ."mb-3" {
             ."card-header" ."container-fluid" {
                 .row ."g-3" {
-                    ."col-auto" ."me-auto" ."d-flex" ."align-items-center" { (output.ty) " - " (output.destination.display()) }
+                    ."col-auto" ."me-auto" ."d-flex" ."align-items-center" { (output.ty()) " - " (output.destination().display()) }
                     ."col-auto" {
                         a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={ "/settings/singularity/edit_output?id=" (id) } { "Edit" }
                     }
@@ -49,16 +49,16 @@ pub fn single_output_card(id: u64, output: &Output) -> Markup {
                     ."col-md" {
                         dl .row {
                             dt ."col-lg-6" { "Blackhole address" }
-                            dd ."col-lg-6" { (output.blackhole_address) }
+                            dd ."col-lg-6" { (output.blackhole_address()) }
 
                             dt ."col-lg-6" { "Deduplicate" }
-                            dd ."col-lg-6" { (output.deduplicate) }
+                            dd ."col-lg-6" { (output.deduplicate()) }
                         }
                     }
 
                     ."col-md" {
                         dl .row {
-                            @match &output.ty {
+                            @match output.ty() {
                                 OutputType::Hosts { include } => {
                                     dt ."col-xl-12" { "Included files" }
                                     dd ."col-xl-12" {
