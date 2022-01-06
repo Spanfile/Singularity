@@ -118,7 +118,7 @@ impl Adlist {
                 let resp: ureq::Response = match agent.get(self.source.as_str()).call() {
                     Ok(resp) => resp,
                     Err(ureq::Error::Status(code, resp)) => {
-                        return Err(SingularityError::RequestFailed(code, resp.into_string()?))
+                        return Err(SingularityError::RequestFailed(code, resp.into_string()?));
                     }
                     Err(e) => return Err(e.into()),
                 };

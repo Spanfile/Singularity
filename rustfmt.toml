@@ -6,4 +6,5 @@ max_width = 120
 merge_derives = true
 normalize_comments = true
 unstable_features = true
+version = "Two"
 wrap_comments = true
