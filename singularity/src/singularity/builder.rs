@@ -1,4 +1,4 @@
-use crate::{noop_callback, Adlist, Output, Singularity, HTTP_CONNECT_TIMEOUT};
+use super::{noop_callback, Adlist, Output, Singularity, HTTP_CONNECT_TIMEOUT};
 use std::collections::HashSet;
 
 /// Builder for a new [`Singularity`].
