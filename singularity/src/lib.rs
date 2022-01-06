@@ -21,16 +21,20 @@
 //! # Example
 //!
 //! ```
+//! # use singularity::{Singularity, SingularityError, Output, OutputType, Adlist, AdlistFormat};
+//! # fn main() -> Result<(), SingularityError> {
 //! // Create a new Singularity builder
 //! let mut builder = Singularity::builder();
 //!
 //! // Add one or more adlists. Adlists are sources of malicious domains. See the Adlist struct's documentation for more
 //! // information.
 //! builder.add_adlist(
-//!     "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
-//!     // The source is formatted as a normal hosts-file: specify that format here. Other supported formats are documented
-//!     // in the AdlistFormat enum.
-//!     AdlistFormat::Hosts,
+//!     Adlist::new(
+//!         "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+//!         // The source is formatted as a normal hosts-file: specify that format here. Other supported formats are documented
+//!         // in the AdlistFormat enum.
+//!         AdlistFormat::Hosts,
+//!     )?
 //! );
 //!
 //! // Add one or more outputs. Outputs are files in the filesystem all the domains from the sources are written to in a
@@ -39,7 +43,7 @@
 //!     // Create a new Output builder and set its type and filesystem destination.
 //!     Output::builder(OutputType::PdnsLua {
 //!             output_metric: true,
-//!             metric_name: "blocked-queries"
+//!             metric_name: "blocked-queries".to_string(),
 //!         }, "/etc/pdns/blackhole.lua")
 //!         // Use a different blackhole address from the default.
 //!         .blackhole_address("0.0.0.0")
@@ -47,7 +51,7 @@
 //!         .deduplicate(true)
 //!         // Finalise the builder to get a complete Output. Building the Output may fail; see the OutputBuilder
 //!         // documentation for more information.
-//!         .build()?;
+//!         .build()?,
 //! );
 //!
 //! // Whitelist a certain domain to prevent it from being blackholed even if present in the sources.
@@ -59,6 +63,8 @@
 //! // Run Singularity. It'll read all the sources for their domains and write them to the configured outputs in their
 //! // corresponding formats. The function will return once the process is finished.
 //! singularity.run()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Progress reporting
@@ -71,16 +77,25 @@
 //! The Singularity CLI program uses this callback to render progress bars on the terminal.
 //!
 //! ```
+//! # use singularity::{Singularity, SingularityError};
+//! # fn main() -> Result<(), SingularityError> {
+//! # let singularity = Singularity::builder().build();
 //! singularity
 //!     .progress_callback(|progress| {
 //!         // The progress parameter is a Progress enum that contains information about what Singularity is doing
 //!     })
 //!     .run()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Example: count how many domains have been read from all the sources
 //!
 //! ```
+//! # use singularity::{Singularity, SingularityError, Progress};
+//! # use std::sync::atomic::{AtomicUsize, Ordering};
+//! # fn main() -> Result<(), SingularityError> {
+//! # let singularity = Singularity::builder().build();
 //! let count = AtomicUsize::new(0);
 //!
 //! singularity
@@ -90,6 +105,8 @@
 //!         }
 //!     })
 //!     .run()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Runtime
@@ -121,13 +138,15 @@ mod error;
 mod progress_read;
 mod singularity;
 
-pub use error::{Result, SingularityError};
-pub use singularity::{
-    adlist::{Adlist, AdlistFormat},
-    builder::SingularityBuilder,
-    output::{
-        Output, OutputBuilder, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_BLACKHOLE_ADDRESS_V6,
-        DEFAULT_DEDUPLICATE, DEFAULT_METRIC_NAME, DEFAULT_OUTPUT_METRIC,
+pub use crate::{
+    error::{Result, SingularityError},
+    singularity::{
+        adlist::{Adlist, AdlistFormat},
+        builder::SingularityBuilder,
+        output::{
+            Output, OutputBuilder, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_BLACKHOLE_ADDRESS_V6,
+            DEFAULT_DEDUPLICATE, DEFAULT_METRIC_NAME, DEFAULT_OUTPUT_METRIC,
+        },
+        Progress, Singularity, HTTP_CONNECT_TIMEOUT,
     },
-    Progress, Singularity, HTTP_CONNECT_TIMEOUT,
 };

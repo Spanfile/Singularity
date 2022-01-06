@@ -5,6 +5,14 @@ use url::Url;
 const HTTP_READ_TIMEOUT: u64 = 10_000;
 
 /// Represents a source for a list that contains various domains in a certain format.
+///
+/// The adlist consists of a source URL and its format. See the [`AdlistFormat`] enum for more information about
+/// supported formats.
+///
+/// Various URL schemes are supported:
+/// - `http`/`https`: The source will be requested from the web with HTTP/HTTPS.
+/// - `file`: The source is read from a file in the local filesystem. The path in the URL is assumed to be an absolute
+///   path.
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Adlist {
@@ -22,7 +30,7 @@ pub struct Adlist {
 )]
 pub enum AdlistFormat {
     /// Hosts-file formatting. Each line in the source is in the same format as they would be in a hosts-file:
-    /// ```
+    /// ```ignore
     /// 0.0.0.0 example.com
     /// 0.0.0.0 google.com
     /// ...
@@ -31,14 +39,14 @@ pub enum AdlistFormat {
     /// for IPv6. The host in each line must be a domain name; IP addresses are not allowed.
     Hosts,
     /// Each line in the source is one domain name:
-    /// ```
+    /// ```ignore
     /// example.com
     /// google.com
     /// ...
     /// ```
     Domains,
     /// Each line is an `address`-configuration for dnsmasq:
-    /// ```
+    /// ```ignore
     /// address=/example.com/#
     /// address=/google.com/#
     /// ...
@@ -64,8 +72,8 @@ impl std::fmt::Display for AdlistFormat {
 
 impl Adlist {
     /// Returns a new adlist with the given source and format. The given source string will be parsed into an URL. If
-    /// you wish to supply an already constructed URL, please use the [with_url_source](Adlist::with_url_source)
-    /// method.
+    /// you wish to supply an already constructed [`Url`](url::Url), please use the
+    /// [with_url_source](Adlist::with_url_source) method.
     ///
     /// # Errors
     ///
@@ -80,7 +88,7 @@ impl Adlist {
     }
 
     /// Returns a new adlist with the given source and format. If you have the URL as a string, it may be more
-    /// convenient to use the [new](Adlist::new) method instead that will attempt to parse the string into an URL.
+    /// convenient to use the [`new`](Adlist::new) method instead that will attempt to parse the string into an URL.
     pub fn with_url_source(source: Url, format: AdlistFormat) -> Self {
         Self { source, format }
     }

@@ -56,7 +56,7 @@ pub struct Output {
 )]
 pub enum OutputType {
     /// Output a hosts-file:
-    /// ```
+    /// ```ignore
     /// 0.0.0.0 example.com
     /// 0.0.0.0 google.com
     /// ...
