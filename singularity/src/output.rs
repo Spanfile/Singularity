@@ -11,14 +11,30 @@ use std::{
 };
 use tempfile::tempfile;
 
+/// The default IPv4 blackhole address: `0.0.0.0`.
 pub const DEFAULT_BLACKHOLE_ADDRESS_V4: IpAddr = IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0));
+/// The default IPv6 blackhole address: `::`.
 pub const DEFAULT_BLACKHOLE_ADDRESS_V6: IpAddr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0));
+/// The default value for output deduplication: `false`.
 pub const DEFAULT_DEDUPLICATE: bool = false;
+/// The default value for PDNS Lua script metric output: `true`.
 pub const DEFAULT_OUTPUT_METRIC: bool = true;
+/// The default name for PDNS Lua script metric: `"blocked-queries"`.
 pub const DEFAULT_METRIC_NAME: &str = "blocked-queries";
 
 const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
+// TODO: explain how activating an output might fail
+/// An output for blackhole domains.
+///
+/// An output has various configurable settings:
+/// - [Type](OutputType): the output's type. See the enum documentation for more details.
+/// - Destination: path in the filesystem the output will write its final output file into. The file will be overwritten
+///   if it already exists.
+/// - Blackhole address: IP address the output will use as the blackholing address, which is the address DNS queries
+///   will be responded to.
+/// - Deduplication: ensure the output doesn't contain duplicate domains. This is only applicable when using multiple
+///   [adlist sources](crate::Adlist), or if a single source happens to contain duplicate entries.
 #[derive(Debug, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Output {
@@ -31,20 +47,42 @@ pub struct Output {
     deduplicate: bool,
 }
 
+/// An [`Output`'s](Output) type.
 #[derive(Debug, Hash, PartialEq, Eq)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(tag = "type", rename_all = "kebab-case")
+    serde(tag = "type", rename_all = "kebab-case") // TODO: turn this rename to just aliases for the fields
 )]
 pub enum OutputType {
+    /// Output a hosts-file:
+    /// ```
+    /// 0.0.0.0 example.com
+    /// 0.0.0.0 google.com
+    /// ...
+    /// ```
+    /// Additional hosts-files can be included in the output by specifying their paths in the `include` field.
     Hosts {
+        /// Additional hosts-files to include in the output.
         #[cfg_attr(feature = "serde", serde(default))]
         include: Vec<PathBuf>,
     },
+    /// A PDNS Recursor Lua script.
+    ///
+    /// The output will construct a Lua script that can be used in the
+    /// [`lua-dns-script`](lua-dns-script) setting for PDNS Recursor. The script contains a list of the blackholed
+    /// domains and a `preresolve()` function that Recursor will call for every query it receives. The function looks
+    /// up the queried domain in the blackhole list and if it is found, it'll set the query response's address to
+    /// the configured blackhole address and return that response immediately. Additionally, it'll increment the
+    /// configured metric by one if it is enabled. This metric may be accessed among all the other metrics Recursor
+    /// outputs.
+    ///
+    /// [lua-dns-script]: https://docs.powerdns.com/recursor/settings.html#lua-dns-script
     PdnsLua {
+        /// Whether or not to output a metric of blocked domains.
         #[cfg_attr(feature = "serde", serde(default = "default_output_metric"))]
         output_metric: bool,
+        /// The metric's name.
         #[cfg_attr(feature = "serde", serde(default = "default_metric_name"))]
         metric_name: String,
     },
@@ -60,6 +98,7 @@ pub(crate) struct ActiveOutput {
     seen: HashSet<String>,
 }
 
+/// Builder for a new [`Output`].
 #[derive(Debug)]
 pub struct OutputBuilder {
     ty: OutputType,
@@ -78,6 +117,10 @@ impl std::fmt::Display for OutputType {
 }
 
 impl Output {
+    /// Return a new [`OutputBuilder`] with the given [output type](OutputType) and destination. The
+    /// blackhole address and deduplicate fields are set to their default values
+    /// ([`DEFAULT_BLACKHOLE_ADDRESS_V4`](DEFAULT_BLACKHOLE_ADDRESS_V4) and [`DEFAULT_DEDUPLICATE`](DEFAULT_DEDUPLICATE)
+    /// respectively).
     pub fn builder<P>(ty: OutputType, destination: P) -> OutputBuilder
     where
         P: Into<PathBuf>,
@@ -90,18 +133,22 @@ impl Output {
         }
     }
 
+    /// Returns a reference to the builder's [output type](OutputType).
     pub fn ty(&self) -> &OutputType {
         &self.ty
     }
 
+    /// Returns a reference to the builder's destination.
     pub fn destination(&self) -> &Path {
         self.destination.as_path()
     }
 
+    /// Returns the builder's blackhole address.
     pub fn blackhole_address(&self) -> IpAddr {
         self.blackhole_address
     }
 
+    /// Returns the builder's deduplication setting.
     pub fn deduplicate(&self) -> bool {
         self.deduplicate
     }
@@ -204,6 +251,14 @@ impl ActiveOutput {
 }
 
 impl OutputBuilder {
+    /// Finalise the builder and return a new [Output].
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if:
+    /// - The configured destination is an empty path ([SingularityError::EmptyDestination])
+    /// - The output's type is a [PDNS Recursor Lua script](OutputType::PdnsLua), its metric is enabled but the metric's
+    ///   name is empty.
     pub fn build(self) -> Result<Output> {
         if self.destination.as_os_str().is_empty() {
             return Err(SingularityError::EmptyDestination);
@@ -227,6 +282,8 @@ impl OutputBuilder {
         })
     }
 
+    // TODO: does this actually accept a string?
+    /// Set the builder's blackhole address.
     #[must_use]
     pub fn blackhole_address<I>(mut self, blackhole_address: I) -> Self
     where
@@ -236,6 +293,7 @@ impl OutputBuilder {
         self
     }
 
+    /// Set the builder's deduplication setting.
     #[must_use]
     pub fn deduplicate(mut self, deduplicate: bool) -> Self {
         self.deduplicate = deduplicate;

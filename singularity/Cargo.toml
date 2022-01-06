@@ -12,7 +12,7 @@ version = "0.8.0"
 
 [features]
 bin = ["anyhow", "confy", "dashmap", "fern", "indicatif", "log", "num-format", "structopt", "serde"]
-default = ["bin", "serde"]
+default = ["bin"]
 
 [dependencies]
 # library dependencies

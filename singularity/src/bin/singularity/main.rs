@@ -75,7 +75,7 @@ fn main() -> anyhow::Result<()> {
     let adlists = cfg.adlist.len();
     let singularity = Singularity::builder()
         .add_many_adlists(cfg.adlist)
-        .add_outputs_from_configs(cfg.output)
+        .add_many_outputs(cfg.output)
         .whitelist_many_domains(cfg.whitelist)
         .http_timeout(opt.timeout.0)
         .build();

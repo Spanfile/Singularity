@@ -4,6 +4,7 @@ use url::Url;
 
 const HTTP_READ_TIMEOUT: u64 = 10_000;
 
+/// Represents a source for a list that contains various domains in a certain format.
 #[derive(Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct Adlist {
@@ -12,15 +13,36 @@ pub struct Adlist {
     pub(crate) format: AdlistFormat,
 }
 
+/// The different kinds of formats supported for adlists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Deserialize, serde::Serialize),
-    serde(rename_all = "lowercase")
+    serde(rename_all = "lowercase") // TODO: turn this rename to just aliases for the fields
 )]
 pub enum AdlistFormat {
+    /// Hosts-file formatting. Each line in the source is in the same format as they would be in a hosts-file:
+    /// ```
+    /// 0.0.0.0 example.com
+    /// 0.0.0.0 google.com
+    /// ...
+    /// ```
+    /// It is assumed the address in each line is the unspecified address; `0.0.0.0` for IPv4 and `::`
+    /// for IPv6. The host in each line must be a domain name; IP addresses are not allowed.
     Hosts,
+    /// Each line in the source is one domain name:
+    /// ```
+    /// example.com
+    /// google.com
+    /// ...
+    /// ```
     Domains,
+    /// Each line is an `address`-configuration for dnsmasq:
+    /// ```
+    /// address=/example.com/#
+    /// address=/google.com/#
+    /// ...
+    /// ```
     Dnsmasq,
 }
 
@@ -41,9 +63,14 @@ impl std::fmt::Display for AdlistFormat {
 }
 
 impl Adlist {
-    /// Returns a new adlist with the given source and format. The given source string will be parsed into an URL and if
-    /// it fails, its error is returned. If you wish to supply an already constructed URL, please use the
-    /// [with_url](with_url) method.
+    /// Returns a new adlist with the given source and format. The given source string will be parsed into an URL. If
+    /// you wish to supply an already constructed URL, please use the [with_url_source](Adlist::with_url_source)
+    /// method.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`SingularityError::Url`](SingularityError::Url) if the given source string fails to be parsed into
+    /// an URL.
     pub fn new<S>(source: S, format: AdlistFormat) -> Result<Self>
     where
         S: AsRef<str>,
@@ -53,7 +80,7 @@ impl Adlist {
     }
 
     /// Returns a new adlist with the given source and format. If you have the URL as a string, it may be more
-    /// convenient to use the [new](new) method instead that will attempt to parse the string into an URL.
+    /// convenient to use the [new](Adlist::new) method instead that will attempt to parse the string into an URL.
     pub fn with_url_source(source: Url, format: AdlistFormat) -> Self {
         Self { source, format }
     }
