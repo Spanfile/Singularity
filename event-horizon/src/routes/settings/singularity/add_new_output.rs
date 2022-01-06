@@ -75,7 +75,7 @@ impl OutputForm {
             },
             self.destination,
         )
-        .blackhole_address(self.blackhole_address)
+        .blackhole_ipaddr(self.blackhole_address)
         .deduplicate(cursed_checkbox_option(self.deduplicate))
         .build()?)
     }

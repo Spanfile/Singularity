@@ -38,6 +38,9 @@ pub enum SingularityError {
     /// In a PDNS Lua script output, the metric name is empty while the metric is enabled.
     #[error("Invalid output: PDNS Lua Script metric name is empty while metric is enabled")]
     EmptyMetricName,
+    /// An IP address was invalid.
+    #[error("Invalid IP address: {0}")]
+    InvalidIpAddress(#[from] std::net::AddrParseError),
 
     /// Transparent wrapper for an [IO error](std::io::Error).
     #[error(transparent)]

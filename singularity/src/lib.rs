@@ -20,7 +20,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```no_run
 //! # use singularity::{Singularity, SingularityError, Output, OutputType, Adlist, AdlistFormat};
 //! # fn main() -> Result<(), SingularityError> {
 //! // Create a new Singularity builder
@@ -28,7 +28,7 @@
 //!
 //! // Add one or more adlists. Adlists are sources of malicious domains. See the Adlist struct's documentation for more
 //! // information.
-//! builder.add_adlist(
+//! builder = builder.add_adlist(
 //!     Adlist::new(
 //!         "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
 //!         // The source is formatted as a normal hosts-file: specify that format here. Other supported formats are documented
@@ -39,14 +39,14 @@
 //!
 //! // Add one or more outputs. Outputs are files in the filesystem all the domains from the sources are written to in a
 //! // certain format. See the OutputBuilder's documentation for more information.
-//! builder.add_output(
+//! builder = builder.add_output(
 //!     // Create a new Output builder and set its type and filesystem destination.
 //!     Output::builder(OutputType::PdnsLua {
 //!             output_metric: true,
 //!             metric_name: "blocked-queries".to_string(),
 //!         }, "/etc/pdns/blackhole.lua")
-//!         // Use a different blackhole address from the default.
-//!         .blackhole_address("0.0.0.0")
+//!         // Use a certain blackhole address. This method attempts to parse the string into an IpAddr so it may fail.
+//!         .blackhole_address("0.0.0.0")?
 //!         // Deduplicate entries in the output.
 //!         .deduplicate(true)
 //!         // Finalise the builder to get a complete Output. Building the Output may fail; see the OutputBuilder
@@ -55,7 +55,7 @@
 //! );
 //!
 //! // Whitelist a certain domain to prevent it from being blackholed even if present in the sources.
-//! builder.whitelist_domain("example.com");
+//! builder = builder.whitelist_domain("example.com");
 //!
 //! // Finalise the builder to get a complete Singularity object.
 //! let singularity = builder.build();
@@ -76,7 +76,7 @@
 //!
 //! The Singularity CLI program uses this callback to render progress bars on the terminal.
 //!
-//! ```
+//! ```no_run
 //! # use singularity::{Singularity, SingularityError};
 //! # fn main() -> Result<(), SingularityError> {
 //! # let singularity = Singularity::builder().build();
@@ -91,7 +91,7 @@
 //!
 //! ## Example: count how many domains have been read from all the sources
 //!
-//! ```
+//! ```no_run
 //! # use singularity::{Singularity, SingularityError, Progress};
 //! # use std::sync::atomic::{AtomicUsize, Ordering};
 //! # fn main() -> Result<(), SingularityError> {

@@ -282,14 +282,31 @@ impl OutputBuilder {
         })
     }
 
-    // TODO: does this actually accept a string?
-    /// Set the builder's blackhole address.
+    /// Set the builder's blackhole address by attempting to parse a string to an [`IpAddr`]. If you
+    /// already have an [`IpAddr`], it is more convenient to use the [`blackhole_ipaddr`](Output::blackhole_ipaddr)
+    /// method instead.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`SingularityError::InvalidIpAddress`] if parsing the string into an [`IpAddr`] fails.
+    ///
+    /// [IpAddr]: std::net::IpAddr
+    pub fn blackhole_address<S>(mut self, blackhole_address: S) -> Result<Self>
+    where
+        S: AsRef<str>,
+    {
+        self.blackhole_address = blackhole_address.as_ref().parse()?;
+        Ok(self)
+    }
+
+    /// Set the builder's blackhole address. If your address is a string, it is more convenient to use the
+    /// [`blackhole_address`](Output::blackhole_address) method instead.
     #[must_use]
-    pub fn blackhole_address<I>(mut self, blackhole_address: I) -> Self
+    pub fn blackhole_ipaddr<I>(mut self, blackhole_ipaddr: I) -> Self
     where
         I: Into<IpAddr>,
     {
-        self.blackhole_address = blackhole_address.into();
+        self.blackhole_address = blackhole_ipaddr.into();
         self
     }
 
