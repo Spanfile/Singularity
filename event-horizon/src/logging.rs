@@ -1,4 +1,4 @@
-use crate::Config;
+use crate::EnvConfig;
 use chrono::Local;
 use fern::{
     colors::{Color, ColoredLevelConfig},
@@ -35,7 +35,7 @@ impl From<LogLevel> for LevelFilter {
     }
 }
 
-pub fn setup_logging(config: &Config) -> Result<(), log::SetLoggerError> {
+pub fn setup_logging(config: &EnvConfig) -> Result<(), log::SetLoggerError> {
     let colors = ColoredLevelConfig::new()
         .info(Color::Green)
         .debug(Color::Magenta)

@@ -1,21 +1,20 @@
+use diesel::{prelude::*, SqliteConnection};
 use itertools::Itertools;
 use singularity::{Adlist, Output};
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 #[derive(Debug, Default)]
-pub struct SingularityConfig {
-    /// If true, Singularity hasn't yet been ran with this config.
-    dirty: bool,
+pub struct SingularityConfig(i32);
 
-    adlists: HashMap<u64, Adlist>,
-    outputs: HashMap<u64, Output>,
-    whitelist: HashMap<u64, String>,
-    http_timeout: u64,
-
-    last_id: u64,
-}
+// YE AIGHT SO THIS IS WHATCHU GONNA DO:
+// STORE THE ID AS IS IN THE THING, AND THEN JUST QUERY THE DATABASE AS NEEDED WHEN OPERATING
 
 impl SingularityConfig {
+    pub fn new(id: i32) -> Self {
+        // TODO: might as well check if this ID is in the database
+        Self(id)
+    }
+
     pub fn import_singularity_config<P>(path: P) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,

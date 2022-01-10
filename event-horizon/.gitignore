@@ -1,2 +1,4 @@
 static
 .env
+evh.sqlite
+evh.toml
