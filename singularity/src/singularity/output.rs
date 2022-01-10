@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn default_fields() {
         let output = Output::builder(OutputType::Hosts { include: vec![] }, "path").build();
-        assert!(matches!(output, Ok(_)));
+        assert!(output.is_ok());
     }
 
     #[test]
@@ -371,7 +371,7 @@ mod tests {
         .expect("failed to set blackhole address")
         .deduplicate(true)
         .build();
-        assert!(matches!(output, Ok(_)));
+        assert!(output.is_ok());
     }
 
     #[test]
@@ -407,7 +407,7 @@ mod tests {
             .expect("failed to build output");
 
         let activate = output.activate();
-        assert!(matches!(activate, Ok(_)));
+        assert!(activate.is_ok());
     }
 
     #[test]
@@ -419,7 +419,7 @@ mod tests {
             .expect("failed to activate output");
 
         let write = output.write_host("host");
-        assert!(matches!(write, Ok(_)));
+        assert!(write.is_ok());
     }
 
     #[test]

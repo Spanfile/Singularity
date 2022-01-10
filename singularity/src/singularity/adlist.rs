@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn valid_url() {
         let adlist = Adlist::new("https://example.com", AdlistFormat::Hosts);
-        assert!(matches!(adlist, Ok(_)));
+        assert!(adlist.is_ok());
     }
 
     #[test]

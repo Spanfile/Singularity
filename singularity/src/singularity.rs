@@ -268,3 +268,48 @@ fn parse_dnsmasq_line(line: &str) -> Option<String> {
 }
 
 fn noop_callback(_: Progress) {}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn hosts_parse_valid_line() {
+        let valid_v4 = super::parse_hosts_line("0.0.0.0 example.com");
+        assert!(matches!(valid_v4.as_deref(), Some("example.com")));
+
+        let valid_v6 = super::parse_hosts_line(":: example.com");
+        assert!(matches!(valid_v6.as_deref(), Some("example.com")));
+    }
+
+    #[test]
+    fn hosts_malformed_line() {
+        let invalid = super::parse_hosts_line("0.0.0.0");
+        assert!(invalid.is_none());
+    }
+
+    #[test]
+    fn hosts_address_as_host() {
+        let invalid = super::parse_hosts_line("0.0.0.0 0.0.0.0");
+        assert!(invalid.is_none());
+    }
+
+    #[test]
+    fn hosts_invalid_ip_address() {
+        let invalid = super::parse_hosts_line("999.0.0.0 example.com");
+        assert!(invalid.is_none());
+    }
+
+    #[test]
+    fn dnsmasq_parse_valid_line() {
+        let valid_address = super::parse_dnsmasq_line("address=/example.com/#");
+        let valid_server = super::parse_dnsmasq_line("server=/example.com/#");
+
+        assert!(matches!(valid_address.as_deref(), Some("example.com")));
+        assert!(matches!(valid_server.as_deref(), Some("example.com")));
+    }
+
+    #[test]
+    fn dnsmasq_no_capture() {
+        let invalid = super::parse_dnsmasq_line("address=");
+        assert!(invalid.is_none());
+    }
+}
