@@ -148,7 +148,15 @@ fn main() -> anyhow::Result<()> {
                         line_number, source, line
                     )),
 
-                    _ => (),
+                    Progress::ReadingAdlistFailed { source, reason } => pbs
+                        .get(source)
+                        .expect("progress bar missing from pbs")
+                        .println(format!("ERROR Reading adlist '{}' failed: {}", source, reason)),
+                    Progress::OutputWriteFailed { output_dest, reason } => domain_spinner.println(format!(
+                        "ERROR Writing to output '{}' failed: {}",
+                        output_dest.display(),
+                        reason
+                    )),
                 })
                 .run()?;
 

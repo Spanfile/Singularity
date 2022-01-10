@@ -1,4 +1,4 @@
-use super::{noop_callback, Adlist, Output, Singularity, HTTP_CONNECT_TIMEOUT};
+use super::{noop_callback, Adlist, Output, Singularity, DEFAULT_READ_PROGRESS_FREQUENCY, HTTP_CONNECT_TIMEOUT};
 use std::collections::HashSet;
 
 /// Builder for a new [`Singularity`].
@@ -26,6 +26,7 @@ impl<'a> SingularityBuilder {
             outputs: self.outputs,
             whitelist: self.whitelist,
             http_timeout: self.http_timeout,
+            read_progress_frequency: DEFAULT_READ_PROGRESS_FREQUENCY,
             prog_callback: Box::new(noop_callback),
         }
     }

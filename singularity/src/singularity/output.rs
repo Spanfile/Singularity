@@ -48,7 +48,7 @@ pub struct Output {
 
 /// An [`Output`'s](Output) type.
 #[derive(Debug, Hash, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize), serde(tag = "type"))]
 pub enum OutputType {
     /// Output a hosts-file:
     /// ```ignore
@@ -87,12 +87,12 @@ pub enum OutputType {
 
 #[derive(Debug)]
 pub(crate) struct ActiveOutput {
-    ty: OutputType,
-    destination: PathBuf,
-    blackhole_address: IpAddr,
-    deduplicate: bool,
-    download_dest: File,
-    seen: HashSet<String>,
+    pub(crate) ty: OutputType,
+    pub(crate) destination: PathBuf,
+    pub(crate) blackhole_address: IpAddr,
+    pub(crate) deduplicate: bool,
+    pub(crate) download_dest: File,
+    pub(crate) seen: HashSet<String>,
 }
 
 /// Builder for a new [`Output`].
@@ -201,10 +201,10 @@ impl ActiveOutput {
         Ok(())
     }
 
-    pub fn finalise(mut self) -> Result<()> {
-        match self.ty {
+    pub fn finalise(&mut self) -> Result<()> {
+        match &self.ty {
             OutputType::Hosts { include } => {
-                for path in &include {
+                for path in include {
                     let mut include_file = File::open(path)?;
                     writeln!(&mut self.download_dest, "\n# hosts included from {}\n", path.display())?;
                     io::copy(&mut include_file, &mut self.download_dest)?;
@@ -231,7 +231,7 @@ impl ActiveOutput {
                     addr = self.blackhole_address
                 )?;
 
-                if output_metric {
+                if *output_metric {
                     write!(&mut self.download_dest, "m=getMetric(\"{}\") m:inc() ", metric_name)?;
                 }
 

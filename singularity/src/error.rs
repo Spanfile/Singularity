@@ -5,6 +5,7 @@ pub type Result<T> = std::result::Result<T, SingularityError>;
 
 /// The error type returned from the library.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum SingularityError {
     /// An HTTP request failed.
     #[error("The HTTP request failed with status code {0}. Body: {1}")]
@@ -41,6 +42,9 @@ pub enum SingularityError {
     /// An IP address was invalid.
     #[error("Invalid IP address: {0}")]
     InvalidIpAddress(#[from] std::net::AddrParseError),
+    /// One or more of the runtime threads panicked.
+    #[error("One or more of the runtime threads panicked")]
+    Panicked,
 
     /// Transparent wrapper for an [IO error](std::io::Error).
     #[error(transparent)]

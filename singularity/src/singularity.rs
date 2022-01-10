@@ -15,6 +15,7 @@ use std::{
     collections::HashSet,
     io::{BufRead, BufReader},
     net::IpAddr,
+    path::Path,
     sync::{
         mpsc::{self, Receiver, SyncSender},
         Arc,
@@ -23,6 +24,9 @@ use std::{
 
 /// The default timeout to wait for HTTP connects to succeed in milliseconds: `30 000` (30 seconds).
 pub const HTTP_CONNECT_TIMEOUT: u64 = 30_000;
+
+/// The default read progress frequency: 4KiB.
+pub const DEFAULT_READ_PROGRESS_FREQUENCY: u64 = 4 * 1024;
 
 type ProgressCallback<'a> = Box<dyn Fn(Progress) + Send + Sync + 'a>;
 
@@ -34,6 +38,7 @@ pub struct Singularity<'a> {
     outputs: Vec<Output>,
     whitelist: HashSet<String>,
     http_timeout: u64,
+    read_progress_frequency: u64,
     prog_callback: ProgressCallback<'a>,
 }
 
@@ -90,6 +95,13 @@ pub enum Progress<'a> {
         /// The line that was parsed from the adlist.
         line: &'a str,
     },
+    /// Writing to or finalising an output failed.
+    OutputWriteFailed {
+        /// The destination path of the failed output.
+        output_dest: &'a Path,
+        /// The reason error.
+        reason: Box<SingularityError>,
+    },
 }
 
 impl<'a> Singularity<'a> {
@@ -108,18 +120,22 @@ impl<'a> Singularity<'a> {
         self
     }
 
+    /// Set the read progress frequency; how many kilobytes must be read from a source until Singularity reports a read
+    /// progress for that source. Default: [`DEFAULT_READ_PROGRESS_FREQUENCY`].
+    #[must_use]
+    pub fn read_progress_frequency(mut self, every_n_bytes: u64) -> Self {
+        self.read_progress_frequency = every_n_bytes;
+        self
+    }
+
     /// Runs Singularity. See the crate-level documentation for details on the runtime characteristics.
     ///
     /// This will consume the [`Singularity`] object.
     ///
     /// # Errors
     ///
-    /// This method will return an error if activating the configured outputs fails. See the crate-level documentation
-    /// for details on how it might fail.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if spawning the writer/reader threads fail.
+    /// This method will return an error if activating the configured outputs fails, or if any of the runtime threads
+    /// panic. See the crate-level documentation for details on how output activation might fail.
     pub fn run(self) -> Result<()> {
         let (tx, rx) = mpsc::sync_channel::<String>(1024);
         let active_outputs = self
@@ -139,32 +155,37 @@ impl<'a> Singularity<'a> {
                 let tx = tx.clone();
                 let reader_cb = Arc::clone(&cb);
                 let http_timeout = self.http_timeout;
+                let read_prog_freq = self.read_progress_frequency;
                 let reader_whitelist = Arc::clone(&whitelist);
 
-                s.spawn(move |_| reader_thread(adlist, tx, http_timeout, reader_whitelist, reader_cb));
+                s.spawn(move |_| reader_thread(adlist, tx, http_timeout, read_prog_freq, reader_whitelist, reader_cb));
             }
-
-            // TODO: abort everything if the writer thread dies
         })
-        .expect("reader/writer scope failed");
-
-        Ok(())
+        .map_err(|_| SingularityError::Panicked)
     }
 }
 
 fn writer_thread(mut active_outputs: Vec<ActiveOutput>, rx: Receiver<String>, cb: Arc<ProgressCallback>) {
-    // TODO: handle errors here gracefully with the callback
-
     while let Ok(line) = rx.recv() {
         cb(Progress::DomainWritten(&line));
 
         for output in &mut active_outputs {
-            output.write_host(&line).expect("failed to write host into output");
+            if let Err(e) = output.write_host(&line) {
+                cb(Progress::OutputWriteFailed {
+                    output_dest: &output.destination,
+                    reason: Box::new(e),
+                })
+            }
         }
     }
 
-    for output in active_outputs {
-        output.finalise().expect("failed to finalise output");
+    for mut output in active_outputs {
+        if let Err(e) = output.finalise() {
+            cb(Progress::OutputWriteFailed {
+                output_dest: &output.destination,
+                reason: Box::new(e),
+            })
+        }
     }
 }
 
@@ -172,6 +193,7 @@ fn reader_thread(
     adlist: Adlist,
     tx: SyncSender<String>,
     timeout: u64,
+    read_prog_freq: u64,
     whitelist: Arc<HashSet<String>>,
     cb: Arc<ProgressCallback>,
 ) {
@@ -188,9 +210,11 @@ fn reader_thread(
 
             for (line_idx, line) in reader.lines().enumerate() {
                 let bytes = read_amount.load();
-                let delta = bytes - last_read_amount.swap(bytes);
 
-                cb(Progress::ReadProgress { source, bytes, delta });
+                if bytes - last_read_amount.load() >= read_prog_freq {
+                    let delta = bytes - last_read_amount.swap(bytes);
+                    cb(Progress::ReadProgress { source, bytes, delta });
+                }
 
                 let line = match line {
                     Ok(l) => l,
