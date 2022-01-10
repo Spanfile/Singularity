@@ -7,7 +7,7 @@ use dashmap::DashMap;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::*;
 use num_format::{SystemLocale, ToFormattedString};
-use singularity::{Progress, Singularity, HTTP_CONNECT_TIMEOUT};
+use singularity::{Progress, Singularity, SingularityError, HTTP_CONNECT_TIMEOUT};
 use std::{fmt::Display, path::PathBuf, str::FromStr, time::Instant};
 use structopt::StructOpt;
 
@@ -62,23 +62,30 @@ fn main() -> anyhow::Result<()> {
     debug!("{:?}", opt);
     debug!("{:?}", cfg);
 
-    if cfg.adlist.is_empty() {
-        warn!("No adlists configured. Please edit the configuration file and add one or more adlists.");
-        return Ok(());
-    }
+    let adlists_len = cfg.adlist.len();
 
-    if cfg.output.is_empty() {
-        warn!("No outputs configured. Please edit the configuration file and add one or more outputs.");
-        return Ok(());
-    }
-
-    let adlists = cfg.adlist.len();
-    let singularity = Singularity::builder()
+    // Singularity needs at least one adlist and one output to work. the builder will return an error if either are
+    // missing. multiple adlists and outputs can be added at once, or the methods `.add_adlist()` and `.add_output()`
+    // may be used to add single ones
+    let builder = Singularity::builder()
         .add_many_adlists(cfg.adlist)
         .add_many_outputs(cfg.output)
         .whitelist_many_domains(cfg.whitelist)
-        .http_timeout(opt.timeout.0)
-        .build();
+        .http_timeout(opt.timeout.0);
+
+    // gracefully handle the two possible error cases from the builder
+    let singularity = match builder.build() {
+        Ok(singularity) => singularity,
+        Err(SingularityError::NoAdlists) => {
+            warn!("No adlists configured. Please edit the configuration file and add one or more adlists.");
+            return Ok(());
+        }
+        Err(SingularityError::NoOutputs) => {
+            warn!("No outputs configured. Please edit the configuration file and add one or more outputs.");
+            return Ok(());
+        }
+        Err(e) => panic!("unexpected error while building Singularity: {}", e),
+    };
 
     let mp = MultiProgress::new();
     let domain_spinner = mp.add(ProgressBar::new_spinner());
@@ -88,14 +95,21 @@ fn main() -> anyhow::Result<()> {
     domain_spinner.enable_steady_tick(100);
     domain_spinner.set_draw_delta(500);
 
+    // use a thread scope to spawn two threads: one to handle running Singularity, and one to join and wait the
+    // MultiProgress
     thread::scope(|s| -> anyhow::Result<()> {
         s.spawn(|_| -> anyhow::Result<()> {
             let count = AtomicCell::<usize>::new(0);
             let start = Instant::now();
             let pbs = DashMap::new();
 
+            // while running, Singularity will report progress back using a callback. this callback may borrow objects
+            // from the outer scope so long its lifetime doesn't exceed that of Singularity's
             singularity
                 .progress_callback(|progress| match progress {
+                    // this status is returned once for each adlist when they are began reading. in some cases the
+                    // adlist's total length cannot be determined ahead of time; display a progress bar if it is known,
+                    // otherwise display a spinner
                     Progress::BeginAdlistRead { source, length } => {
                         let pb = mp.add(ProgressBar::new(0));
 
@@ -119,26 +133,36 @@ fn main() -> anyhow::Result<()> {
 
                         pbs.insert(source.to_string(), pb);
                     }
+
+                    // this status is returned periodically when an adlist is being read. contains the amount of bytes
+                    // read so far, and how many more bytes have been read since the previous read progress update
                     Progress::ReadProgress {
                         source,
                         bytes: _,
                         delta,
                     } => pbs.get(source).expect("progress bar missing from pbs").inc(delta),
 
+                    // an adlist has been finished reading. finish its corresponding progress bar
                     Progress::FinishAdlistRead { source } => pbs
                         .get(source)
                         .expect("progress bar missing from pbs")
                         .finish_and_clear(),
 
+                    // a domain was succesfully read, parsed and not ignored from an adlist, and it was written to each
+                    // output. individual output writes may fail, in which case an OutputWriteFailed progress update is
+                    // raised for each failed one
                     Progress::DomainWritten(_) => {
                         count.fetch_add(1);
                         domain_spinner.inc(1);
                     }
 
+                    // a domain from some source was in the whitelist and was ignored
                     Progress::WhitelistedDomainIgnored { source, domain } => pbs
                         .get(source)
                         .expect("progress bar missing from pbs")
                         .println(format!("INFO Ignoring whitelisted domain {} from {}", domain, source)),
+
+                    // a domain was parsed into an all-matching entry, such as '.', so it was ignored
                     Progress::AllMatchingLineIgnored {
                         source,
                         line_number,
@@ -148,6 +172,8 @@ fn main() -> anyhow::Result<()> {
                         line_number, source, line
                     )),
 
+                    // a line in an adlist was invalid, likely because it was not valid UTF-8. that line is ignored and
+                    // the adlist is continued to be read
                     Progress::InvalidLine {
                         source,
                         line_number,
@@ -157,10 +183,13 @@ fn main() -> anyhow::Result<()> {
                         line_number, source, reason
                     )),
 
+                    // reading an adlist failed. the adlist's reading is aborted
                     Progress::ReadingAdlistFailed { source, reason } => pbs
                         .get(source)
                         .expect("progress bar missing from pbs")
                         .finish_with_message(format!("ERROR Reading adlist '{}' failed: {}", source, reason)),
+
+                    // writing a domain or finalising an output failed
                     Progress::OutputWriteFailed { output_dest, reason } => domain_spinner.println(format!(
                         "ERROR Writing to output '{}' failed: {}",
                         output_dest.display(),
@@ -173,7 +202,7 @@ fn main() -> anyhow::Result<()> {
             domain_spinner.println(format!(
                 "INFO Read {} domains from {} sources in {}s",
                 count.into_inner().to_formatted_string(&locale),
-                adlists,
+                adlists_len,
                 start.elapsed().as_secs_f32()
             ));
             domain_spinner.finish_and_clear();

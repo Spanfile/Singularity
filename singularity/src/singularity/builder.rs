@@ -1,4 +1,5 @@
 use super::{noop_callback, Adlist, Output, Singularity, DEFAULT_READ_PROGRESS_FREQUENCY, HTTP_CONNECT_TIMEOUT};
+use crate::{Result, SingularityError};
 use std::collections::HashSet;
 
 /// Builder for a new [`Singularity`].
@@ -19,16 +20,30 @@ impl<'a> SingularityBuilder {
         }
     }
 
-    /// Finalises the builder and returns a new [`Singularity`].
-    pub fn build(self) -> Singularity<'a> {
-        Singularity {
+    /// Finalises the builder and returns a new [`Singularity`]. Requires at least one adlist and one output to
+    /// succesfully build.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SingularityError::NoAdlists`] if no adlists have been added to the builder. Returns
+    /// [`SingularityError::NoOutputs`] if no outputs have been added to the builder.
+    pub fn build(self) -> Result<Singularity<'a>> {
+        if self.adlists.is_empty() {
+            return Err(SingularityError::NoAdlists);
+        }
+
+        if self.outputs.is_empty() {
+            return Err(SingularityError::NoOutputs);
+        }
+
+        Ok(Singularity {
             adlists: self.adlists,
             outputs: self.outputs,
             whitelist: self.whitelist,
             http_timeout: self.http_timeout,
             read_progress_frequency: DEFAULT_READ_PROGRESS_FREQUENCY,
             prog_callback: Box::new(noop_callback),
-        }
+        })
     }
 
     /// Adds a given [`Adlist`] to the builder.

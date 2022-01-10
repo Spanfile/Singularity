@@ -42,6 +42,12 @@ pub enum SingularityError {
     /// An IP address was invalid.
     #[error("Invalid IP address: {0}")]
     InvalidIpAddress(#[from] std::net::AddrParseError),
+    /// No adlists were configured when building a new Singularity
+    #[error("No adlists were configured when building a new Singularity")]
+    NoAdlists,
+    /// No outputs were configured when building a new Singularity
+    #[error("No outputs were configured when building a new Singularity")]
+    NoOutputs,
     /// One or more of the runtime threads panicked.
     #[error("One or more of the runtime threads panicked")]
     Panicked,

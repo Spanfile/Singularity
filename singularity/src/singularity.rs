@@ -186,8 +186,6 @@ impl<'a> Singularity<'a> {
 
 fn writer_thread(mut active_outputs: Vec<ActiveOutput>, rx: Receiver<String>, cb: Arc<ProgressCallback>) {
     while let Ok(line) = rx.recv() {
-        cb(Progress::DomainWritten(&line));
-
         for output in &mut active_outputs {
             if let Err(e) = output.write_host(&line) {
                 cb(Progress::OutputWriteFailed {
@@ -196,6 +194,8 @@ fn writer_thread(mut active_outputs: Vec<ActiveOutput>, rx: Receiver<String>, cb
                 })
             }
         }
+
+        cb(Progress::DomainWritten(&line));
     }
 
     for mut output in active_outputs {
