@@ -96,7 +96,7 @@ fn main() -> anyhow::Result<()> {
     domain_spinner.set_draw_delta(500);
 
     // use a thread scope to spawn two threads: one to handle running Singularity, and one to join and wait the
-    // MultiProgress
+    // MultiProgress. the scope is used to ensure the Singularity thread doesn't outlive the Singularity object
     thread::scope(|s| -> anyhow::Result<()> {
         s.spawn(|_| -> anyhow::Result<()> {
             let count = AtomicCell::<usize>::new(0);
@@ -104,7 +104,8 @@ fn main() -> anyhow::Result<()> {
             let pbs = DashMap::new();
 
             // while running, Singularity will report progress back using a callback. this callback may borrow objects
-            // from the outer scope so long its lifetime doesn't exceed that of Singularity's
+            // from the outer scope so long its lifetime doesn't exceed that of Singularity's. this is achieved by using
+            // the thread scope
             singularity
                 .progress_callback(|progress| match progress {
                     // this status is returned once for each adlist when they are began reading. in some cases the

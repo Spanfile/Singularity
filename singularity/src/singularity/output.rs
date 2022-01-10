@@ -239,6 +239,7 @@ impl ActiveOutput {
             }
         }
 
+        // TODO: it'd be nice to get progress callbacks from this
         let mut final_file = File::create(&self.destination)?;
         self.download_dest.seek(SeekFrom::Start(0))?;
         io::copy(&mut self.download_dest, &mut final_file)?;
