@@ -45,7 +45,7 @@ pub struct Singularity<'a> {
 /// The progress report enum Singularity emits during operation.
 #[derive(Debug)]
 pub enum Progress<'a> {
-    /// Begin reading an adlist.
+    /// Begin reading an adlist. Returned once for every adlist when they are began to be read.
     BeginAdlistRead {
         /// The adlist's source URL.
         source: &'a str,
@@ -53,7 +53,7 @@ pub enum Progress<'a> {
         /// encoding, which means their length cannot be determined ahead of time.
         length: Option<u64>,
     },
-    /// Progress reading through an adlist source.
+    /// Progress reading through an adlist source. Returned periodically while the adlist's source is being read.
     ReadProgress {
         /// The adlist's source URL.
         source: &'a str,
@@ -62,12 +62,12 @@ pub enum Progress<'a> {
         /// How many more bytes have been read since the last progress report for this source.
         delta: u64,
     },
-    /// An adlist finished reading.
+    /// An adlist finished reading. Returned once for every adlist.
     FinishAdlistRead {
         /// The adlists's source URL.
         source: &'a str,
     },
-    /// Reading an adlist failed.
+    /// Reading an adlist failed. The adlist won't be read anymore, but the Singularity process will continue to run.
     ReadingAdlistFailed {
         /// The adlist's source URL.
         source: &'a str,
@@ -99,7 +99,17 @@ pub enum Progress<'a> {
     OutputWriteFailed {
         /// The destination path of the failed output.
         output_dest: &'a Path,
-        /// The reason error.
+        /// The reason the operation failed.
+        reason: Box<SingularityError>,
+    },
+    /// A line in an adlist was invalid (i.e. not UTF-8). The corresponding adlist will be continued to be read, only
+    /// this erroneous line is ignored.
+    InvalidLine {
+        /// The adlist's source this line originated from.
+        source: &'a str,
+        /// The line number for the invalid line.
+        line_number: usize,
+        /// The reason error for the line being invalid.
         reason: Box<SingularityError>,
     },
 }
@@ -160,6 +170,15 @@ impl<'a> Singularity<'a> {
 
                 s.spawn(move |_| reader_thread(adlist, tx, http_timeout, read_prog_freq, reader_whitelist, reader_cb));
             }
+
+            // semantics for this bunch of threads:
+            // every reader thread sends their output to the writer thread through an mpsc channel. the reader threads
+            // end when they run out of stuff to read, at which time they'll drop their mpsc tx objects. the writer
+            // thread will end once the mpsc channel closes, which is when all the readers have ended. if the writer
+            // happens to die mid-way, the readers will each panic as well when they're unable to write to the channel
+            // anymore. if a reader happens to die mid-way, the rest of the threads will keep going but once this scope
+            // ends, the end result will be an error because one or more of the threads panicked.
+            // TODO: is it possible to ignore one or more of the readers panicking?
         })
         .map_err(|_| SingularityError::Panicked)
     }
@@ -218,9 +237,32 @@ fn reader_thread(
 
                 let line = match line {
                     Ok(l) => l,
-                    Err(_e) => continue,
+
+                    // there's two kinds of errors each line can have; either the line isn't valid UTF-8
+                    // (`ErrorKind::InvalidData`), or the actual reading failed. in the former case,
+                    // we can safely ignore that line. in the latter, the source likely won't return
+                    // any more valid data
+                    Err(e) => {
+                        if e.kind() == std::io::ErrorKind::InvalidData {
+                            cb(Progress::InvalidLine {
+                                source: adlist.source.as_str(),
+                                line_number: line_idx + 1,
+                                reason: Box::new(e.into()),
+                            });
+
+                            continue;
+                        } else {
+                            cb(Progress::ReadingAdlistFailed {
+                                source: adlist.source.as_str(),
+                                reason: Box::new(e.into()),
+                            });
+
+                            return;
+                        }
+                    }
                 };
 
+                // lines beginning with # are comments
                 if line.starts_with('#') || line.is_empty() {
                     continue;
                 }
@@ -251,7 +293,8 @@ fn reader_thread(
                         continue;
                     }
 
-                    tx.send(parsed_line).expect("failed to send parsed line");
+                    tx.send(parsed_line)
+                        .expect("failed to send parsed line; has the writer thread panicked?");
                 }
             }
 
