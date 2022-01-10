@@ -24,7 +24,6 @@ pub const DEFAULT_METRIC_NAME: &str = "blocked-queries";
 
 const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
-// TODO: explain how activating an output might fail
 /// An output for blackhole domains.
 ///
 /// An output has various configurable settings:
@@ -49,11 +48,7 @@ pub struct Output {
 
 /// An [`Output`'s](Output) type.
 #[derive(Debug, Hash, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Deserialize, serde::Serialize),
-    serde(tag = "type", rename_all = "kebab-case") // TODO: turn this rename to just aliases for the fields
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum OutputType {
     /// Output a hosts-file:
     /// ```ignore
@@ -62,6 +57,7 @@ pub enum OutputType {
     /// ...
     /// ```
     /// Additional hosts-files can be included in the output by specifying their paths in the `include` field.
+    #[cfg_attr(feature = "serde", serde(alias = "hosts"))]
     Hosts {
         /// Additional hosts-files to include in the output.
         #[cfg_attr(feature = "serde", serde(default))]
@@ -78,6 +74,7 @@ pub enum OutputType {
     /// outputs.
     ///
     /// [lua-dns-script]: https://docs.powerdns.com/recursor/settings.html#lua-dns-script
+    #[cfg_attr(feature = "serde", serde(alias = "pdns-lua", alias = "pdns_lua"))]
     PdnsLua {
         /// Whether or not to output a metric of blocked domains.
         #[cfg_attr(feature = "serde", serde(default = "default_output_metric"))]

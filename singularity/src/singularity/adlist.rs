@@ -23,11 +23,7 @@ pub struct Adlist {
 
 /// The different kinds of formats supported for adlists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Deserialize, serde::Serialize),
-    serde(rename_all = "lowercase") // TODO: turn this rename to just aliases for the fields
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum AdlistFormat {
     /// Hosts-file formatting. Each line in the source is in the same format as they would be in a hosts-file:
     /// ```ignore
@@ -37,6 +33,7 @@ pub enum AdlistFormat {
     /// ```
     /// It is assumed the address in each line is the unspecified address; `0.0.0.0` for IPv4 and `::`
     /// for IPv6. The host in each line must be a domain name; IP addresses are not allowed.
+    #[cfg_attr(feature = "serde", serde(alias = "hosts"))]
     Hosts,
     /// Each line in the source is one domain name:
     /// ```ignore
@@ -44,6 +41,7 @@ pub enum AdlistFormat {
     /// google.com
     /// ...
     /// ```
+    #[cfg_attr(feature = "serde", serde(alias = "domains"))]
     Domains,
     /// Each line is an `address`-configuration for dnsmasq:
     /// ```ignore
@@ -51,6 +49,7 @@ pub enum AdlistFormat {
     /// address=/google.com/#
     /// ...
     /// ```
+    #[cfg_attr(feature = "serde", serde(alias = "dnsmasq"))]
     Dnsmasq,
 }
 
