@@ -44,6 +44,12 @@ impl<'a> ResponseBuilder<'a> {
             .body(self.markup_base().into_string())
     }
 
+    pub fn internal_server_error(self) -> HttpResponse {
+        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
+            .content_type("text/html; charset=utf-8")
+            .body(self.markup_base().into_string())
+    }
+
     #[must_use]
     pub fn current_path(mut self, path: &'a str) -> Self {
         self.current_path = Some(path);
