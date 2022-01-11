@@ -19,12 +19,10 @@ use std::sync::RwLock;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/add_new_adlist").service(
-            web::resource("")
-                .app_data(web::FormConfig::default().error_handler(form_error_handler))
-                .route(web::get().to(add_new_adlist))
-                .route(web::post().to(submit_form)),
-        ),
+        web::resource("/add_new_adlist")
+            .app_data(web::FormConfig::default().error_handler(form_error_handler))
+            .route(web::get().to(add_new_adlist))
+            .route(web::post().to(submit_form)),
     );
 }
 

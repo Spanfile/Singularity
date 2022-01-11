@@ -23,10 +23,10 @@ struct TextImport {
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/import_singularity_config")
+        web::resource("/import_singularity_config")
             .app_data(web::FormConfig::default().error_handler(form_error_handler))
-            .route("", web::get().to(import_singularity_config))
-            .route("", web::post().to(submit_form)),
+            .route(web::get().to(import_singularity_config))
+            .route(web::post().to(submit_form)),
     );
 }
 

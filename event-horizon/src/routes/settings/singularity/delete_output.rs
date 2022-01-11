@@ -24,12 +24,10 @@ struct DeleteId {
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/delete_output").service(
-            web::resource("")
-                .app_data(web::FormConfig::default().error_handler(form_error_handler))
-                .route(web::get().to(delete_output))
-                .route(web::post().to(submit_form)),
-        ),
+        web::resource("/delete_output")
+            .app_data(web::FormConfig::default().error_handler(form_error_handler))
+            .route(web::get().to(delete_output))
+            .route(web::post().to(submit_form)),
     );
 }
 
