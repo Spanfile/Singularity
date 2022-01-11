@@ -61,6 +61,13 @@ pub struct SingularityWhitelist {
     pub domain: String,
 }
 
+#[derive(Insertable)]
+#[diesel(table_name = singularity_whitelists)]
+pub struct NewSingularityWhitelist<'a> {
+    pub singularity_config_id: DbId,
+    pub domain: &'a str,
+}
+
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
 #[diesel(belongs_to(SingularityOutput))]
 pub struct SingularityOutputHostsInclude {

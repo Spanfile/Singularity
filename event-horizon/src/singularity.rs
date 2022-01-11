@@ -259,21 +259,55 @@ impl SingularityConfig {
         )
     }
 
-    /// Adds a new domain to the whitelist. Returns whether the domain was succesfully added.
-    pub fn add_whitelisted_domain(&mut self, domain: String) -> bool {
-        todo!()
+    /// Adds a new domain to the whitelist. Returns the ID of the newly whitelisted domain.
+    pub fn add_whitelisted_domain(&self, conn: &mut DbConn, domain: String) -> anyhow::Result<DbId> {
+        use crate::database::schema::singularity_whitelists;
+
+        let model = models::NewSingularityWhitelist {
+            singularity_config_id: self.0,
+            domain: domain.as_str(),
+        };
+
+        let whitelist = diesel::insert_into(singularity_whitelists::table)
+            .values(&model)
+            .get_result::<models::SingularityWhitelist>(conn)?;
+
+        debug!("Insert whitelist: {:#?}", whitelist);
+        self.set_dirty(conn, true)?;
+        Ok(whitelist.id)
     }
 
     /// Deletes a given domain from the whitelist.
-    pub fn delete_whitelisted_domain(&mut self, id: u64) -> bool {
-        todo!()
+    pub fn delete_whitelisted_domain(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
+        use crate::database::schema::singularity_whitelists;
+
+        let rows =
+            diesel::delete(singularity_whitelists::table.filter(singularity_whitelists::id.eq(id))).execute(conn)?;
+        debug!("Delete whitelist {}: {} rows deleted", id, rows);
+
+        self.set_dirty(conn, true)
     }
 
-    pub fn get_whitelist(&self, id: u64) -> Option<&str> {
-        todo!()
+    pub fn get_whitelist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<String> {
+        use crate::database::schema::singularity_whitelists;
+
+        let whitelist = singularity_whitelists::table
+            .filter(singularity_whitelists::id.eq(id))
+            .first::<models::SingularityWhitelist>(conn)?;
+
+        debug!("Whitelist {}: {:#?}", id, whitelist);
+        Ok(whitelist.domain)
     }
 
-    pub fn whitelist(&self) -> anyhow::Result<Vec<(DbId, String)>> {
-        todo!()
+    pub fn whitelist(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, String)>> {
+        let own_model = self.own_model(conn)?;
+        let whitelist = models::SingularityWhitelist::belonging_to(&own_model)
+            .load::<models::SingularityWhitelist>(conn)?
+            .into_iter()
+            .map(|model| (model.id, model.domain))
+            .collect::<Vec<(DbId, String)>>();
+
+        debug!("Whitelist in {}: {}", self.0, whitelist.len());
+        Ok(whitelist)
     }
 }

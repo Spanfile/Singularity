@@ -14,22 +14,27 @@ use actix_web::{
     web, HttpRequest, HttpResponse, Responder,
 };
 use log::*;
-use singularity::Adlist;
+use serde::Deserialize;
 use std::sync::RwLock;
+
+#[derive(Debug, Deserialize)]
+struct WhitelistedDomain {
+    domain: String,
+}
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/add_new_adlist").service(
+        web::scope("/add_whitelisted_domain").service(
             web::resource("")
                 .app_data(web::FormConfig::default().error_handler(form_error_handler))
-                .route(web::get().to(add_new_adlist))
+                .route(web::get().to(add_whitelisted_domain))
                 .route(web::post().to(submit_form)),
         ),
     );
 }
 
 fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
-    warn!("Add new adlist POST failed: {}", err);
+    warn!("Add new whitelisted domain POST failed: {}", err);
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
@@ -38,38 +43,38 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     .into()
 }
 
-async fn add_new_adlist() -> impl Responder {
+async fn add_whitelisted_domain() -> impl Responder {
     page().ok()
 }
 
 async fn submit_form(
-    adlist: web::Form<Adlist>,
+    domain: web::Form<WhitelistedDomain>,
     cfg: web::Data<RwLock<SingularityConfig>>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    info!("Adding new adlist: {:?}", adlist);
+    info!("Adding new whitelisted domain: {:?}", domain);
 
     let cfg = cfg.write().expect("failed to lock write singularity config");
 
     let mut conn = pool.get().expect("failed to get DB connection");
-    match cfg.add_adlist(&mut conn, adlist.into_inner()) {
+    match cfg.add_whitelisted_domain(&mut conn, domain.into_inner().domain) {
         Ok(_) => {
-            info!("Adlist succesfully added");
+            info!("Whitelisted domain succesfully added");
 
             HttpResponse::build(StatusCode::SEE_OTHER)
                 .append_header((header::LOCATION, "/settings/singularity"))
                 .finish()
         }
         Err(e) => {
-            warn!("Failed to add adlist: {}", e);
+            warn!("Failed to add whitelisted domain: {}", e);
 
             page()
-                .alert(Alert::Warning(format!("Failed to add new adlist: {}", e)))
+                .alert(Alert::Warning(format!("Failed to add whitelisted domain: {}", e)))
                 .ok()
         }
     }
 }
 
 fn page() -> ResponseBuilder<'static> {
-    template::settings(SettingsPage::Singularity(SingularitySubPage::AddNewAdlist))
+    template::settings(SettingsPage::Singularity(SingularitySubPage::AddNewWhitelistedDomain))
 }
