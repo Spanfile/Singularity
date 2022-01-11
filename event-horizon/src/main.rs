@@ -43,7 +43,17 @@ async fn main() -> anyhow::Result<()> {
     debug!("EVH: {:#?}", evh_config);
 
     let pool = create_db_pool(&evh_config)?;
-    let singularity_config = SingularityConfig::new(1);
+    let mut conn = pool.get()?;
+
+    // attempt to load the config with ID 1, or if it fails because it doesn't exist, attempt to create a new config
+    let singularity_config = SingularityConfig::load(1, &mut conn).or_else(|e| {
+        if let Some(diesel::result::Error::NotFound) = e.downcast_ref() {
+            warn!("No existing Singularity config found, falling back to creating a new one");
+            SingularityConfig::new(&mut conn)
+        } else {
+            Err(e)
+        }
+    })?;
 
     // add some dummy data
     // singularity_config.add_adlist(Adlist::new(

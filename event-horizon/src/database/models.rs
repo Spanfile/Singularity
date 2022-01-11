@@ -8,6 +8,13 @@ pub struct SingularityConfig {
     pub http_timeout: i32,
 }
 
+#[derive(Insertable)]
+#[diesel(table_name = singularity_configs)]
+pub struct NewSingularityConfig {
+    pub dirty: bool,
+    pub http_timeout: i32,
+}
+
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
 #[diesel(belongs_to(SingularityConfig))]
 pub struct SingularityAdlist {

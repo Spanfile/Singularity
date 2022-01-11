@@ -1,7 +1,7 @@
 use crate::database::{models, DbConn, DbId};
 use diesel::prelude::*;
 use log::*;
-use singularity::{Adlist, Output, OutputType};
+use singularity::{Adlist, Output, OutputType, HTTP_CONNECT_TIMEOUT};
 use std::{
     ffi::OsString,
     os::unix::ffi::{OsStrExt, OsStringExt},
@@ -12,9 +12,29 @@ use std::{
 pub struct SingularityConfig(DbId);
 
 impl SingularityConfig {
-    pub fn new(id: DbId) -> Self {
-        // TODO: might as well check if this ID is in the database
-        Self(id)
+    pub fn new(conn: &mut DbConn) -> anyhow::Result<Self> {
+        use crate::database::schema::singularity_configs;
+
+        let cfg = diesel::insert_into(singularity_configs::table)
+            .values(models::NewSingularityConfig {
+                dirty: false,
+                http_timeout: HTTP_CONNECT_TIMEOUT as i32,
+            })
+            .get_result::<models::SingularityConfig>(conn)?;
+
+        debug!("Insert Singularity config: {:#?}", cfg);
+        Ok(Self(cfg.id))
+    }
+
+    pub fn load(id: DbId, conn: &mut DbConn) -> anyhow::Result<Self> {
+        use crate::database::schema::singularity_configs;
+
+        let cfg = singularity_configs::table
+            .filter(singularity_configs::id.eq(id))
+            .first::<models::SingularityConfig>(conn)?;
+
+        debug!("Singularity config {}: {:?}", id, cfg);
+        Ok(Self(cfg.id))
     }
 
     pub fn import_singularity_config<P>(path: P) -> anyhow::Result<Self>
@@ -22,6 +42,17 @@ impl SingularityConfig {
         P: AsRef<Path>,
     {
         todo!()
+    }
+
+    fn own_model(&self, conn: &mut DbConn) -> anyhow::Result<models::SingularityConfig> {
+        use crate::database::schema::singularity_configs;
+
+        let model = singularity_configs::table
+            .filter(singularity_configs::id.eq(self.0))
+            .first::<models::SingularityConfig>(conn)?;
+
+        debug!("{:?}: {:?}", self, model);
+        Ok(model)
     }
 
     /// Sets the dirty flag for this config.
@@ -32,7 +63,7 @@ impl SingularityConfig {
             .set(singularity_configs::dirty.eq(dirty))
             .execute(conn)?;
 
-        debug!("SingularityConfig({}) dirty: {}", self.0, dirty);
+        debug!("{:?} dirty: {}", self, dirty);
         Ok(())
     }
 
@@ -59,10 +90,10 @@ impl SingularityConfig {
     pub fn delete_adlist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
         use crate::database::schema::singularity_adlists;
 
-        diesel::delete(singularity_adlists::table.filter(singularity_adlists::id.eq(id))).execute(conn)?;
+        let rows = diesel::delete(singularity_adlists::table.filter(singularity_adlists::id.eq(id))).execute(conn)?;
+        debug!("Delete adlist {}: {} rows deleted", id, rows);
 
-        debug!("Delete adlist: {}", id);
-        Ok(())
+        self.set_dirty(conn, true)
     }
 
     pub fn get_adlist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<Adlist> {
@@ -78,9 +109,8 @@ impl SingularityConfig {
     }
 
     pub fn adlists(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, Adlist)>> {
-        use crate::database::schema::singularity_adlists;
-
-        let adlists = singularity_adlists::table
+        let own_model = self.own_model(conn)?;
+        let adlists = models::SingularityAdlist::belonging_to(&own_model)
             .load::<models::SingularityAdlist>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, model.try_into()?)))
@@ -163,10 +193,11 @@ impl SingularityConfig {
     pub fn delete_output(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
         use crate::database::schema::singularity_outputs;
 
-        diesel::delete(singularity_outputs::table.filter(singularity_outputs::id.eq(id))).execute(conn)?;
+        // TODO: so uhh the ON DELETE CASCADE in the pdns lua table isn't working?
+        let rows = diesel::delete(singularity_outputs::table.filter(singularity_outputs::id.eq(id))).execute(conn)?;
+        debug!("Delete output {}: {} rows deleted", id, rows);
 
-        debug!("Delete output: {}", id);
-        Ok(())
+        self.set_dirty(conn, true)
     }
 
     pub fn get_output(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<Output> {
@@ -182,9 +213,8 @@ impl SingularityConfig {
     }
 
     pub fn outputs(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, Output)>> {
-        use crate::database::schema::singularity_outputs;
-
-        let outputs = singularity_outputs::table
+        let own_model = self.own_model(conn)?;
+        let outputs = models::SingularityOutput::belonging_to(&own_model)
             .load::<models::SingularityOutput>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, self.output_from_model(conn, model)?)))

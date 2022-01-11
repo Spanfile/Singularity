@@ -51,6 +51,12 @@ table! {
     }
 }
 
+joinable!(singularity_adlists -> singularity_configs (singularity_config_id));
+joinable!(singularity_output_hosts_includes -> singularity_outputs (singularity_output_id));
+joinable!(singularity_output_pdns_lua -> singularity_outputs (singularity_output_id));
+joinable!(singularity_outputs -> singularity_configs (singularity_config_id));
+joinable!(singularity_whitelists -> singularity_configs (singularity_config_id));
+
 allow_tables_to_appear_in_same_query!(
     singularity_adlists,
     singularity_configs,

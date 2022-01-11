@@ -11,7 +11,7 @@ CREATE TABLE singularity_adlists (
     source TEXT UNIQUE NOT NULL,
     format TEXT NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (singularity_config_id) REFERENCES singularity_config (id) ON DELETE CASCADE,
+    FOREIGN KEY (singularity_config_id) REFERENCES singularity_configs (id) ON DELETE CASCADE,
     CHECK (format IN ("Hosts", "Domains", "Dnsmasq"))
 );
 
@@ -23,7 +23,7 @@ CREATE TABLE singularity_outputs (
     blackhole_address TEXT NOT NULL,
     deduplicate BOOLEAN NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (singularity_config_id) REFERENCES singularity_config (id) ON DELETE CASCADE,
+    FOREIGN KEY (singularity_config_id) REFERENCES singularity_configs (id) ON DELETE CASCADE,
     CHECK (ty IN ("Hosts", "PdnsLua"))
 );
 
@@ -32,7 +32,7 @@ CREATE TABLE singularity_whitelists (
     singularity_config_id INTEGER NOT NULL,
     domain TEXT NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (singularity_config_id) REFERENCES singularity_config (id) ON DELETE CASCADE
+    FOREIGN KEY (singularity_config_id) REFERENCES singularity_configs (id) ON DELETE CASCADE
 );
 
 CREATE TABLE singularity_output_hosts_includes (
@@ -40,7 +40,7 @@ CREATE TABLE singularity_output_hosts_includes (
     singularity_output_id INTEGER NOT NULL,
     path BLOB NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (singularity_output_id) REFERENCES singularity_output(id) ON DELETE CASCADE
+    FOREIGN KEY (singularity_output_id) REFERENCES singularity_outputs(id) ON DELETE CASCADE
 );
 
 CREATE TABLE singularity_output_pdns_lua (
@@ -49,5 +49,5 @@ CREATE TABLE singularity_output_pdns_lua (
     output_metric BOOLEAN NOT NULL,
     metric_name TEXT NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (singularity_output_id) REFERENCES singularity_output(id) ON DELETE CASCADE
+    FOREIGN KEY (singularity_output_id) REFERENCES singularity_outputs(id) ON DELETE CASCADE
 );
