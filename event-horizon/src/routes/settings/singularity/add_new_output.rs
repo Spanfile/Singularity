@@ -4,25 +4,23 @@ use crate::{
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
-        Alert,
+        Alert, ResponseBuilder,
     },
     util::request_callback_error::RequestCallbackError,
 };
-use actix_router::PathDeserializer;
 use actix_web::{
     error::UrlencodedError,
     http::{header, StatusCode},
     web, HttpRequest, HttpResponse, Responder,
 };
 use log::*;
-use serde::{de, Deserialize};
+use serde::Deserialize;
 use singularity::{
     Output, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_DEDUPLICATE, DEFAULT_METRIC_NAME, DEFAULT_OUTPUT_METRIC,
 };
 use std::{net::IpAddr, path::PathBuf, sync::RwLock};
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy)]
 enum Action {
     AddNewHostsOutput,
     AddNewLuaOutput,
@@ -84,49 +82,67 @@ impl OutputForm {
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::resource("{action}")
-            .app_data(web::FormConfig::default().error_handler(form_error_handler))
-            .route(web::get().to(add_new_output))
-            .route(web::post().to(submit_form)),
+        web::resource("/add_new_hosts_output")
+            .app_data(web::FormConfig::default().error_handler(hosts_form_error_handler))
+            .route(web::get().to(add_new_hosts_output))
+            .route(web::post().to(submit_hosts_form)),
+    )
+    .service(
+        web::resource("/add_new_lua_output")
+            .app_data(web::FormConfig::default().error_handler(pdns_lua_form_error_handler))
+            .route(web::get().to(add_new_lua_output))
+            .route(web::post().to(submit_lua_form)),
     );
 }
 
-fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
+fn hosts_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
+    form_error_handler(Action::AddNewHostsOutput, err, req)
+}
+
+fn pdns_lua_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
+    form_error_handler(Action::AddNewLuaOutput, err, req)
+}
+
+fn form_error_handler(action: Action, err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
     warn!("Add new output POST failed: {}", err);
     warn!("{:?}", req);
 
-    let req = req.clone();
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        let cfg = req
-            .app_data::<web::Data<RwLock<SingularityConfig>>>()
-            .and_then(|cfg| cfg.read().ok())
-            .expect("failed to lock read singularity config");
-
-        let action = de::Deserialize::deserialize(PathDeserializer::new(req.match_info()))
-            .expect("failed to extract output from request path");
-
-        template::settings(SettingsPage::Singularity(match action {
-            Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
-            Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
-        }))
-        .alert(Alert::Warning(err.to_string()))
-        .bad_request()
+        page(action).alert(Alert::Warning(err.to_string())).bad_request()
     })
     .into()
 }
 
-async fn add_new_output(action: web::Path<Action>, cfg: web::Data<RwLock<SingularityConfig>>) -> impl Responder {
-    let cfg = cfg.read().expect("failed to lock read singularity config");
-
-    template::settings(SettingsPage::Singularity(match action.into_inner() {
-        Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
-        Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
-    }))
-    .ok()
+async fn add_new_hosts_output() -> impl Responder {
+    add_new_output(Action::AddNewHostsOutput)
 }
 
-async fn submit_form(
-    action: web::Path<Action>,
+async fn add_new_lua_output() -> impl Responder {
+    add_new_output(Action::AddNewLuaOutput)
+}
+
+async fn submit_hosts_form(
+    output: web::Form<OutputForm>,
+    cfg: web::Data<RwLock<SingularityConfig>>,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
+    submit_form(Action::AddNewHostsOutput, output, cfg, pool)
+}
+
+async fn submit_lua_form(
+    output: web::Form<OutputForm>,
+    cfg: web::Data<RwLock<SingularityConfig>>,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
+    submit_form(Action::AddNewLuaOutput, output, cfg, pool)
+}
+
+fn add_new_output(action: Action) -> impl Responder {
+    page(action).ok()
+}
+
+fn submit_form(
+    action: Action,
     output: web::Form<OutputForm>,
     cfg: web::Data<RwLock<SingularityConfig>>,
     pool: web::Data<DbPool>,
@@ -148,22 +164,26 @@ async fn submit_form(
                 .append_header((header::LOCATION, "/settings/singularity"))
                 .finish()
         }
-        Err(e) => form_error_page(e.to_string(), action.into_inner(), &cfg),
+        Err(e) => form_error_page(e.to_string(), action),
     }
 }
 
-fn form_error_page<D>(msg: D, action: Action, cfg: &SingularityConfig) -> HttpResponse
+fn form_error_page<D>(msg: D, action: Action) -> HttpResponse
 where
     D: std::fmt::Display,
 {
     warn!("Failed to add output: {}", msg);
 
+    page(action)
+        .alert(Alert::Warning(format!("Failed to add output: {}", msg)))
+        .bad_request()
+}
+
+fn page<'a>(action: Action) -> ResponseBuilder<'a> {
     template::settings(SettingsPage::Singularity(match action {
         Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
         Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
     }))
-    .alert(Alert::Warning(format!("Failed to add output: {}", msg)))
-    .bad_request()
 }
 
 // see the comment at OutputForm

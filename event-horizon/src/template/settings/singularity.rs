@@ -16,6 +16,7 @@ pub enum SingularitySubPage<'a> {
     DeleteAdlist(DbId, &'a Adlist),
     AddNewHostsOutput,
     AddNewLuaOutput,
+    DeleteOutput(DbId, &'a Output),
 }
 
 pub fn singularity(sub_page: SingularitySubPage) -> Markup {
@@ -25,6 +26,7 @@ pub fn singularity(sub_page: SingularitySubPage) -> Markup {
         SingularitySubPage::DeleteAdlist(id, adlist) => adlists::delete_adlist(id, adlist),
         SingularitySubPage::AddNewHostsOutput => outputs::add_new_hosts_output(),
         SingularitySubPage::AddNewLuaOutput => outputs::add_new_lua_output(),
+        SingularitySubPage::DeleteOutput(id, output) => outputs::delete_output(id, output),
     }
 }
 

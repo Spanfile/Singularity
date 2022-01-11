@@ -17,7 +17,7 @@ pub fn settings(page: SettingsPage) -> ResponseBuilder<'static> {
         .row {
             ."col-lg-2" {
                 nav .nav ."nav-pills" ."flex-column" {
-                    a ."nav-link" .active[page == SettingsPage::EventHorizon] href="/settings/eventhorizon" { "Event Horizon" }
+                    a ."nav-link" .active[page == SettingsPage::EventHorizon] href="/settings/event_horizon" { "Event Horizon" }
                     a ."nav-link" .active[matches!(page, SettingsPage::Singularity(_))] href="/settings/singularity" { "Singularity" }
                     a ."nav-link" .active[page == SettingsPage::Recursor] href="/settings/recursor" { "PDNS Recursor" }
                 }

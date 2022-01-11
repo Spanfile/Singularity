@@ -1,6 +1,7 @@
 mod add_new_adlist;
 mod add_new_output;
 mod delete_adlist;
+mod delete_output;
 
 use crate::{
     database::DbPool,
@@ -16,10 +17,11 @@ use std::sync::RwLock;
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/singularity")
-            .service(web::resource("").route(web::get().to(singularity)))
+            .route("", web::get().to(singularity))
             .configure(add_new_adlist::config)
             .configure(delete_adlist::config)
-            .configure(add_new_output::config),
+            .configure(add_new_output::config)
+            .configure(delete_output::config),
     );
 }
 

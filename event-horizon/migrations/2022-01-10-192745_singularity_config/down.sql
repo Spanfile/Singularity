@@ -1,6 +1,6 @@
-DROP TABLE singularity_config;
-DROP TABLE singularity_adlist;
-DROP TABLE singularity_output;
-DROP TABLE singularity_whitelist;
-DROP TABLE singularity_output_hosts_include;
+DROP TABLE singularity_configs;
+DROP TABLE singularity_adlists;
+DROP TABLE singularity_outputs;
+DROP TABLE singularity_whitelists;
+DROP TABLE singularity_output_hosts_includes;
 DROP TABLE singularity_output_pdns_lua;

@@ -21,63 +21,7 @@ pub fn outputs_card(outputs: &[(DbId, Output)]) -> Markup {
 
                 ."list-group" ."mt-3" {
                     @for (id, output) in outputs {
-                        (single_output_card(*id, output))
-                    }
-                }
-            }
-        }
-    }
-}
-
-pub fn single_output_card(id: DbId, output: &Output) -> Markup {
-    html! {
-        .card ."w-100" ."mb-3" {
-            ."card-header" ."container-fluid" {
-                .row ."g-3" {
-                    ."col-auto" ."me-auto" ."d-flex" ."align-items-center" { (output.ty()) " - " (output.destination().display()) }
-                    ."col-auto" {
-                        a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={ "/settings/singularity/edit_output?id=" (id) } { "Edit" }
-                    }
-                    ."col-auto" {
-                        a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } { "Delete" }
-                    }
-                }
-            }
-
-            ."card-body" {
-                .row {
-                    ."col-md" {
-                        dl .row {
-                            dt ."col-lg-6" { "Blackhole address" }
-                            dd ."col-lg-6" { (output.blackhole_address()) }
-
-                            dt ."col-lg-6" { "Deduplicate" }
-                            dd ."col-lg-6" { (output.deduplicate()) }
-                        }
-                    }
-
-                    ."col-md" {
-                        dl .row {
-                            @match output.ty() {
-                                OutputType::Hosts { include } => {
-                                    dt ."col-xl-12" { "Included files" }
-                                    dd ."col-xl-12" {
-                                        ul ."list-group" ."list-group-flush" {
-                                            @for file in include {
-                                                li ."list-group-item" { (file.display()) }
-                                            }
-                                        }
-                                    }
-                                },
-                                OutputType::PdnsLua { output_metric, metric_name } => {
-                                    dt ."col-lg-6" { "Metric enabled" }
-                                    dd ."col-lg-6" { (output_metric) }
-
-                                    dt ."col-lg-6" { "Metric name" }
-                                    dd ."col-lg-6" { (metric_name) }
-                                },
-                            }
-                        }
+                        (single_output_card(*id, output, true))
                     }
                 }
             }
@@ -121,6 +65,84 @@ pub fn add_new_lua_output() -> Markup {
 
                     button .btn ."btn-primary" ."me-3" type="submit" { "Add new output" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
+                }
+            }
+        }
+    }
+}
+
+pub fn delete_output(id: DbId, output: &Output) -> Markup {
+    html! {
+        .card ."w-100" ."mb-3" {
+            ."card-header" ."bg-danger" ."text-white" { "Delete Output" }
+            ."card-body" {
+                p ."card-text" { "Are you sure you want to delete this output? The operation is irreversible!" }
+                p ."card-text" {
+                    (single_output_card(id, output, false))
+                }
+
+                form method="POST" {
+                    input name="id" value=(id) type="hidden";
+                    button .btn ."btn-danger" ."me-3" type="submit" { "Delete" }
+                    a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
+                }
+            }
+        }
+    }
+}
+
+fn single_output_card(id: DbId, output: &Output, controls: bool) -> Markup {
+    html! {
+        .card ."w-100" ."mb-3" {
+            ."card-header" ."container-fluid" {
+                .row ."g-3" {
+                    ."col-auto" ."me-auto" ."d-flex" ."align-items-center" { (output.ty()) " - " (output.destination().display()) }
+                    @if controls {
+                        ."col-auto" {
+                            a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={ "/settings/singularity/edit_output?id=" (id) } { "Edit" }
+                        }
+                        ."col-auto" {
+                            a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } { "Delete" }
+                        }
+                    }
+                }
+            }
+
+            ."card-body" {
+                .row {
+                    ."col-md" {
+                        dl .row {
+                            dt ."col-lg-6" { "Blackhole address" }
+                            dd ."col-lg-6" { (output.blackhole_address()) }
+
+                            dt ."col-lg-6" { "Deduplicate" }
+                            dd ."col-lg-6" { (output.deduplicate()) }
+                        }
+                    }
+
+                    ."col-md" {
+                        dl .row {
+                            @match output.ty() {
+                                OutputType::Hosts { include } => {
+                                    dt ."col-xl-12" { "Included files" }
+                                    dd ."col-xl-12" {
+                                        ul ."list-group" ."list-group-flush" {
+                                            @for file in include {
+                                                li ."list-group-item" { (file.display()) }
+                                            }
+                                        }
+                                    }
+                                },
+                                OutputType::PdnsLua { output_metric, metric_name } => {
+                                    dt ."col-lg-6" { "Metric enabled" }
+                                    dd ."col-lg-6" { (output_metric) }
+
+                                    dt ."col-lg-6" { "Metric name" }
+                                    dd ."col-lg-6" { (metric_name) }
+                                },
+                            }
+                        }
+                    }
                 }
             }
         }
