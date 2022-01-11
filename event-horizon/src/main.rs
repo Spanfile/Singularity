@@ -15,7 +15,7 @@ mod built_info {
 }
 
 use crate::{
-    config::{EnvConfig, EvhConfig, Listen},
+    config::{evh_config::EvhConfig, EnvConfig, Listen},
     singularity::SingularityConfig,
 };
 use actix_files::Files;

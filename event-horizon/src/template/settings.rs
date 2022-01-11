@@ -1,9 +1,11 @@
+mod event_horizon;
+mod recursor;
 mod singularity;
 
 pub use self::singularity::SingularitySubPage;
 
 use super::ResponseBuilder;
-use maud::{html, Markup};
+use maud::html;
 
 #[derive(PartialEq, Eq)]
 pub enum SettingsPage<'a> {
@@ -25,27 +27,12 @@ pub fn settings(page: SettingsPage) -> ResponseBuilder<'static> {
 
             ."col-lg-10" {
                 @match page {
-                    SettingsPage::EventHorizon => (event_horizon()),
+                    SettingsPage::EventHorizon => (event_horizon::event_horizon()),
                     SettingsPage::Singularity(sub) => (singularity::singularity(sub)),
-                    SettingsPage::Recursor => (recursor()),
+                    SettingsPage::Recursor => (recursor::recursor()),
                 }
             }
         }
     })
     .current_path("/settings")
-}
-
-fn event_horizon() -> Markup {
-    html! {
-        p { "Event Horizon settings" }
-    }
-}
-
-fn recursor() -> Markup {
-    // things to have settings for:
-    //
-
-    html! {
-        p { "PDNS Recursor settings" }
-    }
 }

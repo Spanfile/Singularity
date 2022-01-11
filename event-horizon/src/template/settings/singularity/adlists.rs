@@ -24,7 +24,9 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
                                 td ."align-middle" {a href=(adlist.source()) { (adlist.source()) } }
                                 td ."align-middle" { (adlist.format()) }
                                 td {
-                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={ "/settings/singularity/delete_adlist?id=" (id) } { "Delete" }
+                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={
+                                        "/settings/singularity/delete_adlist?id=" (id)
+                                    } { "Delete" }
                                 }
                             }
                         }

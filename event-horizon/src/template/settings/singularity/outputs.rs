@@ -11,11 +11,15 @@ pub fn outputs_card(outputs: &[(DbId, Output)]) -> Markup {
             ."card-body" {
                 .row ."g-3" {
                     ."col-auto" {
-                        a .btn ."btn-primary" href="/settings/singularity/add_new_lua_output" { "Add new PDNS Lua script output" }
+                        a .btn ."btn-primary" href="/settings/singularity/add_new_lua_output" {
+                            "Add new PDNS Lua script output"
+                        }
                     }
 
                     ."col-auto" {
-                        a .btn ."btn-primary" href="/settings/singularity/add_new_hosts_output" { "Add new hosts-file output" }
+                        a .btn ."btn-primary" href="/settings/singularity/add_new_hosts_output" {
+                            "Add new hosts-file output"
+                        }
                     }
                 }
 
@@ -54,7 +58,8 @@ pub fn add_new_lua_output() -> Markup {
                     (common_output_form("pdns-lua"))
 
                     ."mb-3" ."form-check" {
-                        input ."form-check-input" #output_metric name="output_metric" type="checkbox" checked[DEFAULT_OUTPUT_METRIC];
+                        input ."form-check-input" #output_metric name="output_metric" type="checkbox"
+                            checked[DEFAULT_OUTPUT_METRIC];
                         label ."form-check-label" for="output_metric" { "Metric enabled" }
                     }
 
@@ -96,13 +101,19 @@ fn single_output_card(id: DbId, output: &Output, controls: bool) -> Markup {
         .card ."w-100" ."mb-3" {
             ."card-header" ."container-fluid" {
                 .row ."g-3" {
-                    ."col-auto" ."me-auto" ."d-flex" ."align-items-center" { (output.ty()) " - " (output.destination().display()) }
+                    ."col-auto" ."me-auto" ."d-flex" ."align-items-center" {
+                        (output.ty()) " - " (output.destination().display())
+                    }
                     @if controls {
                         ."col-auto" {
-                            a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={ "/settings/singularity/edit_output?id=" (id) } { "Edit" }
+                            a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={
+                                "/settings/singularity/edit_output?id=" (id)
+                            } { "Edit" }
                         }
                         ."col-auto" {
-                            a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } { "Delete" }
+                            a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } {
+                                "Delete"
+                            }
                         }
                     }
                 }
@@ -160,7 +171,8 @@ fn common_output_form(ty: &str) -> Markup {
 
         ."mb-3" {
             label ."form-label" for="blackhole_address" { "Blackhole address" }
-            input #source ."form-control" name="blackhole_address" type="text" value=(DEFAULT_BLACKHOLE_ADDRESS_V4) required;
+            input #source ."form-control" name="blackhole_address" type="text" value=(DEFAULT_BLACKHOLE_ADDRESS_V4)
+                required;
         }
 
         ."mb-3" ."form-check" {

@@ -6,7 +6,9 @@ pub fn whitelist_card(whitelist: &[(DbId, String)]) -> Markup {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Whitelisted domains" }
             ."card-body" {
-                a .btn ."btn-primary" href="/settings/singularity/add_whitelisted_domain" { "Add new whitelisted domain" }
+                a .btn ."btn-primary" href="/settings/singularity/add_whitelisted_domain" {
+                    "Add new whitelisted domain"
+                }
 
                 table .table ."mt-3" {
                     thead {
@@ -21,7 +23,9 @@ pub fn whitelist_card(whitelist: &[(DbId, String)]) -> Markup {
                                 // TODO: horizontal overflow to this element
                                 td ."align-middle" { (domain) }
                                 td {
-                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={ "/settings/singularity/delete_whitelisted_domain?id=" (id) } { "Delete" }
+                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={
+                                        "/settings/singularity/delete_whitelisted_domain?id=" (id)
+                                    } { "Delete" }
                                 }
                             }
                         }
@@ -57,7 +61,9 @@ pub fn delete_whitelisted_domain(id: DbId, domain: &str) -> Markup {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Delete whitelisted domain" }
             ."card-body" {
-                p ."card-text" { "Are you sure you want to delete this whitelisted domain? The operation is irreversible!" }
+                p ."card-text" {
+                    "Are you sure you want to delete this whitelisted domain? The operation is irreversible!"
+                }
                 p ."card-text" {
                     (domain)
                 }
