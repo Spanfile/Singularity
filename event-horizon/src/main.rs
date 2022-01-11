@@ -15,8 +15,8 @@ mod built_info {
 }
 
 use crate::{
-    config::{evh_config::EvhConfig, EnvConfig, Listen},
-    singularity::SingularityConfig,
+    config::{EnvConfig, EvhConfig, Listen},
+    singularity::{ConfigImporter, SingularityConfig},
 };
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};
@@ -97,7 +97,8 @@ async fn main() -> anyhow::Result<()> {
     let env_config = web::Data::new(env_config);
     let evh_config = web::Data::new(evh_config);
     let pool = web::Data::new(pool);
-    let singularity_config = web::Data::new(RwLock::new(singularity_config));
+    let singularity_config = web::Data::new(singularity_config);
+    let config_importer = web::Data::new(RwLock::new(ConfigImporter::new()));
 
     let listener = match env_config.listen {
         Listen::Http { bind } => bind,
@@ -116,6 +117,7 @@ async fn main() -> anyhow::Result<()> {
             .app_data(evh_config.clone())
             .app_data(pool.clone())
             .app_data(singularity_config.clone())
+            .app_data(config_importer.clone())
             .service(Files::new("/static", "static/"))
             .configure(routes::index::config)
             .configure(routes::about::config)

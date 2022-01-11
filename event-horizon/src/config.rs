@@ -1,4 +1,6 @@
-pub mod evh_config;
+mod evh_config;
+
+pub use evh_config::EvhConfig;
 
 use crate::logging::LogLevel;
 use serde::Deserialize;

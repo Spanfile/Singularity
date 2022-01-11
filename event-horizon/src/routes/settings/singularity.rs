@@ -14,7 +14,6 @@ use crate::{
     },
 };
 use actix_web::{web, Responder};
-use std::sync::RwLock;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -29,8 +28,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn singularity(cfg: web::Data<RwLock<SingularityConfig>>, pool: web::Data<DbPool>) -> impl Responder {
-    let cfg = cfg.read().expect("failed to lock read singularity config");
+async fn singularity(cfg: web::Data<SingularityConfig>, pool: web::Data<DbPool>) -> impl Responder {
     let mut conn = pool.get().expect("failed to get DB connection");
 
     let adlists = cfg.adlists(&mut conn).expect("failed to read adlists");

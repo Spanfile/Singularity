@@ -18,7 +18,7 @@ use serde::Deserialize;
 use singularity::{
     Output, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_DEDUPLICATE, DEFAULT_METRIC_NAME, DEFAULT_OUTPUT_METRIC,
 };
-use std::{net::IpAddr, path::PathBuf, sync::RwLock};
+use std::{net::IpAddr, path::PathBuf};
 
 #[derive(Clone, Copy)]
 enum Action {
@@ -123,7 +123,7 @@ async fn add_new_lua_output() -> impl Responder {
 
 async fn submit_hosts_form(
     output: web::Form<OutputForm>,
-    cfg: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     submit_form(Action::AddNewHostsOutput, output, cfg, pool)
@@ -131,7 +131,7 @@ async fn submit_hosts_form(
 
 async fn submit_lua_form(
     output: web::Form<OutputForm>,
-    cfg: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     submit_form(Action::AddNewLuaOutput, output, cfg, pool)
@@ -144,12 +144,11 @@ fn add_new_output(action: Action) -> impl Responder {
 fn submit_form(
     action: Action,
     output: web::Form<OutputForm>,
-    cfg: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding output: {:#?}", output);
 
-    let cfg = cfg.write().expect("failed to lock write singularity config");
     let mut conn = pool.get().expect("failed to get DB connection");
 
     match output

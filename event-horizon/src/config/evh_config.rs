@@ -6,11 +6,15 @@ const EVH_CONFIG_WARNING: &str =
     "# These options are internal and critical to Event Horizon's functionality. You probably shouldn't edit them";
 
 const DEFAULT_DATABASE_URL: &str = "evh.sqlite";
+const MAX_CONCURRENT_IMPORTS: usize = 5;
+const MAX_IMPORT_LIFETIME: u64 = 300;
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub struct EvhConfig {
-    #[serde(default)]
     pub database_url: String,
+    pub max_concurrent_imports: usize,
+    pub max_import_lifetime: u64,
 }
 
 impl EvhConfig {
@@ -34,6 +38,8 @@ impl Default for EvhConfig {
     fn default() -> Self {
         Self {
             database_url: DEFAULT_DATABASE_URL.to_string(),
+            max_concurrent_imports: MAX_CONCURRENT_IMPORTS,
+            max_import_lifetime: MAX_IMPORT_LIFETIME,
         }
     }
 }

@@ -15,7 +15,6 @@ use actix_web::{
 };
 use log::*;
 use singularity::Adlist;
-use std::sync::RwLock;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -42,12 +41,10 @@ async fn add_new_adlist() -> impl Responder {
 
 async fn submit_form(
     adlist: web::Form<Adlist>,
-    cfg: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding new adlist: {:?}", adlist);
-
-    let cfg = cfg.write().expect("failed to lock write singularity config");
 
     let mut conn = pool.get().expect("failed to get DB connection");
     match cfg.add_adlist(&mut conn, adlist.into_inner()) {

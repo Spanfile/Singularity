@@ -15,7 +15,6 @@ use actix_web::{
 };
 use log::*;
 use serde::Deserialize;
-use std::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
 struct DeleteId {
@@ -38,9 +37,8 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     let req = req.clone();
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
         let cfg = req
-            .app_data::<web::Data<RwLock<SingularityConfig>>>()
-            .and_then(|cfg| cfg.read().ok())
-            .expect("failed to lock read singularity config");
+            .app_data::<web::Data<SingularityConfig>>()
+            .expect("missing singularity config");
         let mut conn = req
             .app_data::<web::Data<DbPool>>()
             .and_then(|pool| pool.get().ok())
@@ -49,7 +47,7 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
         let source = web::Query::<DeleteId>::from_query(req.query_string())
             .expect("failed to extract source parameter from query");
 
-        page(source.id, &mut conn, &cfg)
+        page(source.id, &mut conn, cfg)
             .alert(Alert::Warning(format!("Failed to delete whitelisted domain: {}", err)))
             .bad_request()
     })
@@ -58,10 +56,9 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
 
 async fn delete_whitelisted_domain(
     id: web::Query<DeleteId>,
-    cfg: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let cfg = cfg.read().expect("failed to lock read singularity config");
     let mut conn = pool.get().expect("failed to get DB connection");
 
     page(id.id, &mut conn, &cfg).ok()
@@ -69,14 +66,11 @@ async fn delete_whitelisted_domain(
 
 async fn submit_form(
     id: web::Form<DeleteId>,
-    singularity_config: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Deleting whitelisted domain: {:?}", id);
 
-    let cfg = singularity_config
-        .write()
-        .expect("failed to lock write singularity config");
     let mut conn = pool.get().expect("failed to get DB connection");
 
     match cfg.delete_whitelisted_domain(&mut conn, id.id) {

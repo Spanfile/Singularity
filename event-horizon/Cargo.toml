@@ -21,11 +21,14 @@ dotenv = "0.15.0"
 envy = "0.4.2"
 fern = {version = "0.6.0", features = ["colored"]}
 futures-util = "0.3.19"
+indexmap = "1.8.0"
 itertools = "0.10.3"
 log = "0.4.14"
 maud = "0.23.0"
+nanoid = "0.4.0"
 serde = {version = "1.0.130", features = ["derive"]}
 serde_with = "1.11.0"
+tempfile = "3.3.0"
 thiserror = "1.0.30"
 toml = "0.5.8"
 

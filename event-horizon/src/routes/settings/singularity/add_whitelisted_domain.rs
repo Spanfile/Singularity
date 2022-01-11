@@ -15,7 +15,6 @@ use actix_web::{
 };
 use log::*;
 use serde::Deserialize;
-use std::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
 struct WhitelistedDomain {
@@ -47,12 +46,10 @@ async fn add_whitelisted_domain() -> impl Responder {
 
 async fn submit_form(
     domain: web::Form<WhitelistedDomain>,
-    cfg: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding new whitelisted domain: {:?}", domain);
-
-    let cfg = cfg.write().expect("failed to lock write singularity config");
 
     let mut conn = pool.get().expect("failed to get DB connection");
     match cfg.add_whitelisted_domain(&mut conn, domain.into_inner().domain) {
