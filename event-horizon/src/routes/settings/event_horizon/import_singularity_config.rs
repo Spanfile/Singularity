@@ -1,8 +1,7 @@
-use std::sync::RwLock;
-
 use crate::{
     config::EvhConfig,
-    singularity::ConfigImporter,
+    database::DbPool,
+    singularity::{ConfigImporter, RenderedConfig, SingularityConfig},
     template::{
         self,
         settings::{EventHorizonSubPage, SettingsPage},
@@ -19,6 +18,7 @@ use actix_web::{
 use futures_util::{StreamExt, TryStreamExt};
 use log::*;
 use serde::Deserialize;
+use std::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
 struct TextImport {
@@ -137,10 +137,13 @@ async fn submit_import_form(
 
     debug!("Received config:\n{}", content);
 
+    let rendered = RenderedConfig::from_str(&content).expect("failed to render configuration from content");
+    debug!("Rendered: {:#?}", rendered);
+
     let import_id = importer
         .write()
         .expect("failed to lock write config importer")
-        .begin_import(content, &evh_config)
+        .begin_import(rendered, &evh_config)
         .expect("failed to begin config import");
 
     debug!("Began config import with ID {}", import_id);
@@ -157,28 +160,46 @@ async fn submit_finish_form(
     import_id: web::Query<ImportId>,
     merge_form: web::Form<ImportMergeForm>,
     importer: web::Data<RwLock<ConfigImporter>>,
+    sing_cfg: web::Data<SingularityConfig>,
     evh_config: web::Data<EvhConfig>,
+    pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!(
         "Finishing Singularity config import {} with strategy: {:?}",
-        import_id.id, merge_form
+        import_id.id, merge_form.strategy
     );
 
     let import_id = import_id.into_inner();
     let mut importer = importer.write().expect("failed to lock write config importer");
+    let mut conn = pool.get().expect("failed to get db connection");
+
+    let rendered = importer
+        .get(&import_id.id, &evh_config)
+        .expect("failed to get rendered config");
+
+    debug!("Using rendered config {}: {:#?}", import_id.id, rendered);
 
     match merge_form.strategy {
-        ImportMergeStrategy::New => todo!(),
-        ImportMergeStrategy::Merge => todo!(),
-        ImportMergeStrategy::Overwrite => todo!(),
-        ImportMergeStrategy::Cancel => {
-            importer.cancel_import(&import_id.id, &evh_config);
-
-            HttpResponse::build(StatusCode::SEE_OTHER)
-                .append_header((header::LOCATION, "/settings/event_horizon"))
-                .finish()
+        ImportMergeStrategy::New => {
+            let new_config = SingularityConfig::new(&mut conn).expect("failed to create new configuration");
+            new_config
+                .overwrite(&mut conn, rendered)
+                .expect("failed to overwrite new config");
         }
+        ImportMergeStrategy::Merge => {
+            todo!()
+        }
+        ImportMergeStrategy::Overwrite => {
+            sing_cfg
+                .overwrite(&mut conn, rendered)
+                .expect("failed to overwrite current config");
+        }
+        ImportMergeStrategy::Cancel => importer.cancel_import(&import_id.id, &evh_config),
     }
+
+    HttpResponse::build(StatusCode::SEE_OTHER)
+        .append_header((header::LOCATION, "/settings/event_horizon"))
+        .finish()
 }
 
 fn import_page() -> ResponseBuilder<'static> {

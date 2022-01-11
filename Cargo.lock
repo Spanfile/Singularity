@@ -803,7 +803,6 @@ dependencies = [
  "serde",
  "serde_with",
  "singularity",
- "tempfile",
  "thiserror",
  "toml",
 ]

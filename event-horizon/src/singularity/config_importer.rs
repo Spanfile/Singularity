@@ -1,8 +1,8 @@
+use super::RenderedConfig;
 use crate::config::EvhConfig;
 use indexmap::IndexMap;
 use nanoid::nanoid;
-use std::{fs::File, io::Write, time::Instant};
-use tempfile::tempfile;
+use std::time::Instant;
 
 pub struct ConfigImporter {
     imports: IndexMap<String, PendingImport>,
@@ -10,7 +10,7 @@ pub struct ConfigImporter {
 
 #[derive(Debug)]
 struct PendingImport {
-    file: File,
+    rendered: RenderedConfig,
     time: Instant,
 }
 
@@ -21,11 +21,8 @@ impl ConfigImporter {
         }
     }
 
-    pub fn begin_import(&mut self, contents: String, evh_config: &EvhConfig) -> anyhow::Result<String> {
+    pub fn begin_import(&mut self, rendered: RenderedConfig, evh_config: &EvhConfig) -> anyhow::Result<String> {
         let time = Instant::now();
-
-        let mut file = tempfile()?;
-        write!(file, "{}", contents)?;
 
         // ensure a duplicate ID won't be generated
         let id = loop {
@@ -35,7 +32,7 @@ impl ConfigImporter {
             }
         };
 
-        self.imports.insert(id.clone(), PendingImport { file, time });
+        self.imports.insert(id.clone(), PendingImport { rendered, time });
         self.cleanup(evh_config);
         Ok(id)
     }
@@ -43,6 +40,13 @@ impl ConfigImporter {
     pub fn cancel_import(&mut self, id: &str, evh_config: &EvhConfig) {
         self.imports.remove(id);
         self.cleanup(evh_config);
+    }
+
+    pub fn get(&mut self, id: &str, evh_config: &EvhConfig) -> Option<RenderedConfig> {
+        let rendered = self.imports.remove(id).map(|import| import.rendered);
+        self.cleanup(evh_config);
+
+        rendered
     }
 
     pub fn cleanup(&mut self, evh_config: &EvhConfig) {
@@ -54,13 +58,15 @@ impl ConfigImporter {
             }
 
             // pop imports until such is hit that is younger than the maximum allowed lifetime, therefore any imports
-            // after it are also younger
+            // after it are also younger, or that there aren't any imports left
             if let Some((_, last)) = self.imports.last() {
                 if last.time.elapsed().as_secs() >= evh_config.max_import_lifetime {
                     self.imports.pop();
                 } else {
                     break;
                 }
+            } else {
+                break;
             }
         }
     }

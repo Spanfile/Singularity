@@ -1,3 +1,4 @@
+use super::RenderedConfig;
 use crate::database::{models, DbConn, DbId};
 use diesel::prelude::*;
 use log::*;
@@ -35,6 +36,33 @@ impl SingularityConfig {
 
         debug!("Singularity config {}: {:?}", id, cfg);
         Ok(Self(cfg.id))
+    }
+
+    pub fn overwrite(&self, conn: &mut DbConn, rendered: RenderedConfig) -> anyhow::Result<()> {
+        let own_model = self.own_model(conn)?;
+
+        let adlists = diesel::delete(models::SingularityAdlist::belonging_to(&own_model)).execute(conn)?;
+        let outputs = diesel::delete(models::SingularityOutput::belonging_to(&own_model)).execute(conn)?;
+        let whitelist = diesel::delete(models::SingularityWhitelist::belonging_to(&own_model)).execute(conn)?;
+
+        debug!(
+            "Overwriting {}: {} adlists deleted, {} outputs deleted, {} whitelist domains deleted",
+            self.0, adlists, outputs, whitelist
+        );
+
+        for adlist in rendered.adlist {
+            self.add_adlist(conn, adlist)?;
+        }
+
+        for output in rendered.output {
+            self.add_output(conn, output)?;
+        }
+
+        for domain in rendered.whitelist {
+            self.add_whitelisted_domain(conn, domain)?;
+        }
+
+        Ok(())
     }
 
     fn own_model(&self, conn: &mut DbConn) -> anyhow::Result<models::SingularityConfig> {
