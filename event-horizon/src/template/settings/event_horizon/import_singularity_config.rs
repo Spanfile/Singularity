@@ -3,11 +3,11 @@ use maud::{html, Markup};
 pub fn import_singularity_config() -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
-            ."card-header" { "Import Singularity config" }
+            ."card-header" { "Import Singularity configuration" }
             ."card-body" {
                 form method="POST" enctype="multipart/form-data" {
                     ."mb-3" {
-                        label ."form-label" for="file" { "Import config from file" }
+                        label ."form-label" for="file" { "Import configuration from file" }
                         input ."form-control" #file name="file" type="file" accept=".toml,application/toml" required;
                     }
 
@@ -18,7 +18,7 @@ pub fn import_singularity_config() -> Markup {
 
                 form method="POST" {
                     ."mb-3" {
-                        label ."form-label" for="text" { "Paste config text" }
+                        label ."form-label" for="text" { "Paste configuration text" }
                         textarea ."form-control" #text name="text" rows="5" {}
                     }
 
@@ -29,7 +29,7 @@ pub fn import_singularity_config() -> Markup {
     }
 }
 
-pub fn finish_config_import() -> Markup {
+pub fn finish_config_import(rendered_str: &str) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Finish importing Singularity configuration" }
@@ -92,6 +92,11 @@ pub fn finish_config_import() -> Markup {
                             configuration. The current configuration cannot be restored after it is \
                             overwritten."
                         }
+                    }
+
+                    ."col-sm-12" ."mt-3" {
+                        p { "Rendered pending configuration:" }
+                        textarea ."form-control" ."font-monospace" rows="16" readonly { (rendered_str) }
                     }
 
                     ."col-sm-3" ."mt-3" {

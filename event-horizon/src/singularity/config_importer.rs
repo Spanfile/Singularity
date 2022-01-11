@@ -42,7 +42,11 @@ impl ConfigImporter {
         self.cleanup(evh_config);
     }
 
-    pub fn get(&mut self, id: &str, evh_config: &EvhConfig) -> Option<RenderedConfig> {
+    pub fn get_string(&self, id: &str) -> Option<String> {
+        self.imports.get(id).and_then(|import| import.rendered.as_string().ok())
+    }
+
+    pub fn finish(&mut self, id: &str, evh_config: &EvhConfig) -> Option<RenderedConfig> {
         let rendered = self.imports.remove(id).map(|import| import.rendered);
         self.cleanup(evh_config);
 

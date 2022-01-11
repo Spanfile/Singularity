@@ -1,4 +1,5 @@
 static
 .env
-evh.sqlite
+*.sqlite
+*.sqlite-journal
 evh.toml

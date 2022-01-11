@@ -14,4 +14,8 @@ impl RenderedConfig {
     pub fn from_str(str: &str) -> anyhow::Result<Self> {
         Ok(toml::from_str(str)?)
     }
+
+    pub fn as_string(&self) -> anyhow::Result<String> {
+        Ok(toml::to_string_pretty(self)?)
+    }
 }

@@ -72,8 +72,21 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     warn!("Finish config import POST failed: {}", err);
     warn!("{:?}", req);
 
+    let req = req.clone();
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        finish_page().alert(Alert::Warning(err.to_string())).bad_request()
+        let importer = req
+            .app_data::<web::Data<RwLock<ConfigImporter>>>()
+            .and_then(|importer| importer.read().ok())
+            .expect("failed to lock read config importer");
+        let import_id = web::Query::<ImportId>::from_query(req.query_string())
+            .expect("failed to extract import ID parameter from query");
+        let rendered_str = importer
+            .get_string(&import_id.id)
+            .expect("failed to get rendered config");
+
+        finish_page(&rendered_str)
+            .alert(Alert::Warning(err.to_string()))
+            .bad_request()
     })
     .into()
 }
@@ -82,8 +95,16 @@ async fn import_singularity_config() -> impl Responder {
     import_page().ok()
 }
 
-async fn finish_config_import() -> impl Responder {
-    finish_page().ok()
+async fn finish_config_import(
+    import_id: web::Query<ImportId>,
+    importer: web::Data<RwLock<ConfigImporter>>,
+) -> impl Responder {
+    let importer = importer.read().expect("failed to lock read config importer");
+    let rendered_str = importer
+        .get_string(&import_id.id)
+        .expect("failed to get rendered config");
+
+    finish_page(&rendered_str).ok()
 }
 
 // TODO: this invokes the form error handler if the left side (the form) fails. make it not do that
@@ -174,7 +195,7 @@ async fn submit_finish_form(
     let mut conn = pool.get().expect("failed to get db connection");
 
     let rendered = importer
-        .get(&import_id.id, &evh_config)
+        .finish(&import_id.id, &evh_config)
         .expect("failed to get rendered config");
 
     debug!("Using rendered config {}: {:#?}", import_id.id, rendered);
@@ -206,6 +227,8 @@ fn import_page() -> ResponseBuilder<'static> {
     template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::ImportSingularityConfig))
 }
 
-fn finish_page() -> ResponseBuilder<'static> {
-    template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::FinishConfigImport))
+fn finish_page(rendered_str: &str) -> ResponseBuilder {
+    template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::FinishConfigImport(
+        rendered_str,
+    )))
 }

@@ -9,7 +9,7 @@ use maud::html;
 
 #[derive(PartialEq, Eq)]
 pub enum SettingsPage<'a> {
-    EventHorizon(EventHorizonSubPage),
+    EventHorizon(EventHorizonSubPage<'a>),
     Singularity(SingularitySubPage<'a>),
     Recursor,
 }

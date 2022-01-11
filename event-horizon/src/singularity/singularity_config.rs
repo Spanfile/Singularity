@@ -62,7 +62,7 @@ impl SingularityConfig {
             self.add_whitelisted_domain(conn, domain)?;
         }
 
-        Ok(())
+        self.set_dirty(conn, true)
     }
 
     fn own_model(&self, conn: &mut DbConn) -> anyhow::Result<models::SingularityConfig> {
