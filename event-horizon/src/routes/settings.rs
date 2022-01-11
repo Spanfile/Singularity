@@ -30,7 +30,7 @@ async fn event_horizon(singularity_config: web::Data<RwLock<SingularityConfig>>)
         .read()
         .expect("failed to lock read singularity config");
 
-    template::settings(SettingsPage::EventHorizon, &cfg).ok()
+    template::settings(SettingsPage::EventHorizon).ok()
 }
 
 #[actix_web::get("/recursor")]
@@ -39,5 +39,5 @@ async fn recursor(singularity_config: web::Data<RwLock<SingularityConfig>>) -> i
         .read()
         .expect("failed to lock read singularity config");
 
-    template::settings(SettingsPage::Recursor, &cfg).ok()
+    template::settings(SettingsPage::Recursor).ok()
 }

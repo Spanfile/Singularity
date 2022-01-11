@@ -3,6 +3,7 @@ mod add_new_output;
 mod remove_adlist;
 
 use crate::{
+    database::DbPool,
     singularity::SingularityConfig,
     template::{
         self,
@@ -22,10 +23,16 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn singularity(singularity_config: web::Data<RwLock<SingularityConfig>>) -> impl Responder {
-    let cfg = singularity_config
-        .read()
-        .expect("failed to lock read singularity config");
+async fn singularity(cfg: web::Data<RwLock<SingularityConfig>>, pool: web::Data<DbPool>) -> impl Responder {
+    let cfg = cfg.read().expect("failed to lock read singularity config");
+    let mut conn = pool.get().expect("failed to get DB connection");
 
-    template::settings(SettingsPage::Singularity(SingularitySubPage::Main), &cfg).ok()
+    let adlists = cfg.adlists(&mut conn).expect("failed to read adlists");
+    let outputs = cfg.outputs(&mut conn).expect("failed to read outputs");
+
+    template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
+        adlists: adlists.as_ref(),
+        outputs: &outputs,
+    }))
+    .ok()
 }

@@ -19,7 +19,7 @@ table! {
     singularity_output_hosts_includes (id) {
         id -> Integer,
         singularity_output_id -> Integer,
-        path -> Text,
+        path -> Binary,
     }
 }
 
@@ -37,7 +37,7 @@ table! {
         id -> Integer,
         singularity_config_id -> Integer,
         ty -> Text,
-        destination -> Text,
+        destination -> Binary,
         blackhole_address -> Text,
         deduplicate -> Bool,
     }

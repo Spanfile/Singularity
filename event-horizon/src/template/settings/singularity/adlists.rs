@@ -1,7 +1,8 @@
-use crate::singularity::SingularityConfig;
+use crate::database::DbId;
 use maud::{html, Markup};
+use singularity::Adlist;
 
-pub fn adlists_card(cfg: &SingularityConfig) -> Markup {
+pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Adlists" }
@@ -17,7 +18,7 @@ pub fn adlists_card(cfg: &SingularityConfig) -> Markup {
                         }
                     }
                     tbody {
-                        @for (id, adlist) in cfg.adlists() {
+                        @for (id, adlist) in adlists {
                             tr {
                                 // TODO: horizontal overflow to this element
                                 td ."align-middle" {a href=(adlist.source()) { (adlist.source()) } }
@@ -63,9 +64,7 @@ pub fn add_new_adlist() -> Markup {
     }
 }
 
-pub fn remove_adlist(id: u64, cfg: &SingularityConfig) -> Markup {
-    let adlist = cfg.get_adlist(id).expect("no adlist found when generating template");
-
+pub fn remove_adlist(id: DbId, adlist: &Adlist) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Remove adlist" }
@@ -76,7 +75,7 @@ pub fn remove_adlist(id: u64, cfg: &SingularityConfig) -> Markup {
                 }
 
                 form method="POST" {
-                    input name="source" value=(id) type="hidden";
+                    input name="id" value=(id) type="hidden";
                     button .btn ."btn-danger" ."me-3" type="submit" { "Delete" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }

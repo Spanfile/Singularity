@@ -1,4 +1,5 @@
 use crate::{
+    database::{DbId, DbPool},
     singularity::SingularityConfig,
     template::{
         self,
@@ -18,7 +19,7 @@ use std::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
 struct RemoveId {
-    id: u64,
+    id: DbId,
 }
 
 pub fn config(cfg: &mut web::ServiceConfig) {
@@ -42,14 +43,18 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
             .app_data::<web::Data<RwLock<SingularityConfig>>>()
             .and_then(|cfg| cfg.read().ok())
             .expect("failed to lock read singularity config");
+        let mut conn = req
+            .app_data::<web::Data<DbPool>>()
+            .and_then(|pool| pool.get().ok())
+            .expect("failed to get DB connection");
 
         let source = web::Query::<RemoveId>::from_query(req.query_string())
             .expect("failed to extract source parameter from query");
+        let adlist = cfg.get_adlist(&mut conn, source.id).expect("failed to get adlist");
 
-        template::settings(
-            SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(source.id)),
-            &cfg,
-        )
+        template::settings(SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(
+            source.id, &adlist,
+        )))
         .alert(Alert::Warning(format!("Failed to remove adlist: {}", err)))
         .bad_request()
     })
@@ -58,38 +63,49 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
 
 async fn remove_adlist(
     id: web::Query<RemoveId>,
-    singularity_config: web::Data<RwLock<SingularityConfig>>,
+    cfg: web::Data<RwLock<SingularityConfig>>,
+    pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let cfg = singularity_config
-        .read()
-        .expect("failed to lock read singularity config");
+    let cfg = cfg.read().expect("failed to lock read singularity config");
+    let mut conn = pool.get().expect("failed to get DB connection");
+    let adlist = cfg.get_adlist(&mut conn, id.id).expect("failed to get adlist");
 
-    template::settings(SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(id.id)), &cfg).ok()
+    template::settings(SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(
+        id.id, &adlist,
+    )))
+    .ok()
 }
 
 async fn submit_form(
     id: web::Form<RemoveId>,
     singularity_config: web::Data<RwLock<SingularityConfig>>,
+    pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Removing adlist: {:?}", id);
 
-    let mut cfg = singularity_config
+    let cfg = singularity_config
         .write()
         .expect("failed to lock write singularity config");
+    let mut conn = pool.get().expect("failed to get DB connection");
 
-    if cfg.remove_adlist(id.id) {
-        info!("Adlist succesfully removed");
+    match cfg.remove_adlist(&mut conn, id.id) {
+        Ok(_) => {
+            info!("Adlist succesfully removed");
 
-        HttpResponse::build(StatusCode::SEE_OTHER)
-            .append_header((header::LOCATION, "/settings/singularity"))
-            .finish()
-    } else {
-        warn!("Failed to remove adlist: no adlist with the source exists");
+            HttpResponse::build(StatusCode::SEE_OTHER)
+                .append_header((header::LOCATION, "/settings/singularity"))
+                .finish()
+        }
+        Err(e) => {
+            warn!("Failed to remove adlist: {}", e);
 
-        template::settings(SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(id.id)), &cfg)
-            .alert(Alert::Warning(
-                "Failed to remove adlist: no adlist with the source exists".to_string(),
-            ))
+            let adlist = cfg.get_adlist(&mut conn, id.id).expect("failed to get adlist");
+
+            template::settings(SettingsPage::Singularity(SingularitySubPage::RemoveAdlist(
+                id.id, &adlist,
+            )))
+            .alert(Alert::Warning(format!("Failed to remove adlist: {}", e)))
             .bad_request()
+        }
     }
 }

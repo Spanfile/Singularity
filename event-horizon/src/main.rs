@@ -14,14 +14,13 @@ mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-type DbPool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
-
 use crate::{
     config::{EnvConfig, EvhConfig, Listen},
     singularity::SingularityConfig,
 };
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};
+use database::DbPool;
 use diesel::{
     r2d2::{self, ConnectionManager},
     SqliteConnection,
@@ -44,8 +43,7 @@ async fn main() -> anyhow::Result<()> {
     debug!("EVH: {:#?}", evh_config);
 
     let pool = create_db_pool(&evh_config)?;
-    let db = pool.get()?;
-    let singularity_config = SingularityConfig::load(&db, 1)?;
+    let singularity_config = SingularityConfig::new(1);
 
     // add some dummy data
     // singularity_config.add_adlist(Adlist::new(

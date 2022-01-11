@@ -1,4 +1,5 @@
 use crate::{
+    database::DbPool,
     singularity::SingularityConfig,
     template::{
         self,
@@ -104,13 +105,10 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
         let action = de::Deserialize::deserialize(PathDeserializer::new(req.match_info()))
             .expect("failed to extract output from request path");
 
-        template::settings(
-            SettingsPage::Singularity(match action {
-                Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
-                Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
-            }),
-            &cfg,
-        )
+        template::settings(SettingsPage::Singularity(match action {
+            Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
+            Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
+        }))
         .alert(Alert::Warning(err.to_string()))
         .bad_request()
     })
@@ -120,13 +118,10 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
 async fn add_new_output(action: web::Path<Action>, cfg: web::Data<RwLock<SingularityConfig>>) -> impl Responder {
     let cfg = cfg.read().expect("failed to lock read singularity config");
 
-    template::settings(
-        SettingsPage::Singularity(match action.into_inner() {
-            Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
-            Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
-        }),
-        &cfg,
-    )
+    template::settings(SettingsPage::Singularity(match action.into_inner() {
+        Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
+        Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
+    }))
     .ok()
 }
 
@@ -134,22 +129,24 @@ async fn submit_form(
     action: web::Path<Action>,
     output: web::Form<OutputForm>,
     cfg: web::Data<RwLock<SingularityConfig>>,
+    pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding output: {:#?}", output);
 
-    let mut cfg = cfg.write().expect("failed to lock write singularity config");
+    let cfg = cfg.write().expect("failed to lock write singularity config");
+    let mut conn = pool.get().expect("failed to get DB connection");
 
-    match output.into_inner().try_into_output() {
-        Ok(output) => {
-            if cfg.add_output(output) {
-                info!("Output succesfully added");
+    match output
+        .into_inner()
+        .try_into_output()
+        .and_then(|output| cfg.add_output(&mut conn, output))
+    {
+        Ok(_) => {
+            info!("Output succesfully added");
 
-                HttpResponse::build(StatusCode::SEE_OTHER)
-                    .append_header((header::LOCATION, "/settings/singularity"))
-                    .finish()
-            } else {
-                form_error_page("identical output already exists", action.into_inner(), &cfg)
-            }
+            HttpResponse::build(StatusCode::SEE_OTHER)
+                .append_header((header::LOCATION, "/settings/singularity"))
+                .finish()
         }
         Err(e) => form_error_page(e.to_string(), action.into_inner(), &cfg),
     }
@@ -161,13 +158,10 @@ where
 {
     warn!("Failed to add output: {}", msg);
 
-    template::settings(
-        SettingsPage::Singularity(match action {
-            Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
-            Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
-        }),
-        cfg,
-    )
+    template::settings(SettingsPage::Singularity(match action {
+        Action::AddNewHostsOutput => SingularitySubPage::AddNewHostsOutput,
+        Action::AddNewLuaOutput => SingularitySubPage::AddNewLuaOutput,
+    }))
     .alert(Alert::Warning(format!("Failed to add output: {}", msg)))
     .bad_request()
 }
@@ -194,9 +188,5 @@ fn default_metric_name() -> String {
 }
 
 fn default_deduplicate() -> Option<String> {
-    if DEFAULT_DEDUPLICATE {
-        Some(String::new())
-    } else {
-        None
-    }
+    if DEFAULT_DEDUPLICATE { Some(String::new()) } else { None }
 }

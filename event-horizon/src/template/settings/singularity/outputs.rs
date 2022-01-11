@@ -1,10 +1,10 @@
-use crate::singularity::SingularityConfig;
+use crate::database::DbId;
 use maud::{html, Markup};
 use singularity::{
     Output, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_DEDUPLICATE, DEFAULT_METRIC_NAME, DEFAULT_OUTPUT_METRIC,
 };
 
-pub fn outputs_card(cfg: &SingularityConfig) -> Markup {
+pub fn outputs_card(outputs: &[(DbId, Output)]) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Outputs" }
@@ -20,8 +20,8 @@ pub fn outputs_card(cfg: &SingularityConfig) -> Markup {
                 }
 
                 ."list-group" ."mt-3" {
-                    @for (id, output) in cfg.outputs() {
-                        (single_output_card(id, output))
+                    @for (id, output) in outputs {
+                        (single_output_card(*id, output))
                     }
                 }
             }
@@ -29,7 +29,7 @@ pub fn outputs_card(cfg: &SingularityConfig) -> Markup {
     }
 }
 
-pub fn single_output_card(id: u64, output: &Output) -> Markup {
+pub fn single_output_card(id: DbId, output: &Output) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."container-fluid" {

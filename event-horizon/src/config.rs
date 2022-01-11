@@ -1,12 +1,18 @@
 use crate::logging::LogLevel;
 use serde::{Deserialize, Serialize};
 use serde_with::with_prefix;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{
+    fs,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+};
 
 with_prefix!(listen "listen_");
 
 const EVH_ENV_PREFIX: &str = "EVH_";
 const EVH_CONFIG_LOCATION: &str = "evh.toml";
+const EVH_CONFIG_WARNING: &str =
+    "# These options are internal and critical to Event Horizon's functionality. You probably shouldn't edit them";
 
 const DEFAULT_DATABASE_URL: &str = "evh.sqlite";
 
@@ -20,7 +26,7 @@ pub struct EnvConfig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EvhConfig {
-    #[serde(default = "default_database_url")]
+    #[serde(default)]
     pub database_url: String,
 }
 
@@ -48,10 +54,25 @@ impl EnvConfig {
 
 impl EvhConfig {
     pub fn load() -> anyhow::Result<Self> {
-        Ok(toml::from_str(&std::fs::read_to_string(EVH_CONFIG_LOCATION)?)?)
+        let path = Path::new(EVH_CONFIG_LOCATION);
+
+        if path.exists() {
+            Ok(toml::from_str(&fs::read_to_string(path)?)?)
+        } else {
+            let default = Self::default();
+            fs::write(
+                path,
+                format!("{}\n{}", EVH_CONFIG_WARNING, toml::to_string_pretty(&default)?),
+            )?;
+            Ok(default)
+        }
     }
 }
 
-fn default_database_url() -> String {
-    DEFAULT_DATABASE_URL.to_string()
+impl Default for EvhConfig {
+    fn default() -> Self {
+        Self {
+            database_url: DEFAULT_DATABASE_URL.to_string(),
+        }
+    }
 }

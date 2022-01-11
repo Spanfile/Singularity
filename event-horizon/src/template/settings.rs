@@ -3,17 +3,16 @@ mod singularity;
 pub use self::singularity::SingularitySubPage;
 
 use super::ResponseBuilder;
-use crate::singularity::SingularityConfig;
 use maud::{html, Markup};
 
 #[derive(PartialEq, Eq)]
-pub enum SettingsPage {
+pub enum SettingsPage<'a> {
     EventHorizon,
-    Singularity(SingularitySubPage),
+    Singularity(SingularitySubPage<'a>),
     Recursor,
 }
 
-pub fn settings(page: SettingsPage, cfg: &SingularityConfig) -> ResponseBuilder<'static> {
+pub fn settings(page: SettingsPage) -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
         .row {
             ."col-lg-2" {
@@ -27,7 +26,7 @@ pub fn settings(page: SettingsPage, cfg: &SingularityConfig) -> ResponseBuilder<
             ."col-lg-10" {
                 @match page {
                     SettingsPage::EventHorizon => (event_horizon()),
-                    SettingsPage::Singularity(sub) => (singularity::singularity(sub, cfg)),
+                    SettingsPage::Singularity(sub) => (singularity::singularity(sub)),
                     SettingsPage::Recursor => (recursor()),
                 }
             }
