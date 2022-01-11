@@ -24,7 +24,7 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
                                 td ."align-middle" {a href=(adlist.source()) { (adlist.source()) } }
                                 td ."align-middle" { (adlist.format()) }
                                 td {
-                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={ "/settings/singularity/remove_adlist?id=" (id) } { "Delete" }
+                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={ "/settings/singularity/delete_adlist?id=" (id) } { "Delete" }
                                 }
                             }
                         }
@@ -64,10 +64,10 @@ pub fn add_new_adlist() -> Markup {
     }
 }
 
-pub fn remove_adlist(id: DbId, adlist: &Adlist) -> Markup {
+pub fn delete_adlist(id: DbId, adlist: &Adlist) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
-            ."card-header" ."bg-danger" ."text-white" { "Remove adlist" }
+            ."card-header" ."bg-danger" ."text-white" { "Delete adlist" }
             ."card-body" {
                 p ."card-text" { "Are you sure you want to delete this adlist? The operation is irreversible!" }
                 p ."card-text" {

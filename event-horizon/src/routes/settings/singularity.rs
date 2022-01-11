@@ -1,6 +1,6 @@
 mod add_new_adlist;
 mod add_new_output;
-mod remove_adlist;
+mod delete_adlist;
 
 use crate::{
     database::DbPool,
@@ -18,7 +18,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         web::scope("/singularity")
             .service(web::resource("").route(web::get().to(singularity)))
             .configure(add_new_adlist::config)
-            .configure(remove_adlist::config)
+            .configure(delete_adlist::config)
             .configure(add_new_output::config),
     );
 }

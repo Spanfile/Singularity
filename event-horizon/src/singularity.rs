@@ -1,5 +1,6 @@
 use crate::database::{models, DbConn, DbId};
 use diesel::prelude::*;
+use log::*;
 use singularity::{Adlist, Output, OutputType};
 use std::{
     ffi::OsString,
@@ -30,6 +31,8 @@ impl SingularityConfig {
         diesel::update(singularity_configs::table.filter(singularity_configs::id.eq(self.0)))
             .set(singularity_configs::dirty.eq(dirty))
             .execute(conn)?;
+
+        debug!("SingularityConfig({}) dirty: {}", self.0, dirty);
         Ok(())
     }
 
@@ -47,35 +50,44 @@ impl SingularityConfig {
             .values(&model)
             .get_result::<models::SingularityAdlist>(conn)?;
 
+        debug!("Insert adlist: {:#?}", adlist);
         self.set_dirty(conn, true)?;
         Ok(adlist.id)
     }
 
-    /// Removes a given adlist from the configuration. Returns whether the adlist was succesfully removed.
-    pub fn remove_adlist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
+    /// Deletes a given adlist from the configuration.
+    pub fn delete_adlist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
         use crate::database::schema::singularity_adlists;
 
         diesel::delete(singularity_adlists::table.filter(singularity_adlists::id.eq(id))).execute(conn)?;
+
+        debug!("Delete adlist: {}", id);
         Ok(())
     }
 
     pub fn get_adlist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<Adlist> {
         use crate::database::schema::singularity_adlists;
 
-        singularity_adlists::table
+        let adlist = singularity_adlists::table
             .filter(singularity_adlists::id.eq(id))
             .first::<models::SingularityAdlist>(conn)?
-            .try_into()
+            .try_into()?;
+
+        debug!("Adlist {}: {:#?}", id, adlist);
+        Ok(adlist)
     }
 
     pub fn adlists(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, Adlist)>> {
         use crate::database::schema::singularity_adlists;
 
-        singularity_adlists::table
+        let adlists = singularity_adlists::table
             .load::<models::SingularityAdlist>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, model.try_into()?)))
-            .collect::<anyhow::Result<Vec<_>>>()
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        debug!("Adlists in {}: {}", self.0, adlists.len());
+        Ok(adlists)
     }
 
     /// Adds a new output to the configuration. Returns the ID of the newly added output.
@@ -86,7 +98,7 @@ impl SingularityConfig {
 
         let id = conn.immediate_transaction::<_, anyhow::Error, _>(|conn| {
             let mut hosts_includes = Vec::new();
-            let mut pdns_lua = Vec::new();
+            let mut pdns_lua = None;
 
             let blackhole_address = output.blackhole_address().to_string();
             let model = models::NewSingularityOutput {
@@ -103,7 +115,7 @@ impl SingularityConfig {
                         output_metric,
                         metric_name,
                     } => {
-                        pdns_lua.push((*output_metric, metric_name.as_str()));
+                        pdns_lua = Some((*output_metric, metric_name.as_str()));
 
                         "PdnsLua"
                     }
@@ -117,6 +129,10 @@ impl SingularityConfig {
                 .values(&model)
                 .get_result::<models::SingularityOutput>(conn)?;
 
+            debug!("Insert output: {:#?}", output);
+            debug!("Hosts includes: {:?}", hosts_includes);
+            debug!("PDNS Lua: {:?}", pdns_lua);
+
             for include in hosts_includes {
                 diesel::insert_into(singularity_output_hosts_includes::table)
                     .values(models::NewSingularityOutputHostsInclude {
@@ -126,7 +142,7 @@ impl SingularityConfig {
                     .execute(conn)?;
             }
 
-            for (output_metric, metric_name) in pdns_lua {
+            if let Some((output_metric, metric_name)) = pdns_lua {
                 diesel::insert_into(singularity_output_pdns_lua::table)
                     .values(models::NewSingularityOutputPdnsLua {
                         singularity_output_id: output.id,
@@ -143,11 +159,13 @@ impl SingularityConfig {
         Ok(id)
     }
 
-    /// Removes a given output from the configuration. Returns whether the output was succesfully removed.
-    pub fn remove_output(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
+    /// Deletes a given output from the configuration.
+    pub fn delete_output(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
         use crate::database::schema::singularity_outputs;
 
         diesel::delete(singularity_outputs::table.filter(singularity_outputs::id.eq(id))).execute(conn)?;
+
+        debug!("Delete output: {}", id);
         Ok(())
     }
 
@@ -157,17 +175,23 @@ impl SingularityConfig {
         let output = singularity_outputs::table
             .filter(singularity_outputs::id.eq(id))
             .first::<models::SingularityOutput>(conn)?;
-        self.output_from_model(conn, output)
+        let output = self.output_from_model(conn, output)?;
+
+        debug!("Output {}: {:#?}", id, output);
+        Ok(output)
     }
 
     pub fn outputs(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, Output)>> {
         use crate::database::schema::singularity_outputs;
 
-        singularity_outputs::table
+        let outputs = singularity_outputs::table
             .load::<models::SingularityOutput>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, self.output_from_model(conn, model)?)))
-            .collect::<anyhow::Result<Vec<_>>>()
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        debug!("Outputs in {}: {}", self.0, outputs.len());
+        Ok(outputs)
     }
 
     fn output_from_model(&self, conn: &mut DbConn, mut output: models::SingularityOutput) -> anyhow::Result<Output> {
@@ -210,8 +234,8 @@ impl SingularityConfig {
         todo!()
     }
 
-    /// Removes a given domain from the whitelist. Returns whether the domain was succesfully removed.
-    pub fn remove_whitelisted_domain(&mut self, id: u64) -> bool {
+    /// Deletes a given domain from the whitelist.
+    pub fn delete_whitelisted_domain(&mut self, id: u64) -> bool {
         todo!()
     }
 
