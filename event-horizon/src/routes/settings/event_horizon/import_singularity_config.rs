@@ -114,6 +114,54 @@ async fn submit_import_form(
     importer: web::Data<RwLock<ConfigImporter>>,
     evh_config: web::Data<EvhConfig>,
 ) -> impl Responder {
+    match begin_import(payload, &importer, &evh_config).await {
+        Ok(import_id) => HttpResponse::build(StatusCode::SEE_OTHER)
+            .append_header((
+                header::LOCATION,
+                format!("/settings/event_horizon/finish_config_import?id={}", import_id),
+            ))
+            .finish(),
+        Err(e) => match e {
+            EvhError::UploadedFileNotUtf8 | EvhError::EmptyMultipartField | EvhError::MultipartError(_) => {
+                import_page().alert(Alert::Error(e.to_string())).bad_request()
+            }
+            _ => import_page()
+                .alert(Alert::Error(format!("An internal error occurred: {}", e)))
+                .internal_server_error(),
+        },
+    }
+}
+
+async fn submit_finish_form(
+    import_id: web::Query<ImportId>,
+    merge_form: web::Form<ImportMergeForm>,
+    importer: web::Data<RwLock<ConfigImporter>>,
+    sing_cfg: web::Data<SingularityConfig>,
+    evh_config: web::Data<EvhConfig>,
+    pool: web::Data<DbPool>,
+) -> impl Responder {
+    match finish_import(
+        import_id.into_inner().id,
+        merge_form.into_inner().strategy,
+        &importer,
+        &sing_cfg,
+        &evh_config,
+        &pool,
+    ) {
+        Ok(_) => HttpResponse::build(StatusCode::SEE_OTHER)
+            .append_header((header::LOCATION, "/settings/event_horizon"))
+            .finish(),
+        Err(e) => import_page()
+            .alert(Alert::Error(format!("An internal error occurred: {}", e)))
+            .internal_server_error(),
+    }
+}
+
+async fn begin_import(
+    payload: Either<web::Form<TextImport>, Multipart>,
+    importer: &RwLock<ConfigImporter>,
+    evh_config: &EvhConfig,
+) -> EvhResult<String> {
     let content = match payload {
         Either::Left(form) => {
             info!("Importing Singularity config from text");
@@ -122,36 +170,24 @@ async fn submit_import_form(
         Either::Right(mut payload) => {
             info!("Importing Singularity config from file");
 
-            match payload
+            let mut field = payload
                 .try_next()
                 .await
                 .map_err(|e| e.into())
-                .and_then(|field| Ok(field.expect("TODO")))
-            {
-                Ok(mut field) => {
-                    let mut buf = Vec::new();
+                .and_then(|field| field.ok_or(EvhError::EmptyMultipartField))?;
 
-                    while let Some(chunk) = field.next().await {
-                        let data = chunk.expect("failed to read chunk");
-                        buf.extend_from_slice(&data);
-                    }
+            let mut buf = Vec::new();
 
-                    debug!("File size: {}", buf.len());
-                    match String::from_utf8(buf) {
-                        Ok(content) => content,
-                        Err(_) => {
-                            return import_page()
-                                .alert(Alert::Warning(
-                                    "Reading file failed: file is not encoded in UTF-8".to_string(),
-                                ))
-                                .bad_request();
-                        }
-                    }
-                }
-                Err(e) => {
-                    return import_page()
-                        .alert(Alert::Error(format!("Reading file failed: {:?}", e)))
-                        .internal_server_error();
+            while let Some(chunk) = field.next().await {
+                let data = chunk?;
+                buf.extend_from_slice(&data);
+            }
+
+            debug!("File size: {}", buf.len());
+            match String::from_utf8(buf) {
+                Ok(content) => content,
+                Err(_) => {
+                    return Err(EvhError::UploadedFileNotUtf8);
                 }
             }
         }
@@ -164,43 +200,14 @@ async fn submit_import_form(
 
     let import_id = importer
         .write()
-        .expect("failed to lock write config importer")
-        .begin_import(rendered, &evh_config)?;
+        .expect("importer rw lock is poisoned")
+        .begin_import(rendered, evh_config);
 
     debug!("Began config import with ID {}", import_id);
-
-    HttpResponse::build(StatusCode::SEE_OTHER)
-        .append_header((
-            header::LOCATION,
-            format!("/settings/event_horizon/finish_config_import?id={}", import_id),
-        ))
-        .finish()
+    Ok(import_id)
 }
 
-async fn submit_finish_form(
-    import_id: web::Query<ImportId>,
-    merge_form: web::Form<ImportMergeForm>,
-    importer: web::Data<RwLock<ConfigImporter>>,
-    sing_cfg: web::Data<SingularityConfig>,
-    evh_config: web::Data<EvhConfig>,
-    pool: web::Data<DbPool>,
-) -> impl Responder {
-    match finish_merge(
-        import_id.into_inner().id,
-        merge_form.into_inner().strategy,
-        &importer,
-        &sing_cfg,
-        &evh_config,
-        &pool,
-    ) {
-        Ok(_) => HttpResponse::build(StatusCode::SEE_OTHER)
-            .append_header((header::LOCATION, "/settings/event_horizon"))
-            .finish(),
-        Err(e) => {}
-    }
-}
-
-fn finish_merge(
+fn finish_import(
     id: String,
     strategy: ImportMergeStrategy,
     importer: &RwLock<ConfigImporter>,
@@ -214,7 +221,7 @@ fn finish_merge(
     );
 
     let mut importer = importer.write().expect("importer rw lock is poisoned");
-    let mut conn = pool.get().map_err(|e| EvhError::DatabaseConnectionAcquireFailed(e))?;
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
     let rendered = importer.finish(&id, evh_config)?;
 
     debug!("Using rendered config {}: {:#?}", id, rendered);

@@ -44,7 +44,7 @@ async fn main() -> EvhResult<()> {
     debug!("EVH: {:#?}", evh_config);
 
     let pool = create_db_pool(&evh_config)?;
-    let mut conn = pool.get().map_err(|e| EvhError::DatabaseConnectionAcquireFailed(e))?;
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
     // attempt to load the config with ID 1, or if it fails because it doesn't exist, attempt to create a new config
     let singularity_config = SingularityConfig::load(1, &mut conn).or_else(|e| {
@@ -135,6 +135,6 @@ fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
     let manager = ConnectionManager::<SqliteConnection>::new(&evh_config.database_url);
     let pool = r2d2::Pool::builder()
         .build(manager)
-        .map_err(|e| EvhError::DatabasePoolInitialisationFailed(e))?;
+        .map_err(EvhError::DatabasePoolInitialisationFailed)?;
     Ok(pool)
 }

@@ -20,6 +20,12 @@ pub enum EvhError {
     RenderedConfigWriteFailed(toml::ser::Error),
     #[error("No active Singularity configuration import with ID {0}")]
     NoActiveImport(String),
+    #[error("Multipart failed in file upload")]
+    MultipartError(#[from] actix_multipart::MultipartError),
+    #[error("Multipart field in file upload was empty")]
+    EmptyMultipartField,
+    #[error("The uploaded file was not encoded in UTF-8")]
+    UploadedFileNotUtf8,
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]

@@ -14,10 +14,10 @@ pub struct RenderedConfig {
 
 impl RenderedConfig {
     pub fn from_str(str: &str) -> EvhResult<Self> {
-        Ok(toml::from_str(str).map_err(|e| EvhError::RenderedConfigReadFailed(e))?)
+        toml::from_str(str).map_err(EvhError::RenderedConfigReadFailed)
     }
 
     pub fn as_string(&self) -> EvhResult<String> {
-        Ok(toml::to_string_pretty(self).map_err(|e| EvhError::RenderedConfigWriteFailed(e))?)
+        toml::to_string_pretty(self).map_err(EvhError::RenderedConfigWriteFailed)
     }
 }

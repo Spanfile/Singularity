@@ -54,7 +54,7 @@ impl ConfigImporter {
             .imports
             .remove(id)
             .map(|import| import.rendered)
-            .ok_or(EvhError::NoActiveImport(id.to_string()))?;
+            .ok_or_else(|| EvhError::NoActiveImport(id.to_string()))?;
         self.cleanup(evh_config);
 
         Ok(rendered)

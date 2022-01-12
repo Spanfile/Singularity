@@ -23,7 +23,7 @@ impl EvhConfig {
         let path = Path::new(EVH_CONFIG_LOCATION);
 
         if path.exists() {
-            Ok(toml::from_str(&fs::read_to_string(path)?).map_err(|e| EvhError::EvhConfigReadFailed(e))?)
+            Ok(toml::from_str(&fs::read_to_string(path)?).map_err(EvhError::EvhConfigReadFailed)?)
         } else {
             let default = Self::default();
             fs::write(
@@ -31,7 +31,7 @@ impl EvhConfig {
                 format!(
                     "{}\n{}",
                     EVH_CONFIG_WARNING,
-                    toml::to_string_pretty(&default).map_err(|e| EvhError::EvhConfigWriteFailed(e))?
+                    toml::to_string_pretty(&default).map_err(EvhError::EvhConfigWriteFailed)?
                 ),
             )?;
             Ok(default)
