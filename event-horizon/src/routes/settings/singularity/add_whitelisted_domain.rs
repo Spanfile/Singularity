@@ -1,5 +1,6 @@
 use crate::{
     database::DbPool,
+    error::{EvhError, EvhResult},
     singularity::SingularityConfig,
     template::{
         self,
@@ -51,8 +52,7 @@ async fn submit_form(
 ) -> impl Responder {
     info!("Adding new whitelisted domain: {:?}", domain);
 
-    let mut conn = pool.get().expect("failed to get DB connection");
-    match cfg.add_whitelisted_domain(&mut conn, domain.into_inner().domain) {
+    match add_domain(domain.into_inner().domain, &cfg, &pool) {
         Ok(_) => {
             info!("Whitelisted domain succesfully added");
 
@@ -60,14 +60,36 @@ async fn submit_form(
                 .append_header((header::LOCATION, "/settings/singularity"))
                 .finish()
         }
-        Err(e) => {
-            warn!("Failed to add whitelisted domain: {}", e);
+        Err(e) => match e {
+            EvhError::Database(diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::UniqueViolation,
+                _,
+            )) => {
+                warn!("Failed to add whitelisted domain: duplicate domain");
+                warn!("{}", e);
 
-            page()
-                .alert(Alert::Warning(format!("Failed to add whitelisted domain: {}", e)))
-                .ok()
-        }
+                page()
+                    .alert(Alert::Warning("Duplicate whitelisted domain".to_string()))
+                    .bad_request()
+            }
+            _ => {
+                error!("Failed to add whitelisted domain: {}", e);
+
+                page()
+                    .alert(Alert::Warning(format!(
+                        "Failed to add whitelisted domain due to internal server error: {}",
+                        e
+                    )))
+                    .internal_server_error()
+            }
+        },
     }
+}
+
+fn add_domain(domain: String, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+    cfg.add_whitelisted_domain(&mut conn, domain)?;
+    Ok(())
 }
 
 fn page() -> ResponseBuilder<'static> {

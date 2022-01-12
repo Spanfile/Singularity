@@ -78,7 +78,7 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
         let importer = req
             .app_data::<web::Data<RwLock<ConfigImporter>>>()
             .and_then(|importer| importer.read().ok())
-            .expect("failed to lock read config importer");
+            .expect("config importer rwlock is poisoned");
         let import_id = web::Query::<ImportId>::from_query(req.query_string())
             .expect("failed to extract import ID parameter from query");
         let rendered_str = importer
@@ -100,12 +100,12 @@ async fn finish_config_import(
     import_id: web::Query<ImportId>,
     importer: web::Data<RwLock<ConfigImporter>>,
 ) -> impl Responder {
-    let importer = importer.read().expect("failed to lock read config importer");
-    let rendered_str = importer
-        .get_string(&import_id.id)
-        .expect("failed to get rendered config");
+    let importer = importer.read().expect("config importer rwlock is poisoned");
 
-    finish_page(&rendered_str).ok()
+    match importer.get_string(&import_id.id) {
+        Ok(rendered_str) => finish_page(&rendered_str).ok(),
+        Err(_) => todo!("DO SOME GOOD ERROR HANDLING OKAY?"),
+    }
 }
 
 // TODO: this invokes the form error handler if the left side (the form) fails. make it not do that
@@ -195,7 +195,7 @@ async fn begin_import(
 
     debug!("Received config:\n{}", content);
 
-    let rendered = RenderedConfig::from_str(&content).expect("failed to render configuration from content");
+    let rendered = RenderedConfig::from_str(&content)?;
     debug!("Rendered: {:#?}", rendered);
 
     let import_id = importer

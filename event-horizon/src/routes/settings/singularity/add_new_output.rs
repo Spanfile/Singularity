@@ -1,6 +1,6 @@
 use crate::{
     database::DbPool,
-    error::EvhResult,
+    error::{EvhError, EvhResult},
     singularity::SingularityConfig,
     template::{
         self,
@@ -150,33 +150,49 @@ fn submit_form(
 ) -> impl Responder {
     info!("Adding output: {:#?}", output);
 
-    let mut conn = pool.get().expect("failed to get DB connection");
-
-    match output
-        .into_inner()
-        .try_into_output()
-        .and_then(|output| cfg.add_output(&mut conn, output))
-    {
+    match add_output(output.into_inner(), &cfg, &pool) {
         Ok(_) => {
             info!("Output succesfully added");
-
             HttpResponse::build(StatusCode::SEE_OTHER)
                 .append_header((header::LOCATION, "/settings/singularity"))
                 .finish()
         }
-        Err(e) => form_error_page(e.to_string(), action),
+        Err(e) => match e {
+            EvhError::Database(diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::UniqueViolation,
+                _,
+            ))
+            | EvhError::Singularity(_) => {
+                warn!("Failed to add output: an output with the same destination already exists");
+                warn!("{}", e);
+
+                page(action)
+                    .alert(Alert::Warning(
+                        "An output with the same destination already exists".to_string(),
+                    ))
+                    .bad_request()
+            }
+
+            e => {
+                error!("Failed to add output: {}", e);
+
+                page(action)
+                    .alert(Alert::Error(format!(
+                        "Failed to add output due to an internal server error: {}",
+                        e
+                    )))
+                    .internal_server_error()
+            }
+        },
     }
 }
 
-fn form_error_page<D>(msg: D, action: Action) -> HttpResponse
-where
-    D: std::fmt::Display,
-{
-    warn!("Failed to add output: {}", msg);
+fn add_output(form: OutputForm, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
-    page(action)
-        .alert(Alert::Warning(format!("Failed to add output: {}", msg)))
-        .bad_request()
+    form.try_into_output()
+        .and_then(|output| cfg.add_output(&mut conn, output))?;
+    Ok(())
 }
 
 fn page<'a>(action: Action) -> ResponseBuilder<'a> {

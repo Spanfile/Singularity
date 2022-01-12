@@ -1,5 +1,6 @@
 use crate::{
     database::DbPool,
+    error::{EvhError, EvhResult},
     singularity::SingularityConfig,
     template::{
         self,
@@ -46,23 +47,46 @@ async fn submit_form(
 ) -> impl Responder {
     info!("Adding new adlist: {:?}", adlist);
 
-    let mut conn = pool.get().expect("failed to get DB connection");
-    match cfg.add_adlist(&mut conn, adlist.into_inner()) {
+    match add_adlist(adlist.into_inner(), &cfg, &pool) {
         Ok(_) => {
             info!("Adlist succesfully added");
-
             HttpResponse::build(StatusCode::SEE_OTHER)
                 .append_header((header::LOCATION, "/settings/singularity"))
                 .finish()
         }
-        Err(e) => {
-            warn!("Failed to add adlist: {}", e);
+        Err(e) => match e {
+            EvhError::Database(diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::UniqueViolation,
+                _,
+            )) => {
+                warn!("Failed to add adlist: an adlist with the same source already exists");
+                warn!("{}", e);
 
-            page()
-                .alert(Alert::Warning(format!("Failed to add new adlist: {}", e)))
-                .ok()
-        }
+                page()
+                    .alert(Alert::Warning(
+                        "An adlist with the same source already exists".to_string(),
+                    ))
+                    .bad_request()
+            }
+
+            _ => {
+                error!("Failed to add adlist: {}", e);
+
+                page()
+                    .alert(Alert::Error(format!(
+                        "Failed to add new adlist due to an internal server error: {}",
+                        e
+                    )))
+                    .internal_server_error()
+            }
+        },
     }
+}
+
+fn add_adlist(adlist: Adlist, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+    cfg.add_adlist(&mut conn, adlist)?;
+    Ok(())
 }
 
 fn page() -> ResponseBuilder<'static> {

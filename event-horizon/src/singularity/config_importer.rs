@@ -45,8 +45,11 @@ impl ConfigImporter {
         self.cleanup(evh_config);
     }
 
-    pub fn get_string(&self, id: &str) -> Option<String> {
-        self.imports.get(id).and_then(|import| import.rendered.as_string().ok())
+    pub fn get_string(&self, id: &str) -> EvhResult<String> {
+        self.imports
+            .get(id)
+            .ok_or_else(|| EvhError::NoActiveImport(id.to_string()))
+            .and_then(|import| import.rendered.as_string())
     }
 
     pub fn finish(&mut self, id: &str, evh_config: &EvhConfig) -> EvhResult<RenderedConfig> {
