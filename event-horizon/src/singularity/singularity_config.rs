@@ -12,6 +12,10 @@ use std::{
     path::PathBuf,
 };
 
+pub type AdlistCollection = Vec<(DbId, Adlist)>;
+pub type OutputCollection = Vec<(DbId, Output)>;
+pub type WhitelistCollection = Vec<(DbId, String)>;
+
 #[derive(Debug, Default)]
 pub struct SingularityConfig(DbId);
 
@@ -132,13 +136,13 @@ impl SingularityConfig {
         Ok(adlist)
     }
 
-    pub fn adlists(&self, conn: &mut DbConn) -> EvhResult<Vec<(DbId, Adlist)>> {
+    pub fn adlists(&self, conn: &mut DbConn) -> EvhResult<AdlistCollection> {
         let own_model = self.own_model(conn)?;
         let adlists = models::SingularityAdlist::belonging_to(&own_model)
             .load::<models::SingularityAdlist>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, model.try_into()?)))
-            .collect::<EvhResult<Vec<_>>>()?;
+            .collect::<EvhResult<AdlistCollection>>()?;
 
         debug!("Adlists in {}: {}", self.0, adlists.len());
         Ok(adlists)
@@ -236,13 +240,13 @@ impl SingularityConfig {
         Ok(output)
     }
 
-    pub fn outputs(&self, conn: &mut DbConn) -> EvhResult<Vec<(DbId, Output)>> {
+    pub fn outputs(&self, conn: &mut DbConn) -> EvhResult<OutputCollection> {
         let own_model = self.own_model(conn)?;
         let outputs = models::SingularityOutput::belonging_to(&own_model)
             .load::<models::SingularityOutput>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, self.output_from_model(conn, model)?)))
-            .collect::<EvhResult<Vec<_>>>()?;
+            .collect::<EvhResult<OutputCollection>>()?;
 
         debug!("Outputs in {}: {}", self.0, outputs.len());
         Ok(outputs)
@@ -323,13 +327,13 @@ impl SingularityConfig {
         Ok(whitelist.domain)
     }
 
-    pub fn whitelist(&self, conn: &mut DbConn) -> EvhResult<Vec<(DbId, String)>> {
+    pub fn whitelist(&self, conn: &mut DbConn) -> EvhResult<WhitelistCollection> {
         let own_model = self.own_model(conn)?;
         let whitelist = models::SingularityWhitelist::belonging_to(&own_model)
             .load::<models::SingularityWhitelist>(conn)?
             .into_iter()
             .map(|model| (model.id, model.domain))
-            .collect::<Vec<(DbId, String)>>();
+            .collect::<WhitelistCollection>();
 
         debug!("Whitelist in {}: {}", self.0, whitelist.len());
         Ok(whitelist)

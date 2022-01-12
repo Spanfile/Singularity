@@ -140,6 +140,11 @@ async fn submit_finish_form(
     evh_config: web::Data<EvhConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
+    info!(
+        "Finishing Singularity config import {} with strategy: {:?}",
+        import_id.id, merge_form.strategy
+    );
+
     match finish_import(
         import_id.into_inner().id,
         merge_form.into_inner().strategy,
@@ -148,12 +153,35 @@ async fn submit_finish_form(
         &evh_config,
         &pool,
     ) {
-        Ok(_) => HttpResponse::build(StatusCode::SEE_OTHER)
-            .append_header((header::LOCATION, "/settings/event_horizon"))
-            .finish(),
-        Err(e) => import_page()
-            .alert(Alert::Error(format!("An internal error occurred: {}", e)))
-            .internal_server_error(),
+        Ok(_) => {
+            info!("Singularity config succesfully imported");
+
+            HttpResponse::build(StatusCode::SEE_OTHER)
+                .append_header((header::LOCATION, "/settings/event_horizon"))
+                .finish()
+        }
+        Err(e) => match e {
+            EvhError::NoActiveImport(id) => {
+                warn!("No active import: {}", id);
+
+                import_page()
+                    .alert(Alert::Warning(format!(
+                        "No active import with the ID {}. Please retry the import.",
+                        id
+                    )))
+                    .bad_request()
+            }
+            e => {
+                error!("Failed to finish importing Singularity config: {}", e);
+
+                import_page()
+                    .alert(Alert::Error(format!(
+                        "Failed to finish importing Singularity config due to an internal error: {}",
+                        e
+                    )))
+                    .internal_server_error()
+            }
+        },
     }
 }
 
@@ -215,11 +243,6 @@ fn finish_import(
     evh_config: &EvhConfig,
     pool: &DbPool,
 ) -> EvhResult<()> {
-    info!(
-        "Finishing Singularity config import {} with strategy: {:?}",
-        id, strategy
-    );
-
     let mut importer = importer.write().expect("importer rw lock is poisoned");
     let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
     let rendered = importer.finish(&id, evh_config)?;

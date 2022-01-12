@@ -1,5 +1,6 @@
 use crate::{
-    database::{DbConn, DbId, DbPool},
+    database::{DbId, DbPool},
+    error::{EvhError, EvhResult},
     singularity::SingularityConfig,
     template::{
         self,
@@ -39,15 +40,12 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
         let cfg = req
             .app_data::<web::Data<SingularityConfig>>()
             .expect("missing singularity config");
-        let mut conn = req
-            .app_data::<web::Data<DbPool>>()
-            .and_then(|pool| pool.get().ok())
-            .expect("failed to get DB connection");
+        let pool = req.app_data::<web::Data<DbPool>>().expect("missing DB pool");
 
         let source = web::Query::<DeleteId>::from_query(req.query_string())
             .expect("failed to extract source parameter from query");
 
-        page(source.id, &mut conn, cfg)
+        page(source.id, cfg, pool)
             .alert(Alert::Warning(format!("Failed to delete output: {}", err)))
             .bad_request()
     })
@@ -59,9 +57,7 @@ async fn delete_output(
     cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let mut conn = pool.get().expect("failed to get DB connection");
-
-    page(id.id, &mut conn, &cfg).ok()
+    page(id.id, &cfg, &pool).ok()
 }
 
 async fn submit_form(
@@ -69,11 +65,10 @@ async fn submit_form(
     cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    info!("Deleting output: {:?}", id);
+    let id = id.into_inner().id;
+    info!("Deleting output: {}", id);
 
-    let mut conn = pool.get().expect("failed to get DB connection");
-
-    match cfg.delete_output(&mut conn, id.id) {
+    match delete(id, &cfg, &pool) {
         Ok(_) => {
             info!("Output succesfully deleted");
 
@@ -81,18 +76,38 @@ async fn submit_form(
                 .append_header((header::LOCATION, "/settings/singularity"))
                 .finish()
         }
-        Err(e) => {
-            warn!("Failed to delete output: {}", e);
+        Err(e) => match e {
+            EvhError::Database(diesel::result::Error::NotFound) => {
+                warn!("Failed to delete output: output not found");
+                warn!("{}", e);
 
-            page(id.id, &mut conn, &cfg)
-                .alert(Alert::Warning(format!("Failed to delete output: {}", e)))
-                .bad_request()
-        }
+                page(id, &cfg, &pool)
+                    .alert(Alert::Warning("Output to delete was not found".to_string()))
+                    .bad_request()
+            }
+            _ => {
+                error!("Failed to delete output: {}", e);
+
+                page(id, &cfg, &pool)
+                    .alert(Alert::Warning(format!(
+                        "Failed to delete output due to an internal server error: {}",
+                        e
+                    )))
+                    .internal_server_error()
+            }
+        },
     }
 }
 
-fn page<'a>(id: DbId, conn: &'a mut DbConn, cfg: &'a SingularityConfig) -> ResponseBuilder<'a> {
-    let output = cfg.get_output(conn, id).expect("failed to get output");
+fn delete(id: DbId, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+    cfg.delete_output(&mut conn, id)?;
+    Ok(())
+}
+
+fn page<'a>(id: DbId, cfg: &SingularityConfig, pool: &DbPool) -> ResponseBuilder<'a> {
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed).unwrap();
+    let output = cfg.get_output(&mut conn, id).expect("failed to get output");
 
     template::settings(SettingsPage::Singularity(SingularitySubPage::DeleteOutput(id, &output)))
 }

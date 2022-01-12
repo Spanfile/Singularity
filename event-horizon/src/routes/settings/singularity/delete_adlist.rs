@@ -66,7 +66,7 @@ async fn submit_form(
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     let id = id.into_inner().id;
-    info!("Deleting adlist: {:?}", id);
+    info!("Deleting adlist: {}", id);
 
     match delete(id, &cfg, &pool) {
         Ok(_) => {

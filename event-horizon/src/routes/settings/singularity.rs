@@ -7,13 +7,15 @@ mod delete_whitelisted_domain;
 
 use crate::{
     database::DbPool,
-    singularity::SingularityConfig,
+    error::{EvhError, EvhResult},
+    singularity::{AdlistCollection, OutputCollection, SingularityConfig, WhitelistCollection},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
     },
 };
 use actix_web::{web, Responder};
+use log::*;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -29,16 +31,29 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn singularity(cfg: web::Data<SingularityConfig>, pool: web::Data<DbPool>) -> impl Responder {
-    let mut conn = pool.get().expect("failed to get DB connection");
+    match page(&cfg, &pool) {
+        Ok((adlists, outputs, whitelist)) => template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
+            adlists: &adlists,
+            outputs: &outputs,
+            whitelist: &whitelist,
+        }))
+        .ok(),
+        Err(e) => {
+            error!("Failed to get main page: {}", e);
+            todo!("HANDLE THIS ERROR WITH A PROPER ERROR PAGE");
+        }
+    }
+}
 
-    let adlists = cfg.adlists(&mut conn).expect("failed to read adlists");
-    let outputs = cfg.outputs(&mut conn).expect("failed to read outputs");
-    let whitelist = cfg.whitelist(&mut conn).expect("failed to read whitelist");
+fn page(
+    cfg: &SingularityConfig,
+    pool: &DbPool,
+) -> EvhResult<(AdlistCollection, OutputCollection, WhitelistCollection)> {
+    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
-    template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
-        adlists: &adlists,
-        outputs: &outputs,
-        whitelist: &whitelist,
-    }))
-    .ok()
+    let adlists = cfg.adlists(&mut conn)?;
+    let outputs = cfg.outputs(&mut conn)?;
+    let whitelist = cfg.whitelist(&mut conn)?;
+
+    Ok((adlists, outputs, whitelist))
 }
