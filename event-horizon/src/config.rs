@@ -2,7 +2,7 @@ mod evh_config;
 
 pub use evh_config::EvhConfig;
 
-use crate::logging::LogLevel;
+use crate::{error::EvhResult, logging::LogLevel};
 use serde::Deserialize;
 use serde_with::with_prefix;
 use std::{net::SocketAddr, path::PathBuf};
@@ -36,7 +36,7 @@ pub enum Listen {
 }
 
 impl EnvConfig {
-    pub fn load() -> anyhow::Result<Self> {
+    pub fn load() -> EvhResult<Self> {
         Ok(envy::prefixed(EVH_ENV_PREFIX).from_env::<EnvConfig>()?)
     }
 }

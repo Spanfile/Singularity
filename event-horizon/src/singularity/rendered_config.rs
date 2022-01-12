@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use singularity::{Adlist, Output};
 use std::collections::HashSet;
 
+use crate::error::{EvhError, EvhResult};
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct RenderedConfig {
     #[serde(default)]
@@ -11,11 +13,11 @@ pub struct RenderedConfig {
 }
 
 impl RenderedConfig {
-    pub fn from_str(str: &str) -> anyhow::Result<Self> {
-        Ok(toml::from_str(str)?)
+    pub fn from_str(str: &str) -> EvhResult<Self> {
+        Ok(toml::from_str(str).map_err(|e| EvhError::RenderedConfigReadFailed(e))?)
     }
 
-    pub fn as_string(&self) -> anyhow::Result<String> {
-        Ok(toml::to_string_pretty(self)?)
+    pub fn as_string(&self) -> EvhResult<String> {
+        Ok(toml::to_string_pretty(self).map_err(|e| EvhError::RenderedConfigWriteFailed(e))?)
     }
 }

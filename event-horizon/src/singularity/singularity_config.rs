@@ -1,5 +1,8 @@
 use super::RenderedConfig;
-use crate::database::{models, DbConn, DbId};
+use crate::{
+    database::{models, DbConn, DbId},
+    error::{EvhError, EvhResult},
+};
 use diesel::prelude::*;
 use log::*;
 use singularity::{Adlist, Output, OutputType, HTTP_CONNECT_TIMEOUT};
@@ -13,7 +16,7 @@ use std::{
 pub struct SingularityConfig(DbId);
 
 impl SingularityConfig {
-    pub fn new(conn: &mut DbConn) -> anyhow::Result<Self> {
+    pub fn new(conn: &mut DbConn) -> EvhResult<Self> {
         use crate::database::schema::singularity_configs;
 
         let cfg = diesel::insert_into(singularity_configs::table)
@@ -27,7 +30,7 @@ impl SingularityConfig {
         Ok(Self(cfg.id))
     }
 
-    pub fn load(id: DbId, conn: &mut DbConn) -> anyhow::Result<Self> {
+    pub fn load(id: DbId, conn: &mut DbConn) -> EvhResult<Self> {
         use crate::database::schema::singularity_configs;
 
         let cfg = singularity_configs::table
@@ -38,7 +41,7 @@ impl SingularityConfig {
         Ok(Self(cfg.id))
     }
 
-    pub fn overwrite(&self, conn: &mut DbConn, rendered: RenderedConfig) -> anyhow::Result<()> {
+    pub fn overwrite(&self, conn: &mut DbConn, rendered: RenderedConfig) -> EvhResult<()> {
         let own_model = self.own_model(conn)?;
 
         let adlists = diesel::delete(models::SingularityAdlist::belonging_to(&own_model)).execute(conn)?;
@@ -65,7 +68,7 @@ impl SingularityConfig {
         self.set_dirty(conn, true)
     }
 
-    fn own_model(&self, conn: &mut DbConn) -> anyhow::Result<models::SingularityConfig> {
+    fn own_model(&self, conn: &mut DbConn) -> EvhResult<models::SingularityConfig> {
         use crate::database::schema::singularity_configs;
 
         let model = singularity_configs::table
@@ -77,7 +80,7 @@ impl SingularityConfig {
     }
 
     /// Sets the dirty flag for this config.
-    pub fn set_dirty(&self, conn: &mut DbConn, dirty: bool) -> anyhow::Result<()> {
+    pub fn set_dirty(&self, conn: &mut DbConn, dirty: bool) -> EvhResult<()> {
         use crate::database::schema::singularity_configs;
 
         diesel::update(singularity_configs::table.filter(singularity_configs::id.eq(self.0)))
@@ -89,7 +92,7 @@ impl SingularityConfig {
     }
 
     /// Adds a new adlist to the configuration. Returns the ID of the newly added adlist.
-    pub fn add_adlist(&self, conn: &mut DbConn, adlist: Adlist) -> anyhow::Result<DbId> {
+    pub fn add_adlist(&self, conn: &mut DbConn, adlist: Adlist) -> EvhResult<DbId> {
         use crate::database::schema::singularity_adlists;
 
         let model = models::NewSingularityAdlist {
@@ -108,7 +111,7 @@ impl SingularityConfig {
     }
 
     /// Deletes a given adlist from the configuration.
-    pub fn delete_adlist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
+    pub fn delete_adlist(&self, conn: &mut DbConn, id: DbId) -> EvhResult<()> {
         use crate::database::schema::singularity_adlists;
 
         let rows = diesel::delete(singularity_adlists::table.filter(singularity_adlists::id.eq(id))).execute(conn)?;
@@ -117,7 +120,7 @@ impl SingularityConfig {
         self.set_dirty(conn, true)
     }
 
-    pub fn get_adlist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<Adlist> {
+    pub fn get_adlist(&self, conn: &mut DbConn, id: DbId) -> EvhResult<Adlist> {
         use crate::database::schema::singularity_adlists;
 
         let adlist = singularity_adlists::table
@@ -129,25 +132,25 @@ impl SingularityConfig {
         Ok(adlist)
     }
 
-    pub fn adlists(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, Adlist)>> {
+    pub fn adlists(&self, conn: &mut DbConn) -> EvhResult<Vec<(DbId, Adlist)>> {
         let own_model = self.own_model(conn)?;
         let adlists = models::SingularityAdlist::belonging_to(&own_model)
             .load::<models::SingularityAdlist>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, model.try_into()?)))
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<EvhResult<Vec<_>>>()?;
 
         debug!("Adlists in {}: {}", self.0, adlists.len());
         Ok(adlists)
     }
 
     /// Adds a new output to the configuration. Returns the ID of the newly added output.
-    pub fn add_output(&self, conn: &mut DbConn, output: Output) -> anyhow::Result<DbId> {
+    pub fn add_output(&self, conn: &mut DbConn, output: Output) -> EvhResult<DbId> {
         use crate::database::schema::{
             singularity_output_hosts_includes, singularity_output_pdns_lua, singularity_outputs,
         };
 
-        let id = conn.immediate_transaction::<_, anyhow::Error, _>(|conn| {
+        let id = conn.immediate_transaction::<_, EvhError, _>(|conn| {
             let mut hosts_includes = Vec::new();
             let mut pdns_lua = None;
 
@@ -211,7 +214,7 @@ impl SingularityConfig {
     }
 
     /// Deletes a given output from the configuration.
-    pub fn delete_output(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
+    pub fn delete_output(&self, conn: &mut DbConn, id: DbId) -> EvhResult<()> {
         use crate::database::schema::singularity_outputs;
 
         // TODO: so uhh the ON DELETE CASCADE in the pdns lua table isn't working?
@@ -221,7 +224,7 @@ impl SingularityConfig {
         self.set_dirty(conn, true)
     }
 
-    pub fn get_output(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<Output> {
+    pub fn get_output(&self, conn: &mut DbConn, id: DbId) -> EvhResult<Output> {
         use crate::database::schema::singularity_outputs;
 
         let output = singularity_outputs::table
@@ -233,19 +236,19 @@ impl SingularityConfig {
         Ok(output)
     }
 
-    pub fn outputs(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, Output)>> {
+    pub fn outputs(&self, conn: &mut DbConn) -> EvhResult<Vec<(DbId, Output)>> {
         let own_model = self.own_model(conn)?;
         let outputs = models::SingularityOutput::belonging_to(&own_model)
             .load::<models::SingularityOutput>(conn)?
             .into_iter()
             .map(|model| Ok((model.id, self.output_from_model(conn, model)?)))
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<EvhResult<Vec<_>>>()?;
 
         debug!("Outputs in {}: {}", self.0, outputs.len());
         Ok(outputs)
     }
 
-    fn output_from_model(&self, conn: &mut DbConn, mut output: models::SingularityOutput) -> anyhow::Result<Output> {
+    fn output_from_model(&self, conn: &mut DbConn, mut output: models::SingularityOutput) -> EvhResult<Output> {
         output.ty.make_ascii_lowercase();
 
         let output_type = match output.ty.as_ref() {
@@ -281,7 +284,7 @@ impl SingularityConfig {
     }
 
     /// Adds a new domain to the whitelist. Returns the ID of the newly whitelisted domain.
-    pub fn add_whitelisted_domain(&self, conn: &mut DbConn, domain: String) -> anyhow::Result<DbId> {
+    pub fn add_whitelisted_domain(&self, conn: &mut DbConn, domain: String) -> EvhResult<DbId> {
         use crate::database::schema::singularity_whitelists;
 
         let model = models::NewSingularityWhitelist {
@@ -299,7 +302,7 @@ impl SingularityConfig {
     }
 
     /// Deletes a given domain from the whitelist.
-    pub fn delete_whitelisted_domain(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<()> {
+    pub fn delete_whitelisted_domain(&self, conn: &mut DbConn, id: DbId) -> EvhResult<()> {
         use crate::database::schema::singularity_whitelists;
 
         let rows =
@@ -309,7 +312,7 @@ impl SingularityConfig {
         self.set_dirty(conn, true)
     }
 
-    pub fn get_whitelist(&self, conn: &mut DbConn, id: DbId) -> anyhow::Result<String> {
+    pub fn get_whitelist(&self, conn: &mut DbConn, id: DbId) -> EvhResult<String> {
         use crate::database::schema::singularity_whitelists;
 
         let whitelist = singularity_whitelists::table
@@ -320,7 +323,7 @@ impl SingularityConfig {
         Ok(whitelist.domain)
     }
 
-    pub fn whitelist(&self, conn: &mut DbConn) -> anyhow::Result<Vec<(DbId, String)>> {
+    pub fn whitelist(&self, conn: &mut DbConn) -> EvhResult<Vec<(DbId, String)>> {
         let own_model = self.own_model(conn)?;
         let whitelist = models::SingularityWhitelist::belonging_to(&own_model)
             .load::<models::SingularityWhitelist>(conn)?

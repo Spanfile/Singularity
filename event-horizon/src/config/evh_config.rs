@@ -1,3 +1,4 @@
+use crate::error::{EvhError, EvhResult};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
@@ -18,16 +19,20 @@ pub struct EvhConfig {
 }
 
 impl EvhConfig {
-    pub fn load() -> anyhow::Result<Self> {
+    pub fn load() -> EvhResult<Self> {
         let path = Path::new(EVH_CONFIG_LOCATION);
 
         if path.exists() {
-            Ok(toml::from_str(&fs::read_to_string(path)?)?)
+            Ok(toml::from_str(&fs::read_to_string(path)?).map_err(|e| EvhError::EvhConfigReadFailed(e))?)
         } else {
             let default = Self::default();
             fs::write(
                 path,
-                format!("{}\n{}", EVH_CONFIG_WARNING, toml::to_string_pretty(&default)?),
+                format!(
+                    "{}\n{}",
+                    EVH_CONFIG_WARNING,
+                    toml::to_string_pretty(&default).map_err(|e| EvhError::EvhConfigWriteFailed(e))?
+                ),
             )?;
             Ok(default)
         }

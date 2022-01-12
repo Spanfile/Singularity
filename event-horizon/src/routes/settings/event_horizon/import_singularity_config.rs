@@ -1,6 +1,7 @@
 use crate::{
     config::EvhConfig,
     database::DbPool,
+    error::{EvhError, EvhResult},
     singularity::{ConfigImporter, RenderedConfig, SingularityConfig},
     template::{
         self,
@@ -125,7 +126,7 @@ async fn submit_import_form(
                 .try_next()
                 .await
                 .map_err(|e| e.into())
-                .and_then(|field| field.ok_or(anyhow::anyhow!("empty form")))
+                .and_then(|field| Ok(field.expect("TODO")))
             {
                 Ok(mut field) => {
                     let mut buf = Vec::new();
@@ -164,8 +165,7 @@ async fn submit_import_form(
     let import_id = importer
         .write()
         .expect("failed to lock write config importer")
-        .begin_import(rendered, &evh_config)
-        .expect("failed to begin config import");
+        .begin_import(rendered, &evh_config)?;
 
     debug!("Began config import with ID {}", import_id);
 
@@ -185,42 +185,53 @@ async fn submit_finish_form(
     evh_config: web::Data<EvhConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
+    match finish_merge(
+        import_id.into_inner().id,
+        merge_form.into_inner().strategy,
+        &importer,
+        &sing_cfg,
+        &evh_config,
+        &pool,
+    ) {
+        Ok(_) => HttpResponse::build(StatusCode::SEE_OTHER)
+            .append_header((header::LOCATION, "/settings/event_horizon"))
+            .finish(),
+        Err(e) => {}
+    }
+}
+
+fn finish_merge(
+    id: String,
+    strategy: ImportMergeStrategy,
+    importer: &RwLock<ConfigImporter>,
+    sing_cfg: &SingularityConfig,
+    evh_config: &EvhConfig,
+    pool: &DbPool,
+) -> EvhResult<()> {
     info!(
         "Finishing Singularity config import {} with strategy: {:?}",
-        import_id.id, merge_form.strategy
+        id, strategy
     );
 
-    let import_id = import_id.into_inner();
-    let mut importer = importer.write().expect("failed to lock write config importer");
-    let mut conn = pool.get().expect("failed to get db connection");
+    let mut importer = importer.write().expect("importer rw lock is poisoned");
+    let mut conn = pool.get().map_err(|e| EvhError::DatabaseConnectionAcquireFailed(e))?;
+    let rendered = importer.finish(&id, evh_config)?;
 
-    let rendered = importer
-        .finish(&import_id.id, &evh_config)
-        .expect("failed to get rendered config");
+    debug!("Using rendered config {}: {:#?}", id, rendered);
 
-    debug!("Using rendered config {}: {:#?}", import_id.id, rendered);
-
-    match merge_form.strategy {
+    match strategy {
         ImportMergeStrategy::New => {
-            let new_config = SingularityConfig::new(&mut conn).expect("failed to create new configuration");
-            new_config
-                .overwrite(&mut conn, rendered)
-                .expect("failed to overwrite new config");
+            let new_config = SingularityConfig::new(&mut conn)?;
+            new_config.overwrite(&mut conn, rendered)?;
         }
         ImportMergeStrategy::Merge => {
             todo!()
         }
-        ImportMergeStrategy::Overwrite => {
-            sing_cfg
-                .overwrite(&mut conn, rendered)
-                .expect("failed to overwrite current config");
-        }
-        ImportMergeStrategy::Cancel => importer.cancel_import(&import_id.id, &evh_config),
+        ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut conn, rendered)?,
+        ImportMergeStrategy::Cancel => importer.cancel_import(&id, evh_config),
     }
 
-    HttpResponse::build(StatusCode::SEE_OTHER)
-        .append_header((header::LOCATION, "/settings/event_horizon"))
-        .finish()
+    Ok(())
 }
 
 fn import_page() -> ResponseBuilder<'static> {

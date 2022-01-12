@@ -1,5 +1,8 @@
 use super::RenderedConfig;
-use crate::config::EvhConfig;
+use crate::{
+    config::EvhConfig,
+    error::{EvhError, EvhResult},
+};
 use indexmap::IndexMap;
 use nanoid::nanoid;
 use std::time::Instant;
@@ -21,7 +24,7 @@ impl ConfigImporter {
         }
     }
 
-    pub fn begin_import(&mut self, rendered: RenderedConfig, evh_config: &EvhConfig) -> anyhow::Result<String> {
+    pub fn begin_import(&mut self, rendered: RenderedConfig, evh_config: &EvhConfig) -> String {
         let time = Instant::now();
 
         // ensure a duplicate ID won't be generated
@@ -34,7 +37,7 @@ impl ConfigImporter {
 
         self.imports.insert(id.clone(), PendingImport { rendered, time });
         self.cleanup(evh_config);
-        Ok(id)
+        id
     }
 
     pub fn cancel_import(&mut self, id: &str, evh_config: &EvhConfig) {
@@ -46,11 +49,15 @@ impl ConfigImporter {
         self.imports.get(id).and_then(|import| import.rendered.as_string().ok())
     }
 
-    pub fn finish(&mut self, id: &str, evh_config: &EvhConfig) -> Option<RenderedConfig> {
-        let rendered = self.imports.remove(id).map(|import| import.rendered);
+    pub fn finish(&mut self, id: &str, evh_config: &EvhConfig) -> EvhResult<RenderedConfig> {
+        let rendered = self
+            .imports
+            .remove(id)
+            .map(|import| import.rendered)
+            .ok_or(EvhError::NoActiveImport(id.to_string()))?;
         self.cleanup(evh_config);
 
-        rendered
+        Ok(rendered)
     }
 
     pub fn cleanup(&mut self, evh_config: &EvhConfig) {

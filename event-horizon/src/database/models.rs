@@ -1,3 +1,5 @@
+use crate::error::EvhError;
+
 use super::{schema::*, DbId};
 use singularity::{Adlist, AdlistFormat};
 
@@ -101,7 +103,7 @@ pub struct NewSingularityOutputPdnsLua<'a> {
 }
 
 impl TryFrom<SingularityAdlist> for Adlist {
-    type Error = anyhow::Error;
+    type Error = EvhError;
 
     fn try_from(mut model: SingularityAdlist) -> Result<Self, Self::Error> {
         model.format.make_ascii_lowercase();

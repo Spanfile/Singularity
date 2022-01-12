@@ -16,6 +16,7 @@ mod built_info {
 
 use crate::{
     config::{EnvConfig, EvhConfig, Listen},
+    error::{EvhError, EvhResult},
     singularity::{ConfigImporter, SingularityConfig},
 };
 use actix_files::Files;
@@ -29,7 +30,7 @@ use log::*;
 use std::sync::RwLock;
 
 #[actix_web::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> EvhResult<()> {
     if cfg!(debug_assertions) {
         dotenv::dotenv().unwrap();
     }
@@ -43,11 +44,11 @@ async fn main() -> anyhow::Result<()> {
     debug!("EVH: {:#?}", evh_config);
 
     let pool = create_db_pool(&evh_config)?;
-    let mut conn = pool.get()?;
+    let mut conn = pool.get().map_err(|e| EvhError::DatabaseConnectionAcquireFailed(e))?;
 
     // attempt to load the config with ID 1, or if it fails because it doesn't exist, attempt to create a new config
     let singularity_config = SingularityConfig::load(1, &mut conn).or_else(|e| {
-        if let Some(diesel::result::Error::NotFound) = e.downcast_ref() {
+        if let EvhError::Database(diesel::result::Error::NotFound) = e {
             warn!("No existing Singularity config found, falling back to creating a new one");
             SingularityConfig::new(&mut conn)
         } else {
@@ -130,8 +131,10 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_db_pool(evh_config: &EvhConfig) -> anyhow::Result<DbPool> {
+fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
     let manager = ConnectionManager::<SqliteConnection>::new(&evh_config.database_url);
-    let pool = r2d2::Pool::builder().build(manager)?;
+    let pool = r2d2::Pool::builder()
+        .build(manager)
+        .map_err(|e| EvhError::DatabasePoolInitialisationFailed(e))?;
     Ok(pool)
 }

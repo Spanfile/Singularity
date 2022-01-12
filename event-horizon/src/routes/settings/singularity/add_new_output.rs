@@ -1,5 +1,6 @@
 use crate::{
     database::DbPool,
+    error::EvhResult,
     singularity::SingularityConfig,
     template::{
         self,
@@ -60,7 +61,7 @@ enum OutputTypeForm {
 }
 
 impl OutputForm {
-    fn try_into_output(self) -> anyhow::Result<Output> {
+    fn try_into_output(self) -> EvhResult<Output> {
         Ok(Output::builder(
             match self.ty {
                 OutputTypeForm::Hosts { include } => OutputType::Hosts { include },
