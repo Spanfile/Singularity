@@ -1,7 +1,3 @@
-mod error_provider;
-
-pub use error_provider::ErrorProvider;
-
 use thiserror::Error;
 
 pub type EvhResult<T> = std::result::Result<T, EvhError>;

@@ -17,7 +17,8 @@ mod built_info {
 use crate::{
     config::{EnvConfig, EvhConfig, Listen},
     error::{EvhError, EvhResult},
-    singularity::{ConfigImporter, SingularityConfig},
+    singularity::{RenderedConfig, SingularityConfig},
+    util::timed_collection::TimedCollection,
 };
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};
@@ -28,6 +29,8 @@ use diesel::{
 };
 use log::*;
 use std::sync::RwLock;
+
+type ConfigImporter = TimedCollection<RenderedConfig>;
 
 #[actix_web::main]
 async fn main() -> EvhResult<()> {
@@ -99,7 +102,10 @@ async fn main() -> EvhResult<()> {
     let evh_config = web::Data::new(evh_config);
     let pool = web::Data::new(pool);
     let singularity_config = web::Data::new(singularity_config);
-    let config_importer = web::Data::new(RwLock::new(ConfigImporter::new()));
+    let config_importer = web::Data::new(RwLock::new(ConfigImporter::new(
+        evh_config.max_concurrent_imports,
+        evh_config.max_import_lifetime,
+    )));
 
     let listener = match env_config.listen {
         Listen::Http { bind } => bind,

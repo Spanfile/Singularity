@@ -1,14 +1,14 @@
 use crate::{
-    config::EvhConfig,
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::{ConfigImporter, RenderedConfig, SingularityConfig},
+    singularity::{RenderedConfig, SingularityConfig},
     template::{
         self,
         settings::{EventHorizonSubPage, SettingsPage},
         Alert, ResponseBuilder,
     },
     util::request_callback_error::RequestCallbackError,
+    ConfigImporter,
 };
 use actix_multipart::Multipart;
 use actix_web::{
@@ -82,7 +82,9 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
         let import_id = web::Query::<ImportId>::from_query(req.query_string())
             .expect("failed to extract import ID parameter from query");
         let rendered_str = importer
-            .get_string(&import_id.id)
+            .get_ref(&import_id.id)
+            .ok_or_else(|| EvhError::NoActiveImport(import_id.into_inner().id))
+            .and_then(|cfg| cfg.as_string())
             .expect("failed to get rendered config");
 
         finish_page(&rendered_str)
@@ -102,7 +104,11 @@ async fn finish_config_import(
 ) -> impl Responder {
     let importer = importer.read().expect("config importer rwlock is poisoned");
 
-    match importer.get_string(&import_id.id) {
+    match importer
+        .get_ref(&import_id.id)
+        .ok_or_else(|| EvhError::NoActiveImport(import_id.into_inner().id))
+        .and_then(|cfg| cfg.as_string())
+    {
         Ok(rendered_str) => finish_page(&rendered_str).ok(),
         Err(_) => todo!("DO SOME GOOD ERROR HANDLING OKAY?"),
     }
@@ -112,9 +118,8 @@ async fn finish_config_import(
 async fn submit_import_form(
     payload: Either<web::Form<TextImport>, Multipart>,
     importer: web::Data<RwLock<ConfigImporter>>,
-    evh_config: web::Data<EvhConfig>,
 ) -> impl Responder {
-    match begin_import(payload, &importer, &evh_config).await {
+    match begin_import(payload, &importer).await {
         Ok(import_id) => HttpResponse::build(StatusCode::SEE_OTHER)
             .append_header((
                 header::LOCATION,
@@ -137,7 +142,6 @@ async fn submit_finish_form(
     merge_form: web::Form<ImportMergeForm>,
     importer: web::Data<RwLock<ConfigImporter>>,
     sing_cfg: web::Data<SingularityConfig>,
-    evh_config: web::Data<EvhConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!(
@@ -150,7 +154,6 @@ async fn submit_finish_form(
         merge_form.into_inner().strategy,
         &importer,
         &sing_cfg,
-        &evh_config,
         &pool,
     ) {
         Ok(_) => {
@@ -188,7 +191,6 @@ async fn submit_finish_form(
 async fn begin_import(
     payload: Either<web::Form<TextImport>, Multipart>,
     importer: &RwLock<ConfigImporter>,
-    evh_config: &EvhConfig,
 ) -> EvhResult<String> {
     let content = match payload {
         Either::Left(form) => {
@@ -226,10 +228,7 @@ async fn begin_import(
     let rendered = RenderedConfig::from_str(&content)?;
     debug!("Rendered: {:#?}", rendered);
 
-    let import_id = importer
-        .write()
-        .expect("importer rw lock is poisoned")
-        .begin_import(rendered, evh_config);
+    let import_id = importer.write().expect("importer rw lock is poisoned").add(rendered);
 
     debug!("Began config import with ID {}", import_id);
     Ok(import_id)
@@ -240,12 +239,11 @@ fn finish_import(
     strategy: ImportMergeStrategy,
     importer: &RwLock<ConfigImporter>,
     sing_cfg: &SingularityConfig,
-    evh_config: &EvhConfig,
     pool: &DbPool,
 ) -> EvhResult<()> {
     let mut importer = importer.write().expect("importer rw lock is poisoned");
     let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    let rendered = importer.finish(&id, evh_config)?;
+    let rendered = importer.get(&id).ok_or_else(|| EvhError::NoActiveImport(id.clone()))?;
 
     debug!("Using rendered config {}: {:#?}", id, rendered);
 
@@ -258,7 +256,7 @@ fn finish_import(
             todo!()
         }
         ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut conn, rendered)?,
-        ImportMergeStrategy::Cancel => importer.cancel_import(&id, evh_config),
+        ImportMergeStrategy::Cancel => importer.remove(&id),
     }
 
     Ok(())
