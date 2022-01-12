@@ -1,9 +1,11 @@
 pub mod about;
+pub mod error;
 pub mod index;
 pub mod settings;
 
 // re-exported for convenience
 pub use about::about;
+pub use error::error;
 pub use index::index;
 pub use settings::settings;
 
