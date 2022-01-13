@@ -109,13 +109,13 @@ async fn main() -> EvhResult<()> {
     let singularity_config = web::Data::new(singularity_config);
 
     let config_importer = web::Data::new(RwLock::new(ConfigImporter::new(
-        evh_config.max_concurrent_imports,
-        evh_config.max_import_lifetime,
+        evh_config.timed_collections.max_concurrent_imports,
+        evh_config.timed_collections.max_import_lifetime,
     )));
 
     let error_provider = web::Data::new(RwLock::new(ErrorProvider::new(
-        evh_config.max_stored_errors,
-        evh_config.max_error_lifetime,
+        evh_config.timed_collections.max_stored_errors,
+        evh_config.timed_collections.max_error_lifetime,
     )));
 
     let listener = match env_config.listen {
