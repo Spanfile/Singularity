@@ -21,7 +21,11 @@ use crate::{
     util::timed_collection::TimedCollection,
 };
 use actix_files::Files;
-use actix_web::{middleware::Logger, web, App, HttpServer};
+use actix_web::{
+    http::{header, StatusCode},
+    middleware::Logger,
+    web, App, HttpResponse, HttpServer,
+};
 use database::DbPool;
 use diesel::{
     r2d2::{self, ConnectionManager},
@@ -31,6 +35,7 @@ use log::*;
 use std::sync::RwLock;
 
 type ConfigImporter = TimedCollection<RenderedConfig>;
+type ErrorProvider = TimedCollection<String>;
 
 #[actix_web::main]
 async fn main() -> EvhResult<()> {
@@ -102,9 +107,15 @@ async fn main() -> EvhResult<()> {
     let evh_config = web::Data::new(evh_config);
     let pool = web::Data::new(pool);
     let singularity_config = web::Data::new(singularity_config);
+
     let config_importer = web::Data::new(RwLock::new(ConfigImporter::new(
         evh_config.max_concurrent_imports,
         evh_config.max_import_lifetime,
+    )));
+
+    let error_provider = web::Data::new(RwLock::new(ErrorProvider::new(
+        evh_config.max_stored_errors,
+        evh_config.max_error_lifetime,
     )));
 
     let listener = match env_config.listen {
@@ -125,6 +136,7 @@ async fn main() -> EvhResult<()> {
             .app_data(pool.clone())
             .app_data(singularity_config.clone())
             .app_data(config_importer.clone())
+            .app_data(error_provider.clone())
             .service(Files::new("/static", "static/"))
             .configure(routes::index::config)
             .configure(routes::about::config)
@@ -144,4 +156,11 @@ fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
         .build(manager)
         .map_err(EvhError::DatabasePoolInitialisationFailed)?;
     Ok(pool)
+}
+
+// TODO: there's probably a better place for this function
+fn redirect_to_error_page(error_id: String) -> HttpResponse {
+    HttpResponse::build(StatusCode::SEE_OTHER)
+        .append_header((header::LOCATION, format!("/error/{}", error_id)))
+        .finish()
 }

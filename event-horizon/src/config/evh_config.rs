@@ -9,6 +9,8 @@ const EVH_CONFIG_WARNING: &str =
 const DEFAULT_DATABASE_URL: &str = "evh.sqlite";
 const MAX_CONCURRENT_IMPORTS: usize = 5;
 const MAX_IMPORT_LIFETIME: u64 = 300;
+const MAX_STORED_ERRORS: usize = 10;
+const MAX_ERROR_LIFETIME: u64 = 10;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -16,6 +18,8 @@ pub struct EvhConfig {
     pub database_url: String,
     pub max_concurrent_imports: usize,
     pub max_import_lifetime: u64,
+    pub max_stored_errors: usize,
+    pub max_error_lifetime: u64,
 }
 
 impl EvhConfig {
@@ -45,6 +49,8 @@ impl Default for EvhConfig {
             database_url: DEFAULT_DATABASE_URL.to_string(),
             max_concurrent_imports: MAX_CONCURRENT_IMPORTS,
             max_import_lifetime: MAX_IMPORT_LIFETIME,
+            max_stored_errors: MAX_STORED_ERRORS,
+            max_error_lifetime: MAX_ERROR_LIFETIME,
         }
     }
 }
