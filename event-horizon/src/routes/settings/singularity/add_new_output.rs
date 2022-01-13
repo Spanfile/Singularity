@@ -191,7 +191,7 @@ fn add_output(form: OutputForm, cfg: &SingularityConfig, pool: &DbPool) -> EvhRe
     let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
     form.try_into_output()
-        .and_then(|output| cfg.add_output(&mut conn, output))?;
+        .and_then(|output| cfg.add_output(&mut conn, &output))?;
     Ok(())
 }
 

@@ -252,9 +252,7 @@ fn finish_import(
             let new_config = SingularityConfig::new(&mut conn)?;
             new_config.overwrite(&mut conn, rendered)?;
         }
-        ImportMergeStrategy::Merge => {
-            todo!()
-        }
+        ImportMergeStrategy::Merge => sing_cfg.merge(&mut conn, rendered)?,
         ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut conn, rendered)?,
         ImportMergeStrategy::Cancel => importer.remove(&id),
     }

@@ -88,7 +88,7 @@ async fn submit_form(
 
 fn add_domain(domain: String, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
     let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    cfg.add_whitelisted_domain(&mut conn, domain)?;
+    cfg.add_whitelisted_domain(&mut conn, &domain)?;
     Ok(())
 }
 

@@ -85,7 +85,7 @@ async fn submit_form(
 
 fn add_adlist(adlist: Adlist, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
     let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    cfg.add_adlist(&mut conn, adlist)?;
+    cfg.add_adlist(&mut conn, &adlist)?;
     Ok(())
 }
 

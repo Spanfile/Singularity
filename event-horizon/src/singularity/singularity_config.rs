@@ -58,15 +58,51 @@ impl SingularityConfig {
         );
 
         for adlist in rendered.adlist {
-            self.add_adlist(conn, adlist)?;
+            self.add_adlist(conn, &adlist)?;
         }
 
         for output in rendered.output {
-            self.add_output(conn, output)?;
+            self.add_output(conn, &output)?;
         }
 
         for domain in rendered.whitelist {
-            self.add_whitelisted_domain(conn, domain)?;
+            self.add_whitelisted_domain(conn, &domain)?;
+        }
+
+        self.set_dirty(conn, true)
+    }
+
+    pub fn merge(&self, conn: &mut DbConn, rendered: RenderedConfig) -> EvhResult<()> {
+        fn ignore_duplicate<F, R>(mut f: F) -> EvhResult<bool>
+        where
+            F: FnMut() -> EvhResult<R>,
+        {
+            match (f)() {
+                Ok(_) => Ok(true),
+                Err(EvhError::Database(diesel::result::Error::DatabaseError(
+                    diesel::result::DatabaseErrorKind::UniqueViolation,
+                    _,
+                ))) => Ok(false),
+                Err(e) => Err(e),
+            }
+        }
+
+        for adlist in rendered.adlist {
+            if !ignore_duplicate(|| self.add_adlist(conn, &adlist))? {
+                warn!("Ignored duplicate adlist {:?}", adlist);
+            }
+        }
+
+        for output in rendered.output {
+            if !ignore_duplicate(|| self.add_output(conn, &output))? {
+                warn!("Ignored duplicate output {:?}", output);
+            }
+        }
+
+        for domain in rendered.whitelist {
+            if !ignore_duplicate(|| self.add_whitelisted_domain(conn, &domain))? {
+                warn!("Ignored duplicate whitelisted domain {}", domain);
+            }
         }
 
         self.set_dirty(conn, true)
@@ -96,7 +132,7 @@ impl SingularityConfig {
     }
 
     /// Adds a new adlist to the configuration. Returns the ID of the newly added adlist.
-    pub fn add_adlist(&self, conn: &mut DbConn, adlist: Adlist) -> EvhResult<DbId> {
+    pub fn add_adlist(&self, conn: &mut DbConn, adlist: &Adlist) -> EvhResult<DbId> {
         use crate::database::schema::singularity_adlists;
 
         let model = models::NewSingularityAdlist {
@@ -149,7 +185,7 @@ impl SingularityConfig {
     }
 
     /// Adds a new output to the configuration. Returns the ID of the newly added output.
-    pub fn add_output(&self, conn: &mut DbConn, output: Output) -> EvhResult<DbId> {
+    pub fn add_output(&self, conn: &mut DbConn, output: &Output) -> EvhResult<DbId> {
         use crate::database::schema::{
             singularity_output_hosts_includes, singularity_output_pdns_lua, singularity_outputs,
         };
@@ -288,12 +324,12 @@ impl SingularityConfig {
     }
 
     /// Adds a new domain to the whitelist. Returns the ID of the newly whitelisted domain.
-    pub fn add_whitelisted_domain(&self, conn: &mut DbConn, domain: String) -> EvhResult<DbId> {
+    pub fn add_whitelisted_domain(&self, conn: &mut DbConn, domain: &str) -> EvhResult<DbId> {
         use crate::database::schema::singularity_whitelists;
 
         let model = models::NewSingularityWhitelist {
             singularity_config_id: self.0,
-            domain: domain.as_str(),
+            domain,
         };
 
         let whitelist = diesel::insert_into(singularity_whitelists::table)
