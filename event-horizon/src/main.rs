@@ -44,7 +44,7 @@ async fn main() -> EvhResult<()> {
     }
 
     let env_config = EnvConfig::load()?;
-    let evh_config = EvhConfig::load()?;
+    let evh_config = EvhConfig::load(&env_config.config)?;
 
     logging::setup_logging(&env_config)?;
 
@@ -109,13 +109,13 @@ async fn main() -> EvhResult<()> {
     let singularity_config = web::Data::new(singularity_config);
 
     let config_importer = web::Data::new(RwLock::new(ConfigImporter::new(
-        evh_config.timed_collections.max_concurrent_imports,
-        evh_config.timed_collections.max_import_lifetime,
+        evh_config.redis.max_concurrent_imports,
+        evh_config.redis.max_import_lifetime,
     )));
 
     let error_provider = web::Data::new(RwLock::new(ErrorProvider::new(
-        evh_config.timed_collections.max_stored_errors,
-        evh_config.timed_collections.max_error_lifetime,
+        evh_config.redis.max_stored_errors,
+        evh_config.redis.max_error_lifetime,
     )));
 
     let listener = match env_config.listen {

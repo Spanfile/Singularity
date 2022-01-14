@@ -25,10 +25,12 @@ itertools = "0.10.3"
 log = "0.4.14"
 maud = "0.23.0"
 nanoid = "0.4.0"
+redis = {version = "0.21.5", default-features = false, features = ["aio", "r2d2", "tokio-comp"]}
 serde = {version = "1.0.130", features = ["derive"]}
 serde_with = "1.11.0"
 thiserror = "1.0.30"
 toml = "0.5.8"
+url = "2.2.2"
 
 [build-dependencies]
 built = "0.5.1"

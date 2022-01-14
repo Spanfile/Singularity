@@ -1,7 +1,7 @@
-use crate::config::EvhConfig;
+use crate::config::{EnvConfig, EvhConfig};
 use maud::{html, Markup};
 
-pub fn danger_zone(evh_config: &EvhConfig) -> Markup {
+pub fn danger_zone(evh_config: &EvhConfig, env_config: &EnvConfig) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Danger zone" }
@@ -11,13 +11,21 @@ pub fn danger_zone(evh_config: &EvhConfig) -> Markup {
 
                 form method="POST" {
                     .row ."mb-3" {
+                        label ."col-form-label" ."col-lg-3" for="config_file_location" { "Configuration file location" }
+                        ."col-lg-9" {
+                            input #config_file_location ."form-control-plaintext" name="config_file_location" type="text"
+                                value=(env_config.config.display()) readonly;
+                        }
+                    }
+
+                    .row ."mb-3" {
                         label ."col-form-label" ."col-lg-3" for="database_url" { "Database URL" }
                         ."col-lg-9" {
                             input #database_url ."form-control" name="database_url" type="text" value=(evh_config.database_url);
                         }
                     }
 
-                    (timed_collections_card(evh_config))
+                    (redis_card(evh_config))
                     (recursor_card(evh_config))
 
                     button .btn ."btn-outline-danger" type="submit" { "Save" }
@@ -27,16 +35,23 @@ pub fn danger_zone(evh_config: &EvhConfig) -> Markup {
     }
 }
 
-fn timed_collections_card(evh_config: &EvhConfig) -> Markup {
+fn redis_card(evh_config: &EvhConfig) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
-            ."card-header" { "Timed collections" }
+            ."card-header" { "Redis" }
             ."card-body" {
+                .row ."mb-3" {
+                    label ."col-form-label" ."col-lg-3" for="redis_url" { "Redis URL" }
+                    ."col-lg-9" {
+                        input #redis_url ."form-control" name="redis_url" type="text" value=(evh_config.redis.redis_url);
+                    }
+                }
+
                 .row ."mb-3" {
                     label ."col-form-label" ."col-lg-3" for="max_concurrent_imports" { "Max. concurrent imports" }
                     ."col-lg-9" {
                         input #max_concurrent_imports ."form-control" name="max_concurrent_imports" type="number"
-                            value=(evh_config.timed_collections.max_concurrent_imports);
+                            value=(evh_config.redis.max_concurrent_imports);
                     }
                 }
 
@@ -44,7 +59,7 @@ fn timed_collections_card(evh_config: &EvhConfig) -> Markup {
                     label ."col-form-label" ."col-lg-3" for="max_import_lifetime" { "Max. import lifetime" }
                     ."col-lg-9" {
                         input #max_import_lifetime ."form-control" name="max_import_lifetime" type="number"
-                            value=(evh_config.timed_collections.max_import_lifetime);
+                            value=(evh_config.redis.max_import_lifetime);
                     }
                 }
 
@@ -52,7 +67,7 @@ fn timed_collections_card(evh_config: &EvhConfig) -> Markup {
                     label ."col-form-label" ."col-lg-3" for="max_stored_errors" { "Max. stored errors" }
                     ."col-lg-9" {
                         input #max_stored_errors ."form-control" name="max_stored_errors" type="number"
-                            value=(evh_config.timed_collections.max_stored_errors);
+                            value=(evh_config.redis.max_stored_errors);
                     }
                 }
 
@@ -60,7 +75,7 @@ fn timed_collections_card(evh_config: &EvhConfig) -> Markup {
                     label ."col-form-label" ."col-lg-3" for="max_error_lifetime" { "Max. error lifetime" }
                     ."col-lg-9" {
                         input #max_error_lifetime ."form-control" name="max_error_lifetime" type="number"
-                            value=(evh_config.timed_collections.max_error_lifetime);
+                            value=(evh_config.redis.max_error_lifetime);
                     }
                 }
             }

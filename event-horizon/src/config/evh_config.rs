@@ -5,13 +5,14 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use url::Url;
 
-const EVH_CONFIG_LOCATION: &str = "evh.toml";
 const EVH_CONFIG_WARNING: &str = "# These options are internal and critical to Event Horizon's functionality. You \
                                   probably shouldn't edit them. The structure of this file is subject to change at \
                                   any time without warning.";
 
 const DEFAULT_DATABASE_URL: &str = "evh.sqlite";
+const DEFAULT_REDIS_URL: &str = "redis://redis";
 const MAX_CONCURRENT_IMPORTS: usize = 5;
 const MAX_IMPORT_LIFETIME: u64 = 300;
 const MAX_STORED_ERRORS: usize = 10;
@@ -21,13 +22,14 @@ const MAX_ERROR_LIFETIME: u64 = 300;
 #[serde(default)]
 pub struct EvhConfig {
     pub database_url: String,
-    pub timed_collections: TimedCollectionSettings,
+    pub redis: RedisSettings,
     pub recursor: RecursorSettings,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
-pub struct TimedCollectionSettings {
+pub struct RedisSettings {
+    pub redis_url: Url,
     pub max_concurrent_imports: usize,
     pub max_import_lifetime: u64,
     pub max_stored_errors: usize,
@@ -45,9 +47,7 @@ pub struct RecursorSettings {
 }
 
 impl EvhConfig {
-    pub fn load() -> EvhResult<Self> {
-        let path = Path::new(EVH_CONFIG_LOCATION);
-
+    pub fn load(path: &Path) -> EvhResult<Self> {
         if path.exists() {
             Ok(toml::from_str(&fs::read_to_string(path)?).map_err(EvhError::EvhConfigReadFailed)?)
         } else {
@@ -71,15 +71,16 @@ impl Default for EvhConfig {
     fn default() -> Self {
         Self {
             database_url: DEFAULT_DATABASE_URL.to_string(),
-            timed_collections: Default::default(),
+            redis: Default::default(),
             recursor: Default::default(),
         }
     }
 }
 
-impl Default for TimedCollectionSettings {
+impl Default for RedisSettings {
     fn default() -> Self {
         Self {
+            redis_url: Url::parse(DEFAULT_REDIS_URL).expect("failed to parse DEFAULT_REDIS_URL"),
             max_concurrent_imports: MAX_CONCURRENT_IMPORTS,
             max_import_lifetime: MAX_IMPORT_LIFETIME,
             max_stored_errors: MAX_STORED_ERRORS,
