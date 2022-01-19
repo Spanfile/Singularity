@@ -8,8 +8,12 @@ pub enum EvhError {
     // direct errors
     #[error("Failed to initialise database pool: {0}")]
     DatabasePoolInitialisationFailed(diesel::r2d2::PoolError),
+    #[error("Failed to initialise Redis pool: {0}")]
+    RedisPoolInitialisationFailed(diesel::r2d2::PoolError),
     #[error("Failed to acquire database connection: {0}")]
     DatabaseConnectionAcquireFailed(diesel::r2d2::PoolError),
+    #[error("Failed to acquire Redis connection: {0}")]
+    RedisConnectionAcquireFailed(diesel::r2d2::PoolError),
     #[error("Failed to deserialise Event Horizon configuration: {0}")]
     EvhConfigReadFailed(toml::de::Error),
     #[error("Failed to serialise Event Horizon configuration: {0}")]
@@ -34,6 +38,8 @@ pub enum EvhError {
     Logger(#[from] log::SetLoggerError),
     #[error("Database returned error: {0}")]
     Database(#[from] diesel::result::Error),
+    #[error("Redis returned error: {0}")]
+    Redis(#[from] redis::RedisError),
 
     // transparent errors
     #[error(transparent)]

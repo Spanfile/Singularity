@@ -1,5 +1,5 @@
 use crate::{
-    database::DbPool,
+    database::{DbPool, RedisPool},
     error::{EvhError, EvhResult},
     singularity::{RenderedConfig, SingularityConfig},
     template::{
@@ -19,7 +19,6 @@ use actix_web::{
 use futures_util::{StreamExt, TryStreamExt};
 use log::*;
 use serde::Deserialize;
-use std::sync::RwLock;
 
 #[derive(Debug, Deserialize)]
 struct TextImport {
@@ -76,14 +75,15 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     let req = req.clone();
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
         let importer = req
-            .app_data::<web::Data<RwLock<ConfigImporter>>>()
-            .and_then(|importer| importer.read().ok())
-            .expect("config importer rwlock is poisoned");
+            .app_data::<web::Data<ConfigImporter>>()
+            .expect("missing config importer");
+        let redis_pool = req.app_data::<web::Data<RedisPool>>().expect("missing redis pool");
+        let mut redis_conn = redis_pool.get().expect("failed to get redis connection");
+
         let import_id = web::Query::<ImportId>::from_query(req.query_string())
             .expect("failed to extract import ID parameter from query");
         let rendered_str = importer
-            .get_ref(&import_id.id)
-            .ok_or_else(|| EvhError::NoActiveImport(import_id.into_inner().id))
+            .get_blocking(&import_id.id, &mut *redis_conn)
             .and_then(|cfg| cfg.as_string())
             .expect("failed to get rendered config");
 
@@ -100,26 +100,30 @@ async fn import_singularity_config() -> impl Responder {
 
 async fn finish_config_import(
     import_id: web::Query<ImportId>,
-    importer: web::Data<RwLock<ConfigImporter>>,
+    importer: web::Data<ConfigImporter>,
+    redis_pool: web::Data<RedisPool>,
 ) -> impl Responder {
-    let importer = importer.read().expect("config importer rwlock is poisoned");
-
-    match importer
-        .get_ref(&import_id.id)
-        .ok_or_else(|| EvhError::NoActiveImport(import_id.into_inner().id))
+    match redis_pool
+        .get()
+        .map_err(EvhError::RedisConnectionAcquireFailed)
+        .and_then(|mut redis_conn| importer.get_blocking(&import_id.id, &mut *redis_conn))
         .and_then(|cfg| cfg.as_string())
     {
-        Ok(rendered_str) => finish_page(&rendered_str).ok(),
-        Err(_) => todo!("DO SOME GOOD ERROR HANDLING OKAY?"),
+        Ok(rendered) => finish_page(&rendered).ok(),
+        Err(e) => {
+            error!("Failed to render config finish page: {}", e);
+            panic!()
+        }
     }
 }
 
 // TODO: this invokes the form error handler if the left side (the form) fails. make it not do that
 async fn submit_import_form(
     payload: Either<web::Form<TextImport>, Multipart>,
-    importer: web::Data<RwLock<ConfigImporter>>,
+    importer: web::Data<ConfigImporter>,
+    redis_pool: web::Data<RedisPool>,
 ) -> impl Responder {
-    match begin_import(payload, &importer).await {
+    match begin_import(payload, &importer, &redis_pool).await {
         Ok(import_id) => HttpResponse::build(StatusCode::SEE_OTHER)
             .append_header((
                 header::LOCATION,
@@ -130,9 +134,13 @@ async fn submit_import_form(
             EvhError::UploadedFileNotUtf8 | EvhError::EmptyMultipartField | EvhError::MultipartError(_) => {
                 import_page().alert(Alert::Error(e.to_string())).bad_request()
             }
-            _ => import_page()
-                .alert(Alert::Error(format!("An internal error occurred: {}", e)))
-                .internal_server_error(),
+            e => {
+                error!("Beginning config import failed: {}", e);
+
+                import_page()
+                    .alert(Alert::Error(format!("An internal error occurred: {}", e)))
+                    .internal_server_error()
+            }
         },
     }
 }
@@ -140,9 +148,10 @@ async fn submit_import_form(
 async fn submit_finish_form(
     import_id: web::Query<ImportId>,
     merge_form: web::Form<ImportMergeForm>,
-    importer: web::Data<RwLock<ConfigImporter>>,
+    importer: web::Data<ConfigImporter>,
     sing_cfg: web::Data<SingularityConfig>,
-    pool: web::Data<DbPool>,
+    db_pool: web::Data<DbPool>,
+    redis_pool: web::Data<RedisPool>,
 ) -> impl Responder {
     info!(
         "Finishing Singularity config import {} with strategy: {:?}",
@@ -154,8 +163,11 @@ async fn submit_finish_form(
         merge_form.into_inner().strategy,
         &importer,
         &sing_cfg,
-        &pool,
-    ) {
+        &db_pool,
+        &redis_pool,
+    )
+    .await
+    {
         Ok(_) => {
             info!("Singularity config succesfully imported");
 
@@ -190,7 +202,8 @@ async fn submit_finish_form(
 
 async fn begin_import(
     payload: Either<web::Form<TextImport>, Multipart>,
-    importer: &RwLock<ConfigImporter>,
+    importer: &ConfigImporter,
+    redis_pool: &RedisPool,
 ) -> EvhResult<String> {
     let content = match payload {
         Either::Left(form) => {
@@ -228,33 +241,37 @@ async fn begin_import(
     let rendered = RenderedConfig::from_str(&content)?;
     debug!("Rendered: {:#?}", rendered);
 
-    let import_id = importer.write().expect("importer rw lock is poisoned").add(rendered);
+    let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
+    let import_id = importer.add_blocking(rendered, &mut *redis_conn)?;
 
     debug!("Began config import with ID {}", import_id);
     Ok(import_id)
 }
 
-fn finish_import(
+async fn finish_import(
     id: String,
     strategy: ImportMergeStrategy,
-    importer: &RwLock<ConfigImporter>,
+    importer: &ConfigImporter,
     sing_cfg: &SingularityConfig,
-    pool: &DbPool,
+    db_pool: &DbPool,
+    redis_pool: &RedisPool,
 ) -> EvhResult<()> {
-    let mut importer = importer.write().expect("importer rw lock is poisoned");
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    let rendered = importer.get(&id).ok_or_else(|| EvhError::NoActiveImport(id.clone()))?;
+    let mut db_conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+    let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
+    let rendered = importer.get_blocking(&id, &mut *redis_conn)?;
 
     debug!("Using rendered config {}: {:#?}", id, rendered);
 
     match strategy {
         ImportMergeStrategy::New => {
-            let new_config = SingularityConfig::new(&mut conn)?;
-            new_config.overwrite(&mut conn, rendered)?;
+            let new_config = SingularityConfig::new(&mut db_conn)?;
+            new_config.overwrite(&mut db_conn, rendered)?;
         }
-        ImportMergeStrategy::Merge => sing_cfg.merge(&mut conn, rendered)?,
-        ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut conn, rendered)?,
-        ImportMergeStrategy::Cancel => importer.remove(&id),
+        ImportMergeStrategy::Merge => sing_cfg.merge(&mut db_conn, rendered)?,
+        ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut db_conn, rendered)?,
+        ImportMergeStrategy::Cancel => {
+            importer.remove_blocking(&id, &mut *redis_conn)?;
+        }
     }
 
     Ok(())

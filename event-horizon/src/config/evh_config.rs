@@ -12,7 +12,8 @@ const EVH_CONFIG_WARNING: &str = "# These options are internal and critical to E
                                   any time without warning.";
 
 const DEFAULT_DATABASE_URL: &str = "evh.sqlite";
-const DEFAULT_REDIS_URL: &str = "redis://redis";
+const DEFAULT_REDIS_URL: &str = "redis://redis/";
+const REDIS_CONNECTION_TIMEOUT: u64 = 5000;
 const MAX_CONCURRENT_IMPORTS: usize = 5;
 const MAX_IMPORT_LIFETIME: u64 = 300;
 const MAX_STORED_ERRORS: usize = 10;
@@ -30,6 +31,7 @@ pub struct EvhConfig {
 #[serde(default)]
 pub struct RedisSettings {
     pub redis_url: Url,
+    pub connection_timeout: u64,
     pub max_concurrent_imports: usize,
     pub max_import_lifetime: u64,
     pub max_stored_errors: usize,
@@ -81,6 +83,7 @@ impl Default for RedisSettings {
     fn default() -> Self {
         Self {
             redis_url: Url::parse(DEFAULT_REDIS_URL).expect("failed to parse DEFAULT_REDIS_URL"),
+            connection_timeout: REDIS_CONNECTION_TIMEOUT,
             max_concurrent_imports: MAX_CONCURRENT_IMPORTS,
             max_import_lifetime: MAX_IMPORT_LIFETIME,
             max_stored_errors: MAX_STORED_ERRORS,

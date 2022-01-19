@@ -16,8 +16,9 @@ mod built_info {
 
 use crate::{
     config::{EnvConfig, EvhConfig, Listen},
+    database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::{RenderedConfig, SingularityConfig},
+    singularity::{ConfigImporter, SingularityConfig},
     util::timed_collection::TimedCollection,
 };
 use actix_files::Files;
@@ -26,15 +27,14 @@ use actix_web::{
     middleware::Logger,
     web, App, HttpResponse, HttpServer,
 };
-use database::DbPool;
+use database::RedisPool;
 use diesel::{
     r2d2::{self, ConnectionManager},
     SqliteConnection,
 };
 use log::*;
-use std::sync::RwLock;
+use std::{sync::RwLock, time::Duration};
 
-type ConfigImporter = TimedCollection<RenderedConfig>;
 type ErrorProvider = TimedCollection<String>;
 
 #[actix_web::main]
@@ -44,15 +44,16 @@ async fn main() -> EvhResult<()> {
     }
 
     let env_config = EnvConfig::load()?;
-    let evh_config = EvhConfig::load(&env_config.config)?;
-
     logging::setup_logging(&env_config)?;
+
+    let evh_config = EvhConfig::load(&env_config.config)?;
 
     debug!("Env: {:#?}", env_config);
     debug!("EVH: {:#?}", evh_config);
 
-    let pool = create_db_pool(&evh_config)?;
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+    let db_pool = create_db_pool(&evh_config)?;
+    let redis_pool = create_redis_pool(&evh_config)?;
+    let mut conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
     // attempt to load the config with ID 1, or if it fails because it doesn't exist, attempt to create a new config
     let singularity_config = SingularityConfig::load(1, &mut conn).or_else(|e| {
@@ -105,13 +106,11 @@ async fn main() -> EvhResult<()> {
 
     let env_config = web::Data::new(env_config);
     let evh_config = web::Data::new(evh_config);
-    let pool = web::Data::new(pool);
+    let db_pool = web::Data::new(db_pool);
+    let redis_pool = web::Data::new(redis_pool);
     let singularity_config = web::Data::new(singularity_config);
 
-    let config_importer = web::Data::new(RwLock::new(ConfigImporter::new(
-        evh_config.redis.max_concurrent_imports,
-        evh_config.redis.max_import_lifetime,
-    )));
+    let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
 
     let error_provider = web::Data::new(RwLock::new(ErrorProvider::new(
         evh_config.redis.max_stored_errors,
@@ -133,7 +132,8 @@ async fn main() -> EvhResult<()> {
             .wrap(Logger::default())
             .app_data(env_config.clone())
             .app_data(evh_config.clone())
-            .app_data(pool.clone())
+            .app_data(db_pool.clone())
+            .app_data(redis_pool.clone())
             .app_data(singularity_config.clone())
             .app_data(config_importer.clone())
             .app_data(error_provider.clone())
@@ -151,10 +151,32 @@ async fn main() -> EvhResult<()> {
 }
 
 fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
+    debug!("Establishing SQLite connection to {}", evh_config.database_url);
+
     let manager = ConnectionManager::<SqliteConnection>::new(&evh_config.database_url);
     let pool = r2d2::Pool::builder()
         .build(manager)
         .map_err(EvhError::DatabasePoolInitialisationFailed)?;
+
+    debug!("{:#?}", pool);
+    Ok(pool)
+}
+
+fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<RedisPool> {
+    debug!("Establishing Redis connection to {}", evh_config.redis.redis_url);
+
+    // the redis client is kinda silly in that it doesn't allow &Url, only Url, so just fuckin' clone the thing
+    let client = redis::Client::open(evh_config.redis.redis_url.clone())?;
+    debug!("{:#?}", client);
+
+    // test the connection
+    let mut conn = client.get_connection_with_timeout(Duration::from_millis(evh_config.redis.connection_timeout))?;
+    let pong: String = redis::cmd("PING").query(&mut conn)?;
+    debug!("Testing Redis connection: {}", pong);
+
+    let pool = r2d2::Pool::builder()
+        .build(client)
+        .map_err(EvhError::RedisPoolInitialisationFailed)?;
     Ok(pool)
 }
 
