@@ -29,7 +29,7 @@ pub fn import_singularity_config() -> Markup {
     }
 }
 
-pub fn finish_config_import(rendered_str: &str) -> Markup {
+pub fn finish_config_import(rendered_cfg: Option<&str>) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Finish importing Singularity configuration" }
@@ -40,7 +40,7 @@ pub fn finish_config_import(rendered_str: &str) -> Markup {
                     ."col-sm-3" {
                         form method="POST" {
                             input name="strategy" value="New" type="hidden";
-                            button .btn ."btn-primary" ."w-100" type="submit" {
+                            button .btn ."btn-primary" ."w-100" type="submit" disabled[rendered_cfg.is_none()] {
                                 "Import into new configuration"
                             }
                         }
@@ -60,7 +60,7 @@ pub fn finish_config_import(rendered_str: &str) -> Markup {
                     ."col-sm-3" {
                         form method="POST" {
                             input name="strategy" value="Merge" type="hidden";
-                            button .btn ."btn-primary" ."w-100" type="submit" {
+                            button .btn ."btn-primary" ."w-100" type="submit" disabled[rendered_cfg.is_none()] {
                                 "Merge into current configuration"
                             }
                         }
@@ -79,7 +79,7 @@ pub fn finish_config_import(rendered_str: &str) -> Markup {
                     ."col-sm-3" {
                         form method="POST" {
                             input name="strategy" value="Overwrite" type="hidden";
-                            button .btn ."btn-outline-danger" ."w-100" type="submit" {
+                            button .btn ."btn-outline-danger" ."w-100" type="submit" disabled[rendered_cfg.is_none()] {
                                 "Overwrite current configuration"
                             }
                         }
@@ -96,7 +96,11 @@ pub fn finish_config_import(rendered_str: &str) -> Markup {
 
                     ."col-sm-12" ."mt-3" {
                         p { "Rendered pending configuration:" }
-                        textarea ."form-control" ."font-monospace" rows="16" readonly { (rendered_str) }
+                        textarea ."form-control" ."font-monospace" rows="16" readonly disabled[rendered_cfg.is_none()] {
+                            @if let Some(rendered_str) = rendered_cfg {
+                                (rendered_str)
+                            }
+                        }
                     }
 
                     ."col-sm-3" ."mt-3" {

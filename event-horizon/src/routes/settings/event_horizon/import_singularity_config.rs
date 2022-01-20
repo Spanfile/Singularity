@@ -12,10 +12,8 @@ use crate::{
 };
 use actix_multipart::Multipart;
 use actix_web::{
-    dev,
     error::UrlencodedError,
     http::{header, StatusCode},
-    middleware::{ErrorHandlerResponse, ErrorHandlers},
     web, Either, HttpRequest, HttpResponse, Responder,
 };
 use futures_util::{StreamExt, TryStreamExt};
@@ -48,29 +46,16 @@ enum ImportMergeStrategy {
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/import_singularity_config")
-            .wrap(ErrorHandlers::new().handler(StatusCode::INTERNAL_SERVER_ERROR, error_handler))
             .app_data(web::FormConfig::default().error_handler(import_form_error_handler))
             .route(web::get().to(import_singularity_config))
             .route(web::post().to(submit_import_form)),
     )
     .service(
         web::resource("/finish_config_import")
-            .wrap(ErrorHandlers::new().handler(StatusCode::INTERNAL_SERVER_ERROR, error_handler))
             .app_data(web::FormConfig::default().error_handler(finish_form_error_handler))
             .route(web::get().to(finish_config_import))
             .route(web::post().to(submit_finish_form)),
     );
-}
-
-fn error_handler<B>(mut res: dev::ServiceResponse<B>) -> actix_web::Result<ErrorHandlerResponse<B>>
-where
-    B: std::fmt::Debug,
-{
-    error!("Uh oh, caught an internal server error!");
-    error!("Request: {:?}", res.request());
-    error!("Response: {:?}", res.response().body());
-
-    Ok(ErrorHandlerResponse::Response(res.map_into_left_body()))
 }
 
 fn import_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
@@ -105,7 +90,7 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
             .and_then(|cfg| cfg.as_string())
             .expect("failed to get rendered config");
 
-        finish_page(rendered_str)
+        finish_page(Some(rendered_str))
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
             .render()
@@ -128,11 +113,23 @@ async fn finish_config_import(
         .and_then(|mut redis_conn| importer.get_blocking(&import_id.id, &mut *redis_conn))
         .and_then(|cfg| cfg.as_string())
     {
-        Ok(rendered) => Either::Left(finish_page(rendered)),
-        Err(e) => {
-            error!("Failed to render config finish page: {}", e);
-            Either::Right(HttpResponse::InternalServerError().body(e.to_string()))
-        }
+        Ok(rendered) => finish_page(Some(rendered)),
+        Err(e) => match e {
+            EvhError::NoActiveImport(_) => {
+                warn!("{}", e);
+
+                finish_page(None)
+                    .alert(Alert::Warning(format!("{}. Please retry the import.", e)))
+                    .bad_request()
+            }
+            _ => {
+                error!("Failed to render config finish page: {}", e);
+
+                finish_page(None)
+                    .alert(Alert::Error(format!("An internal server error occurred: {}", e)))
+                    .internal_server_error()
+            }
+        },
     }
 }
 
@@ -205,7 +202,7 @@ async fn submit_finish_form(
                 warn!("No active import: {}", id);
 
                 Either::Left(
-                    import_page()
+                    finish_page(None)
                         .alert(Alert::Warning(format!(
                             "No active import with the ID {}. Please retry the import.",
                             id
@@ -217,7 +214,7 @@ async fn submit_finish_form(
                 error!("Failed to finish importing Singularity config: {}", e);
 
                 Either::Left(
-                    import_page()
+                    finish_page(None)
                         .alert(Alert::Error(format!(
                             "Failed to finish importing Singularity config due to an internal error: {}",
                             e
@@ -308,8 +305,8 @@ fn import_page() -> ResponseBuilder<'static> {
     template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::ImportSingularityConfig))
 }
 
-fn finish_page(rendered_str: String) -> ResponseBuilder<'static> {
+fn finish_page(rendered_cfg: Option<String>) -> ResponseBuilder<'static> {
     template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::FinishConfigImport(
-        rendered_str,
+        rendered_cfg,
     )))
 }

@@ -12,7 +12,7 @@ pub enum EventHorizonSubPage<'a> {
         env_config: &'a EnvConfig,
     },
     ImportSingularityConfig,
-    FinishConfigImport(String),
+    FinishConfigImport(Option<String>),
 }
 
 pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
@@ -20,8 +20,8 @@ pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
         EventHorizonSubPage::Main => main(),
         EventHorizonSubPage::DangerZone { evh_config, env_config } => danger_zone::danger_zone(evh_config, env_config),
         EventHorizonSubPage::ImportSingularityConfig => import_singularity_config::import_singularity_config(),
-        EventHorizonSubPage::FinishConfigImport(rendered_str) => {
-            import_singularity_config::finish_config_import(&rendered_str)
+        EventHorizonSubPage::FinishConfigImport(rendered_cfg) => {
+            import_singularity_config::finish_config_import(rendered_cfg.as_deref())
         }
     }
 }
