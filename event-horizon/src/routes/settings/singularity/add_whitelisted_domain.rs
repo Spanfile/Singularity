@@ -12,7 +12,7 @@ use crate::{
 use actix_web::{
     error::UrlencodedError,
     http::{header, StatusCode},
-    web, HttpRequest, HttpResponse, Responder,
+    web, Either, HttpRequest, HttpResponse, Responder,
 };
 use log::*;
 use serde::Deserialize;
@@ -36,13 +36,13 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        page().alert(Alert::Warning(err.to_string())).bad_request()
+        page().alert(Alert::Warning(err.to_string())).bad_request().render()
     })
     .into()
 }
 
 async fn add_whitelisted_domain() -> impl Responder {
-    page().ok()
+    page()
 }
 
 async fn submit_form(
@@ -56,9 +56,11 @@ async fn submit_form(
         Ok(_) => {
             info!("Whitelisted domain succesfully added");
 
-            HttpResponse::build(StatusCode::SEE_OTHER)
-                .append_header((header::LOCATION, "/settings/singularity"))
-                .finish()
+            Either::Right(
+                HttpResponse::build(StatusCode::SEE_OTHER)
+                    .append_header((header::LOCATION, "/settings/singularity"))
+                    .finish(),
+            )
         }
         Err(e) => match e {
             EvhError::Database(diesel::result::Error::DatabaseError(
@@ -68,19 +70,23 @@ async fn submit_form(
                 warn!("Failed to add whitelisted domain: duplicate domain");
                 warn!("{}", e);
 
-                page()
-                    .alert(Alert::Warning("Duplicate whitelisted domain".to_string()))
-                    .bad_request()
+                Either::Left(
+                    page()
+                        .alert(Alert::Warning("Duplicate whitelisted domain".to_string()))
+                        .bad_request(),
+                )
             }
             _ => {
                 error!("Failed to add whitelisted domain: {}", e);
 
-                page()
-                    .alert(Alert::Warning(format!(
-                        "Failed to add whitelisted domain due to internal server error: {}",
-                        e
-                    )))
-                    .internal_server_error()
+                Either::Left(
+                    page()
+                        .alert(Alert::Warning(format!(
+                            "Failed to add whitelisted domain due to internal server error: {}",
+                            e
+                        )))
+                        .internal_server_error(),
+                )
             }
         },
     }

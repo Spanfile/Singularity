@@ -12,7 +12,7 @@ use crate::{
 use actix_web::{
     error::UrlencodedError,
     http::{header, StatusCode},
-    web, HttpRequest, HttpResponse, Responder,
+    web, Either, HttpRequest, HttpResponse, Responder,
 };
 use log::*;
 use serde::Deserialize;
@@ -48,6 +48,7 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
         page(source.id, cfg, pool)
             .alert(Alert::Warning(format!("Failed to delete output: {}", err)))
             .bad_request()
+            .render()
     })
     .into()
 }
@@ -57,7 +58,7 @@ async fn delete_output(
     cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    page(id.id, &cfg, &pool).ok()
+    page(id.id, &cfg, &pool)
 }
 
 async fn submit_form(
@@ -72,28 +73,34 @@ async fn submit_form(
         Ok(_) => {
             info!("Output succesfully deleted");
 
-            HttpResponse::build(StatusCode::SEE_OTHER)
-                .append_header((header::LOCATION, "/settings/singularity"))
-                .finish()
+            Either::Right(
+                HttpResponse::build(StatusCode::SEE_OTHER)
+                    .append_header((header::LOCATION, "/settings/singularity"))
+                    .finish(),
+            )
         }
         Err(e) => match e {
             EvhError::Database(diesel::result::Error::NotFound) => {
                 warn!("Failed to delete output: output not found");
                 warn!("{}", e);
 
-                page(id, &cfg, &pool)
-                    .alert(Alert::Warning("Output to delete was not found".to_string()))
-                    .bad_request()
+                Either::Left(
+                    page(id, &cfg, &pool)
+                        .alert(Alert::Warning("Output to delete was not found".to_string()))
+                        .bad_request(),
+                )
             }
             _ => {
                 error!("Failed to delete output: {}", e);
 
-                page(id, &cfg, &pool)
-                    .alert(Alert::Warning(format!(
-                        "Failed to delete output due to an internal server error: {}",
-                        e
-                    )))
-                    .internal_server_error()
+                Either::Left(
+                    page(id, &cfg, &pool)
+                        .alert(Alert::Warning(format!(
+                            "Failed to delete output due to an internal server error: {}",
+                            e
+                        )))
+                        .internal_server_error(),
+                )
             }
         },
     }

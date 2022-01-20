@@ -12,8 +12,10 @@ use crate::{
 };
 use actix_multipart::Multipart;
 use actix_web::{
+    dev,
     error::UrlencodedError,
     http::{header, StatusCode},
+    middleware::{ErrorHandlerResponse, ErrorHandlers},
     web, Either, HttpRequest, HttpResponse, Responder,
 };
 use futures_util::{StreamExt, TryStreamExt};
@@ -46,16 +48,29 @@ enum ImportMergeStrategy {
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/import_singularity_config")
+            .wrap(ErrorHandlers::new().handler(StatusCode::INTERNAL_SERVER_ERROR, error_handler))
             .app_data(web::FormConfig::default().error_handler(import_form_error_handler))
             .route(web::get().to(import_singularity_config))
             .route(web::post().to(submit_import_form)),
     )
     .service(
         web::resource("/finish_config_import")
+            .wrap(ErrorHandlers::new().handler(StatusCode::INTERNAL_SERVER_ERROR, error_handler))
             .app_data(web::FormConfig::default().error_handler(finish_form_error_handler))
             .route(web::get().to(finish_config_import))
             .route(web::post().to(submit_finish_form)),
     );
+}
+
+fn error_handler<B>(mut res: dev::ServiceResponse<B>) -> actix_web::Result<ErrorHandlerResponse<B>>
+where
+    B: std::fmt::Debug,
+{
+    error!("Uh oh, caught an internal server error!");
+    error!("Request: {:?}", res.request());
+    error!("Response: {:?}", res.response().body());
+
+    Ok(ErrorHandlerResponse::Response(res.map_into_left_body()))
 }
 
 fn import_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
@@ -63,7 +78,10 @@ fn import_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        import_page().alert(Alert::Warning(err.to_string())).bad_request()
+        import_page()
+            .alert(Alert::Warning(err.to_string()))
+            .bad_request()
+            .render()
     })
     .into()
 }
@@ -87,15 +105,16 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
             .and_then(|cfg| cfg.as_string())
             .expect("failed to get rendered config");
 
-        finish_page(&rendered_str)
+        finish_page(rendered_str)
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
+            .render()
     })
     .into()
 }
 
 async fn import_singularity_config() -> impl Responder {
-    import_page().ok()
+    import_page()
 }
 
 async fn finish_config_import(
@@ -109,10 +128,10 @@ async fn finish_config_import(
         .and_then(|mut redis_conn| importer.get_blocking(&import_id.id, &mut *redis_conn))
         .and_then(|cfg| cfg.as_string())
     {
-        Ok(rendered) => finish_page(&rendered).ok(),
+        Ok(rendered) => Either::Left(finish_page(rendered)),
         Err(e) => {
             error!("Failed to render config finish page: {}", e);
-            panic!()
+            Either::Right(HttpResponse::InternalServerError().body(e.to_string()))
         }
     }
 }
@@ -124,22 +143,26 @@ async fn submit_import_form(
     redis_pool: web::Data<RedisPool>,
 ) -> impl Responder {
     match begin_import(payload, &importer, &redis_pool).await {
-        Ok(import_id) => HttpResponse::build(StatusCode::SEE_OTHER)
-            .append_header((
-                header::LOCATION,
-                format!("/settings/event_horizon/finish_config_import?id={}", import_id),
-            ))
-            .finish(),
+        Ok(import_id) => Either::Right(
+            HttpResponse::build(StatusCode::SEE_OTHER)
+                .append_header((
+                    header::LOCATION,
+                    format!("/settings/event_horizon/finish_config_import?id={}", import_id),
+                ))
+                .finish(),
+        ),
         Err(e) => match e {
             EvhError::UploadedFileNotUtf8 | EvhError::EmptyMultipartField | EvhError::MultipartError(_) => {
-                import_page().alert(Alert::Error(e.to_string())).bad_request()
+                Either::Left(import_page().alert(Alert::Error(e.to_string())).bad_request())
             }
             e => {
                 error!("Beginning config import failed: {}", e);
 
-                import_page()
-                    .alert(Alert::Error(format!("An internal error occurred: {}", e)))
-                    .internal_server_error()
+                Either::Left(
+                    import_page()
+                        .alert(Alert::Error(format!("An internal error occurred: {}", e)))
+                        .internal_server_error(),
+                )
             }
         },
     }
@@ -171,30 +194,36 @@ async fn submit_finish_form(
         Ok(_) => {
             info!("Singularity config succesfully imported");
 
-            HttpResponse::build(StatusCode::SEE_OTHER)
-                .append_header((header::LOCATION, "/settings/event_horizon"))
-                .finish()
+            Either::Right(
+                HttpResponse::build(StatusCode::SEE_OTHER)
+                    .append_header((header::LOCATION, "/settings/event_horizon"))
+                    .finish(),
+            )
         }
         Err(e) => match e {
             EvhError::NoActiveImport(id) => {
                 warn!("No active import: {}", id);
 
-                import_page()
-                    .alert(Alert::Warning(format!(
-                        "No active import with the ID {}. Please retry the import.",
-                        id
-                    )))
-                    .bad_request()
+                Either::Left(
+                    import_page()
+                        .alert(Alert::Warning(format!(
+                            "No active import with the ID {}. Please retry the import.",
+                            id
+                        )))
+                        .bad_request(),
+                )
             }
             e => {
                 error!("Failed to finish importing Singularity config: {}", e);
 
-                import_page()
-                    .alert(Alert::Error(format!(
-                        "Failed to finish importing Singularity config due to an internal error: {}",
-                        e
-                    )))
-                    .internal_server_error()
+                Either::Left(
+                    import_page()
+                        .alert(Alert::Error(format!(
+                            "Failed to finish importing Singularity config due to an internal error: {}",
+                            e
+                        )))
+                        .internal_server_error(),
+                )
             }
         },
     }
@@ -258,7 +287,7 @@ async fn finish_import(
 ) -> EvhResult<()> {
     let mut db_conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
     let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
-    let rendered = importer.get_blocking(&id, &mut *redis_conn)?;
+    let rendered = importer.remove_blocking(&id, &mut *redis_conn)?;
 
     debug!("Using rendered config {}: {:#?}", id, rendered);
 
@@ -269,9 +298,7 @@ async fn finish_import(
         }
         ImportMergeStrategy::Merge => sing_cfg.merge(&mut db_conn, rendered)?,
         ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut db_conn, rendered)?,
-        ImportMergeStrategy::Cancel => {
-            importer.remove_blocking(&id, &mut *redis_conn)?;
-        }
+        ImportMergeStrategy::Cancel => (),
     }
 
     Ok(())
@@ -281,7 +308,7 @@ fn import_page() -> ResponseBuilder<'static> {
     template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::ImportSingularityConfig))
 }
 
-fn finish_page(rendered_str: &str) -> ResponseBuilder {
+fn finish_page(rendered_str: String) -> ResponseBuilder<'static> {
     template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::FinishConfigImport(
         rendered_str,
     )))

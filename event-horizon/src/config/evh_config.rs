@@ -16,8 +16,6 @@ const DEFAULT_REDIS_URL: &str = "redis://redis/";
 const REDIS_CONNECTION_TIMEOUT: u64 = 5000;
 const MAX_CONCURRENT_IMPORTS: usize = 5;
 const MAX_IMPORT_LIFETIME: u64 = 300;
-const MAX_STORED_ERRORS: usize = 10;
-const MAX_ERROR_LIFETIME: u64 = 300;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -34,8 +32,6 @@ pub struct RedisSettings {
     pub connection_timeout: u64,
     pub max_concurrent_imports: usize,
     pub max_import_lifetime: u64,
-    pub max_stored_errors: usize,
-    pub max_error_lifetime: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -86,8 +82,6 @@ impl Default for RedisSettings {
             connection_timeout: REDIS_CONNECTION_TIMEOUT,
             max_concurrent_imports: MAX_CONCURRENT_IMPORTS,
             max_import_lifetime: MAX_IMPORT_LIFETIME,
-            max_stored_errors: MAX_STORED_ERRORS,
-            max_error_lifetime: MAX_ERROR_LIFETIME,
         }
     }
 }

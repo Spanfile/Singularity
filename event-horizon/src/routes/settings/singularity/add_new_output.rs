@@ -12,7 +12,7 @@ use crate::{
 use actix_web::{
     error::UrlencodedError,
     http::{header, StatusCode},
-    web, HttpRequest, HttpResponse, Responder,
+    web, Either, HttpRequest, HttpResponse, Responder,
 };
 use log::*;
 use serde::Deserialize;
@@ -109,7 +109,10 @@ fn form_error_handler(action: Action, err: UrlencodedError, req: &HttpRequest) -
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        page(action).alert(Alert::Warning(err.to_string())).bad_request()
+        page(action)
+            .alert(Alert::Warning(err.to_string()))
+            .bad_request()
+            .render()
     })
     .into()
 }
@@ -139,7 +142,7 @@ async fn submit_lua_form(
 }
 
 fn add_new_output(action: Action) -> impl Responder {
-    page(action).ok()
+    page(action)
 }
 
 fn submit_form(
@@ -153,9 +156,11 @@ fn submit_form(
     match add_output(output.into_inner(), &cfg, &pool) {
         Ok(_) => {
             info!("Output succesfully added");
-            HttpResponse::build(StatusCode::SEE_OTHER)
-                .append_header((header::LOCATION, "/settings/singularity"))
-                .finish()
+            Either::Right(
+                HttpResponse::build(StatusCode::SEE_OTHER)
+                    .append_header((header::LOCATION, "/settings/singularity"))
+                    .finish(),
+            )
         }
         Err(e) => match e {
             EvhError::Database(diesel::result::Error::DatabaseError(
@@ -166,22 +171,26 @@ fn submit_form(
                 warn!("Failed to add output: an output with the same destination already exists");
                 warn!("{}", e);
 
-                page(action)
-                    .alert(Alert::Warning(
-                        "An output with the same destination already exists".to_string(),
-                    ))
-                    .bad_request()
+                Either::Left(
+                    page(action)
+                        .alert(Alert::Warning(
+                            "An output with the same destination already exists".to_string(),
+                        ))
+                        .bad_request(),
+                )
             }
 
             e => {
                 error!("Failed to add output: {}", e);
 
-                page(action)
-                    .alert(Alert::Error(format!(
-                        "Failed to add output due to an internal server error: {}",
-                        e
-                    )))
-                    .internal_server_error()
+                Either::Left(
+                    page(action)
+                        .alert(Alert::Error(format!(
+                            "Failed to add output due to an internal server error: {}",
+                            e
+                        )))
+                        .internal_server_error(),
+                )
             }
         },
     }

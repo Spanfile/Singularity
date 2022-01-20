@@ -12,7 +12,7 @@ use crate::{
 use actix_web::{
     error::UrlencodedError,
     http::{header, StatusCode},
-    web, HttpRequest, HttpResponse, Responder,
+    web, Either, HttpRequest, HttpResponse, Responder,
 };
 use log::*;
 use singularity::Adlist;
@@ -31,13 +31,13 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        page().alert(Alert::Warning(err.to_string())).bad_request()
+        page().alert(Alert::Warning(err.to_string())).bad_request().render()
     })
     .into()
 }
 
 async fn add_new_adlist() -> impl Responder {
-    page().ok()
+    page()
 }
 
 async fn submit_form(
@@ -50,9 +50,11 @@ async fn submit_form(
     match add_adlist(adlist.into_inner(), &cfg, &pool) {
         Ok(_) => {
             info!("Adlist succesfully added");
-            HttpResponse::build(StatusCode::SEE_OTHER)
-                .append_header((header::LOCATION, "/settings/singularity"))
-                .finish()
+            Either::Right(
+                HttpResponse::build(StatusCode::SEE_OTHER)
+                    .append_header((header::LOCATION, "/settings/singularity"))
+                    .finish(),
+            )
         }
         Err(e) => match e {
             EvhError::Database(diesel::result::Error::DatabaseError(
@@ -62,22 +64,26 @@ async fn submit_form(
                 warn!("Failed to add adlist: an adlist with the same source already exists");
                 warn!("{}", e);
 
-                page()
-                    .alert(Alert::Warning(
-                        "An adlist with the same source already exists".to_string(),
-                    ))
-                    .bad_request()
+                Either::Left(
+                    page()
+                        .alert(Alert::Warning(
+                            "An adlist with the same source already exists".to_string(),
+                        ))
+                        .bad_request(),
+                )
             }
 
             _ => {
                 error!("Failed to add adlist: {}", e);
 
-                page()
-                    .alert(Alert::Error(format!(
-                        "Failed to add new adlist due to an internal server error: {}",
-                        e
-                    )))
-                    .internal_server_error()
+                Either::Left(
+                    page()
+                        .alert(Alert::Error(format!(
+                            "Failed to add new adlist due to an internal server error: {}",
+                            e
+                        )))
+                        .internal_server_error(),
+                )
             }
         },
     }

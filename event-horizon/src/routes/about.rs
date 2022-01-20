@@ -6,5 +6,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn about() -> impl Responder {
-    template::about().current_path("/about").ok()
+    template::about().current_path("/about")
 }

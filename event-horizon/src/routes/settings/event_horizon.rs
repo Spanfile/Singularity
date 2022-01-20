@@ -17,5 +17,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn event_horizon() -> impl Responder {
-    template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::Main)).ok()
+    template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::Main))
 }

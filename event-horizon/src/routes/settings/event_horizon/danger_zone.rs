@@ -16,5 +16,4 @@ async fn danger_zone(evh_config: web::Data<EvhConfig>, env_config: web::Data<Env
         evh_config: &evh_config,
         env_config: &env_config,
     }))
-    .ok()
 }

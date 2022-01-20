@@ -6,5 +6,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn recursor() -> impl Responder {
-    template::settings(SettingsPage::Recursor).ok()
+    template::settings(SettingsPage::Recursor)
 }

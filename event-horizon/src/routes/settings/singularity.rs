@@ -5,18 +5,14 @@ mod delete_adlist;
 mod delete_output;
 mod delete_whitelisted_domain;
 
-use std::sync::RwLock;
-
 use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
-    redirect_to_error_page,
     singularity::{AdlistCollection, OutputCollection, SingularityConfig, WhitelistCollection},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
     },
-    ErrorProvider,
 };
 use actix_web::{web, Responder};
 use log::*;
@@ -34,26 +30,16 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn singularity(
-    cfg: web::Data<SingularityConfig>,
-    pool: web::Data<DbPool>,
-    error_provider: web::Data<RwLock<ErrorProvider>>,
-) -> impl Responder {
+async fn singularity(cfg: web::Data<SingularityConfig>, pool: web::Data<DbPool>) -> impl Responder {
     match page(&cfg, &pool) {
         Ok((adlists, outputs, whitelist)) => template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
             adlists: &adlists,
             outputs: &outputs,
             whitelist: &whitelist,
-        }))
-        .ok(),
+        })),
         Err(e) => {
             error!("Failed to get main page: {}", e);
-
-            let error_id = error_provider
-                .write()
-                .expect("error provider rwlock is poisoned")
-                .add(e.to_string());
-            redirect_to_error_page(error_id)
+            todo!()
         }
     }
 }

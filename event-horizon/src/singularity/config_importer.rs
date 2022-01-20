@@ -1,5 +1,8 @@
 use super::RenderedConfig;
-use crate::{config::EvhConfig, error::EvhResult};
+use crate::{
+    config::EvhConfig,
+    error::{EvhError, EvhResult},
+};
 use nanoid::nanoid;
 
 pub struct ConfigImporter {
@@ -11,7 +14,7 @@ impl ConfigImporter {
     pub fn new(evh_config: &EvhConfig) -> Self {
         Self {
             max_concurrent_imports: evh_config.redis.max_concurrent_imports,
-            max_import_lifetime: evh_config.redis.max_error_lifetime,
+            max_import_lifetime: evh_config.redis.max_import_lifetime,
         }
     }
 
@@ -28,7 +31,7 @@ impl ConfigImporter {
         redis::cmd("set")
             .arg(format!("config_import:{id}"))
             .arg(serialised)
-            .arg("px")
+            .arg("ex")
             .arg(self.max_import_lifetime)
             .query(redis)?;
 
@@ -40,7 +43,11 @@ impl ConfigImporter {
         C: redis::ConnectionLike,
     {
         // TODO: this should be an option or smth?
-        let serialised: String = redis::cmd("get").arg(import_id).query(redis)?;
+        let serialised: String = redis::cmd("get")
+            .arg(format!("config_import:{import_id}"))
+            .query::<Option<String>>(redis)?
+            .ok_or_else(|| EvhError::NoActiveImport(import_id.to_string()))?;
+
         let rendered = RenderedConfig::from_str(&serialised)?;
         Ok(rendered)
     }
@@ -49,7 +56,11 @@ impl ConfigImporter {
     where
         C: redis::ConnectionLike,
     {
-        let serialised: String = redis::cmd("getdel").arg(import_id).query(redis)?;
+        let serialised: String = redis::cmd("getdel")
+            .arg(format!("config_import:{import_id}"))
+            .query::<Option<String>>(redis)?
+            .ok_or_else(|| EvhError::NoActiveImport(import_id.to_string()))?;
+
         let rendered = RenderedConfig::from_str(&serialised)?;
         Ok(rendered)
     }

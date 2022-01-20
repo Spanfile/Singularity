@@ -1,18 +1,17 @@
 pub mod about;
-pub mod error;
 pub mod index;
 pub mod settings;
 
 // re-exported for convenience
 pub use about::about;
-pub use error::error;
 pub use index::index;
 pub use settings::settings;
 
-use actix_web::{http::StatusCode, HttpResponse};
+use actix_web::{body::BoxBody, http::StatusCode, HttpResponse, Responder};
 use maud::{html, Markup, DOCTYPE};
 
 pub struct ResponseBuilder<'a> {
+    status: StatusCode,
     content: Markup,
     current_path: Option<&'a str>,
     alert: Option<Alert>,
@@ -28,28 +27,30 @@ pub enum Alert {
 impl<'a> ResponseBuilder<'a> {
     fn new(content: Markup) -> Self {
         ResponseBuilder {
+            status: StatusCode::OK,
             content,
             current_path: None,
             alert: None,
         }
     }
 
-    pub fn ok(self) -> HttpResponse {
-        HttpResponse::build(StatusCode::OK)
+    #[must_use]
+    pub fn render(self) -> HttpResponse {
+        HttpResponse::build(self.status)
             .content_type("text/html; charset=utf-8")
             .body(self.markup_base().into_string())
     }
 
-    pub fn bad_request(self) -> HttpResponse {
-        HttpResponse::build(StatusCode::BAD_REQUEST)
-            .content_type("text/html; charset=utf-8")
-            .body(self.markup_base().into_string())
+    #[must_use]
+    pub fn bad_request(mut self) -> Self {
+        self.status = StatusCode::BAD_REQUEST;
+        self
     }
 
-    pub fn internal_server_error(self) -> HttpResponse {
-        HttpResponse::build(StatusCode::INTERNAL_SERVER_ERROR)
-            .content_type("text/html; charset=utf-8")
-            .body(self.markup_base().into_string())
+    #[must_use]
+    pub fn internal_server_error(mut self) -> Self {
+        self.status = StatusCode::INTERNAL_SERVER_ERROR;
+        self
     }
 
     #[must_use]
@@ -138,5 +139,13 @@ impl<'a> ResponseBuilder<'a> {
             Some(Alert::Error(msg)) => alert_base("danger", "exclamation-triangle-fill", msg),
             None => None,
         }
+    }
+}
+
+impl<'a> Responder for ResponseBuilder<'a> {
+    type Body = BoxBody;
+
+    fn respond_to(self, _req: &actix_web::HttpRequest) -> HttpResponse<Self::Body> {
+        self.render()
     }
 }

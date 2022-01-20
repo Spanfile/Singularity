@@ -62,22 +62,6 @@ fn redis_card(evh_config: &EvhConfig) -> Markup {
                             value=(evh_config.redis.max_import_lifetime);
                     }
                 }
-
-                .row ."mb-3" {
-                    label ."col-form-label" ."col-lg-3" for="max_stored_errors" { "Max. stored errors" }
-                    ."col-lg-9" {
-                        input #max_stored_errors ."form-control" name="max_stored_errors" type="number"
-                            value=(evh_config.redis.max_stored_errors);
-                    }
-                }
-
-                .row ."mb-3" {
-                    label ."col-form-label" ."col-lg-3" for="max_error_lifetime" { "Max. error lifetime" }
-                    ."col-lg-9" {
-                        input #max_error_lifetime ."form-control" name="max_error_lifetime" type="number"
-                            value=(evh_config.redis.max_error_lifetime);
-                    }
-                }
             }
         }
     }

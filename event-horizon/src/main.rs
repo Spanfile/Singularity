@@ -19,23 +19,16 @@ use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
     singularity::{ConfigImporter, SingularityConfig},
-    util::timed_collection::TimedCollection,
 };
 use actix_files::Files;
-use actix_web::{
-    http::{header, StatusCode},
-    middleware::Logger,
-    web, App, HttpResponse, HttpServer,
-};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use database::RedisPool;
 use diesel::{
     r2d2::{self, ConnectionManager},
     SqliteConnection,
 };
 use log::*;
-use std::{sync::RwLock, time::Duration};
-
-type ErrorProvider = TimedCollection<String>;
+use std::time::Duration;
 
 #[actix_web::main]
 async fn main() -> EvhResult<()> {
@@ -112,11 +105,6 @@ async fn main() -> EvhResult<()> {
 
     let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
 
-    let error_provider = web::Data::new(RwLock::new(ErrorProvider::new(
-        evh_config.redis.max_stored_errors,
-        evh_config.redis.max_error_lifetime,
-    )));
-
     let listener = match env_config.listen {
         Listen::Http { bind } => bind,
         Listen::Https {
@@ -136,12 +124,10 @@ async fn main() -> EvhResult<()> {
             .app_data(redis_pool.clone())
             .app_data(singularity_config.clone())
             .app_data(config_importer.clone())
-            .app_data(error_provider.clone())
             .service(Files::new("/static", "static/"))
             .configure(routes::index::config)
             .configure(routes::about::config)
             .configure(routes::settings::config)
-            .configure(routes::error::config)
     })
     .bind(listener)?
     .run()
@@ -178,11 +164,4 @@ fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<RedisPool> {
         .build(client)
         .map_err(EvhError::RedisPoolInitialisationFailed)?;
     Ok(pool)
-}
-
-// TODO: there's probably a better place for this function
-fn redirect_to_error_page(error_id: String) -> HttpResponse {
-    HttpResponse::build(StatusCode::SEE_OTHER)
-        .append_header((header::LOCATION, format!("/error/{}", error_id)))
-        .finish()
 }
