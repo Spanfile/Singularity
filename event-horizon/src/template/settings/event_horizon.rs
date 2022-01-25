@@ -2,11 +2,14 @@ mod configuration;
 mod danger_zone;
 mod import_singularity_config;
 
-use crate::config::{EnvConfig, EvhConfig};
+use crate::{
+    config::{EnvConfig, EvhConfig},
+    singularity::SingularityConfig,
+};
 use maud::{html, Markup};
 
 pub enum EventHorizonSubPage<'a> {
-    Main,
+    Main(Option<&'a [SingularityConfig]>),
     DangerZone {
         evh_config: &'a EvhConfig,
         env_config: &'a EnvConfig,
@@ -17,7 +20,7 @@ pub enum EventHorizonSubPage<'a> {
 
 pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
     match sub {
-        EventHorizonSubPage::Main => main(),
+        EventHorizonSubPage::Main(cfgs) => main(cfgs),
         EventHorizonSubPage::DangerZone { evh_config, env_config } => danger_zone::danger_zone(evh_config, env_config),
         EventHorizonSubPage::ImportSingularityConfig => import_singularity_config::import_singularity_config(),
         EventHorizonSubPage::FinishConfigImport(rendered_cfg) => {
@@ -26,9 +29,9 @@ pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
     }
 }
 
-fn main() -> Markup {
+fn main(cfgs: Option<&[SingularityConfig]>) -> Markup {
     html! {
-        (configuration::config_card())
+        (configuration::config_card(cfgs))
 
         a href="/settings/event_horizon/danger_zone" { "Danger zone" }
     }

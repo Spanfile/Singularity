@@ -45,6 +45,23 @@ impl SingularityConfig {
         Ok(Self(cfg.id))
     }
 
+    pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<Self>> {
+        use crate::database::schema::singularity_configs;
+
+        let cfgs = singularity_configs::table
+            .load::<models::SingularityConfig>(conn)?
+            .into_iter()
+            .map(|cfg| Self(cfg.id))
+            .collect::<Vec<Self>>();
+
+        debug!("Singularity configs: {}", cfgs.len());
+        Ok(cfgs)
+    }
+
+    pub fn id(&self) -> DbId {
+        self.0
+    }
+
     pub fn overwrite(&self, conn: &mut DbConn, rendered: RenderedConfig) -> EvhResult<()> {
         conn.immediate_transaction(|conn| {
             let own_model = self.own_model(conn)?;
