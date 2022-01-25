@@ -46,30 +46,32 @@ impl SingularityConfig {
     }
 
     pub fn overwrite(&self, conn: &mut DbConn, rendered: RenderedConfig) -> EvhResult<()> {
-        let own_model = self.own_model(conn)?;
+        conn.immediate_transaction(|conn| {
+            let own_model = self.own_model(conn)?;
 
-        let adlists = diesel::delete(models::SingularityAdlist::belonging_to(&own_model)).execute(conn)?;
-        let outputs = diesel::delete(models::SingularityOutput::belonging_to(&own_model)).execute(conn)?;
-        let whitelist = diesel::delete(models::SingularityWhitelist::belonging_to(&own_model)).execute(conn)?;
+            let adlists = diesel::delete(models::SingularityAdlist::belonging_to(&own_model)).execute(conn)?;
+            let outputs = diesel::delete(models::SingularityOutput::belonging_to(&own_model)).execute(conn)?;
+            let whitelist = diesel::delete(models::SingularityWhitelist::belonging_to(&own_model)).execute(conn)?;
 
-        debug!(
-            "Overwriting {}: {} adlists deleted, {} outputs deleted, {} whitelist domains deleted",
-            self.0, adlists, outputs, whitelist
-        );
+            debug!(
+                "Overwriting {}: {} adlists deleted, {} outputs deleted, {} whitelist domains deleted",
+                self.0, adlists, outputs, whitelist
+            );
 
-        for adlist in rendered.adlist {
-            self.add_adlist(conn, &adlist)?;
-        }
+            for adlist in rendered.adlist {
+                self.add_adlist(conn, &adlist)?;
+            }
 
-        for output in rendered.output {
-            self.add_output(conn, &output)?;
-        }
+            for output in rendered.output {
+                self.add_output(conn, &output)?;
+            }
 
-        for domain in rendered.whitelist {
-            self.add_whitelisted_domain(conn, &domain)?;
-        }
+            for domain in rendered.whitelist {
+                self.add_whitelisted_domain(conn, &domain)?;
+            }
 
-        self.set_dirty(conn, true)
+            self.set_dirty(conn, true)
+        })
     }
 
     pub fn merge(&self, conn: &mut DbConn, rendered: RenderedConfig) -> EvhResult<()> {
@@ -87,25 +89,27 @@ impl SingularityConfig {
             }
         }
 
-        for adlist in rendered.adlist {
-            if !ignore_duplicate(|| self.add_adlist(conn, &adlist))? {
-                warn!("Ignored duplicate adlist {:?}", adlist);
+        conn.immediate_transaction(|conn| {
+            for adlist in rendered.adlist {
+                if !ignore_duplicate(|| self.add_adlist(conn, &adlist))? {
+                    warn!("Ignored duplicate adlist {:?}", adlist);
+                }
             }
-        }
 
-        for output in rendered.output {
-            if !ignore_duplicate(|| self.add_output(conn, &output))? {
-                warn!("Ignored duplicate output {:?}", output);
+            for output in rendered.output {
+                if !ignore_duplicate(|| self.add_output(conn, &output))? {
+                    warn!("Ignored duplicate output {:?}", output);
+                }
             }
-        }
 
-        for domain in rendered.whitelist {
-            if !ignore_duplicate(|| self.add_whitelisted_domain(conn, &domain))? {
-                warn!("Ignored duplicate whitelisted domain {}", domain);
+            for domain in rendered.whitelist {
+                if !ignore_duplicate(|| self.add_whitelisted_domain(conn, &domain))? {
+                    warn!("Ignored duplicate whitelisted domain {}", domain);
+                }
             }
-        }
 
-        self.set_dirty(conn, true)
+            self.set_dirty(conn, true)
+        })
     }
 
     fn own_model(&self, conn: &mut DbConn) -> EvhResult<models::SingularityConfig> {

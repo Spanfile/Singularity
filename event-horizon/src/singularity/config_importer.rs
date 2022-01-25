@@ -5,6 +5,7 @@ use crate::{
 };
 use nanoid::nanoid;
 
+#[derive(Debug, Clone)]
 pub struct ConfigImporter {
     max_concurrent_imports: usize,
     max_import_lifetime: u64,

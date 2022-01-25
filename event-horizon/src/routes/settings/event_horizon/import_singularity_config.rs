@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     database::{DbPool, RedisPool},
     error::{EvhError, EvhResult},
@@ -110,6 +112,7 @@ async fn finish_config_import(
     match redis_pool
         .get()
         .map_err(EvhError::RedisConnectionAcquireFailed)
+        // TODO: move blocking call to the thread pool
         .and_then(|mut redis_conn| importer.get_blocking(&import_id.id, &mut *redis_conn))
         .and_then(|cfg| cfg.as_string())
     {
@@ -139,7 +142,7 @@ async fn submit_import_form(
     importer: web::Data<ConfigImporter>,
     redis_pool: web::Data<RedisPool>,
 ) -> impl Responder {
-    match begin_import(payload, &importer, &redis_pool).await {
+    match begin_import(payload, importer.into_inner(), redis_pool.into_inner()).await {
         Ok(import_id) => Either::Right(
             HttpResponse::build(StatusCode::SEE_OTHER)
                 .append_header((
@@ -181,10 +184,10 @@ async fn submit_finish_form(
     match finish_import(
         import_id.into_inner().id,
         merge_form.into_inner().strategy,
-        &importer,
-        &sing_cfg,
-        &db_pool,
-        &redis_pool,
+        importer.into_inner(),
+        sing_cfg.into_inner(),
+        db_pool.into_inner(),
+        redis_pool.into_inner(),
     )
     .await
     {
@@ -228,8 +231,8 @@ async fn submit_finish_form(
 
 async fn begin_import(
     payload: Either<web::Form<TextImport>, Multipart>,
-    importer: &ConfigImporter,
-    redis_pool: &RedisPool,
+    importer: Arc<ConfigImporter>,
+    redis_pool: Arc<RedisPool>,
 ) -> EvhResult<String> {
     let content = match payload {
         Either::Left(form) => {
@@ -267,8 +270,12 @@ async fn begin_import(
     let rendered = RenderedConfig::from_str(&content)?;
     debug!("Rendered: {:#?}", rendered);
 
-    let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
-    let import_id = importer.add_blocking(rendered, &mut *redis_conn)?;
+    let import_id = web::block(move || {
+        let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
+        importer.add_blocking(rendered, &mut *redis_conn)
+    })
+    .await
+    .unwrap()?;
 
     debug!("Began config import with ID {}", import_id);
     Ok(import_id)
@@ -277,26 +284,29 @@ async fn begin_import(
 async fn finish_import(
     id: String,
     strategy: ImportMergeStrategy,
-    importer: &ConfigImporter,
-    sing_cfg: &SingularityConfig,
-    db_pool: &DbPool,
-    redis_pool: &RedisPool,
+    importer: Arc<ConfigImporter>,
+    sing_cfg: Arc<SingularityConfig>,
+    db_pool: Arc<DbPool>,
+    redis_pool: Arc<RedisPool>,
 ) -> EvhResult<()> {
-    let mut db_conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
-    let rendered = importer.remove_blocking(&id, &mut *redis_conn)?;
+    web::block(move || {
+        let mut db_conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
+        let rendered = importer.remove_blocking(&id, &mut *redis_conn)?;
+        debug!("Using rendered config {}: {:#?}", id, rendered);
 
-    debug!("Using rendered config {}: {:#?}", id, rendered);
-
-    match strategy {
-        ImportMergeStrategy::New => {
-            let new_config = SingularityConfig::new(&mut db_conn)?;
-            new_config.overwrite(&mut db_conn, rendered)?;
+        match strategy {
+            ImportMergeStrategy::New => {
+                let new_config = SingularityConfig::new(&mut db_conn)?;
+                new_config.overwrite(&mut db_conn, rendered)
+            }
+            ImportMergeStrategy::Merge => sing_cfg.merge(&mut db_conn, rendered),
+            ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut db_conn, rendered),
+            ImportMergeStrategy::Cancel => Ok(()),
         }
-        ImportMergeStrategy::Merge => sing_cfg.merge(&mut db_conn, rendered)?,
-        ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut db_conn, rendered)?,
-        ImportMergeStrategy::Cancel => (),
-    }
+    })
+    .await
+    .unwrap()?;
 
     Ok(())
 }
