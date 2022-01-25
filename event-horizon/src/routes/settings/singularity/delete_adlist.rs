@@ -16,6 +16,7 @@ use actix_web::{
 };
 use log::*;
 use serde::Deserialize;
+use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 struct DeleteId {
@@ -26,7 +27,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/delete_adlist")
             .app_data(web::FormConfig::default().error_handler(form_error_handler))
-            .route(web::get().to(delete_adlist))
+            .route(web::get().to(delete_adlist_page))
             .route(web::post().to(submit_form)),
     );
 }
@@ -45,7 +46,7 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
         let source = web::Query::<DeleteId>::from_query(req.query_string())
             .expect("failed to extract source parameter from query");
 
-        page(source.id, cfg, pool)
+        page_blocking(source.id, cfg, pool)
             .alert(Alert::Warning(format!("Failed to delete adlist: {}", err)))
             .bad_request()
             .render()
@@ -53,12 +54,12 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     .into()
 }
 
-async fn delete_adlist(
+async fn delete_adlist_page(
     id: web::Query<DeleteId>,
     cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    page(id.id, &cfg, &pool)
+    page(id.id, cfg.into_inner(), pool.into_inner()).await
 }
 
 async fn submit_form(
@@ -66,10 +67,12 @@ async fn submit_form(
     cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
+    let cfg = cfg.into_inner();
+    let pool = pool.into_inner();
     let id = id.into_inner().id;
     info!("Deleting adlist: {}", id);
 
-    match delete(id, &cfg, &pool) {
+    match delete(id, Arc::clone(&cfg), Arc::clone(&pool)).await {
         Ok(_) => {
             info!("Adlist succesfully deleted");
 
@@ -85,7 +88,8 @@ async fn submit_form(
                 warn!("{}", e);
 
                 Either::Left(
-                    page(id, &cfg, &pool)
+                    page(id, cfg, pool)
+                        .await
                         .alert(Alert::Warning("Adlist to delete was not found".to_string()))
                         .bad_request(),
                 )
@@ -94,7 +98,8 @@ async fn submit_form(
                 error!("Failed to delete adlist: {}", e);
 
                 Either::Left(
-                    page(id, &cfg, &pool)
+                    page(id, cfg, pool)
+                        .await
                         .alert(Alert::Warning(format!(
                             "Failed to delete adlist due to an internal server error: {}",
                             e
@@ -106,15 +111,23 @@ async fn submit_form(
     }
 }
 
-fn delete(id: DbId, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    cfg.delete_adlist(&mut conn, id)?;
+async fn delete(id: DbId, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+    web::block(move || {
+        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        cfg.delete_adlist(&mut conn, id)
+    })
+    .await
+    .unwrap()?;
+
     Ok(())
 }
 
-fn page<'a>(id: DbId, cfg: &SingularityConfig, pool: &DbPool) -> ResponseBuilder<'a> {
+fn page_blocking<'a>(id: DbId, cfg: &SingularityConfig, pool: &DbPool) -> ResponseBuilder<'a> {
     let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed).unwrap();
     let adlist = cfg.get_adlist(&mut conn, id).expect("failed to get adlist");
-
     template::settings(SettingsPage::Singularity(SingularitySubPage::DeleteAdlist(id, &adlist)))
+}
+
+async fn page<'a>(id: DbId, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> ResponseBuilder<'a> {
+    web::block(move || page_blocking(id, &cfg, &pool)).await.unwrap()
 }

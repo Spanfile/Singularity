@@ -16,6 +16,7 @@ use crate::{
 };
 use actix_web::{web, Responder};
 use log::*;
+use std::sync::Arc;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -31,7 +32,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn singularity(cfg: web::Data<SingularityConfig>, pool: web::Data<DbPool>) -> impl Responder {
-    match page(&cfg, &pool) {
+    match page(cfg.into_inner(), pool.into_inner()).await {
         Ok((adlists, outputs, whitelist)) => template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
             adlists: &adlists,
             outputs: &outputs,
@@ -44,15 +45,19 @@ async fn singularity(cfg: web::Data<SingularityConfig>, pool: web::Data<DbPool>)
     }
 }
 
-fn page(
-    cfg: &SingularityConfig,
-    pool: &DbPool,
+async fn page(
+    cfg: Arc<SingularityConfig>,
+    pool: Arc<DbPool>,
 ) -> EvhResult<(AdlistCollection, OutputCollection, WhitelistCollection)> {
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+    web::block(move || {
+        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
-    let adlists = cfg.adlists(&mut conn)?;
-    let outputs = cfg.outputs(&mut conn)?;
-    let whitelist = cfg.whitelist(&mut conn)?;
+        let adlists = cfg.adlists(&mut conn)?;
+        let outputs = cfg.outputs(&mut conn)?;
+        let whitelist = cfg.whitelist(&mut conn)?;
 
-    Ok((adlists, outputs, whitelist))
+        Ok((adlists, outputs, whitelist))
+    })
+    .await
+    .unwrap()
 }

@@ -49,13 +49,13 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/import_singularity_config")
             .app_data(web::FormConfig::default().error_handler(import_form_error_handler))
-            .route(web::get().to(import_singularity_config))
+            .route(web::get().to(import_singularity_config_page))
             .route(web::post().to(submit_import_form)),
     )
     .service(
         web::resource("/finish_config_import")
             .app_data(web::FormConfig::default().error_handler(finish_form_error_handler))
-            .route(web::get().to(finish_config_import))
+            .route(web::get().to(finish_config_import_page))
             .route(web::post().to(submit_finish_form)),
     );
 }
@@ -100,11 +100,11 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     .into()
 }
 
-async fn import_singularity_config() -> impl Responder {
+async fn import_singularity_config_page() -> impl Responder {
     import_page()
 }
 
-async fn finish_config_import(
+async fn finish_config_import_page(
     import_id: web::Query<ImportId>,
     importer: web::Data<ConfigImporter>,
     redis_pool: web::Data<RedisPool>,

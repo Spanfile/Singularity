@@ -19,7 +19,7 @@ use serde::Deserialize;
 use singularity::{
     Output, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_DEDUPLICATE, DEFAULT_METRIC_NAME, DEFAULT_OUTPUT_METRIC,
 };
-use std::{net::IpAddr, path::PathBuf};
+use std::{net::IpAddr, path::PathBuf, sync::Arc};
 
 #[derive(Clone, Copy)]
 enum Action {
@@ -85,13 +85,13 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/add_new_hosts_output")
             .app_data(web::FormConfig::default().error_handler(hosts_form_error_handler))
-            .route(web::get().to(add_new_hosts_output))
+            .route(web::get().to(add_new_hosts_output_page))
             .route(web::post().to(submit_hosts_form)),
     )
     .service(
         web::resource("/add_new_lua_output")
             .app_data(web::FormConfig::default().error_handler(pdns_lua_form_error_handler))
-            .route(web::get().to(add_new_lua_output))
+            .route(web::get().to(add_new_lua_output_page))
             .route(web::post().to(submit_lua_form)),
     );
 }
@@ -117,11 +117,11 @@ fn form_error_handler(action: Action, err: UrlencodedError, req: &HttpRequest) -
     .into()
 }
 
-async fn add_new_hosts_output() -> impl Responder {
+async fn add_new_hosts_output_page() -> impl Responder {
     add_new_output(Action::AddNewHostsOutput)
 }
 
-async fn add_new_lua_output() -> impl Responder {
+async fn add_new_lua_output_page() -> impl Responder {
     add_new_output(Action::AddNewLuaOutput)
 }
 
@@ -130,7 +130,7 @@ async fn submit_hosts_form(
     cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    submit_form(Action::AddNewHostsOutput, output, cfg, pool)
+    submit_form(Action::AddNewHostsOutput, output, cfg, pool).await
 }
 
 async fn submit_lua_form(
@@ -138,14 +138,14 @@ async fn submit_lua_form(
     cfg: web::Data<SingularityConfig>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    submit_form(Action::AddNewLuaOutput, output, cfg, pool)
+    submit_form(Action::AddNewLuaOutput, output, cfg, pool).await
 }
 
 fn add_new_output(action: Action) -> impl Responder {
     page(action)
 }
 
-fn submit_form(
+async fn submit_form(
     action: Action,
     output: web::Form<OutputForm>,
     cfg: web::Data<SingularityConfig>,
@@ -153,7 +153,7 @@ fn submit_form(
 ) -> impl Responder {
     info!("Adding output: {:#?}", output);
 
-    match add_output(output.into_inner(), &cfg, &pool) {
+    match add_output(output.into_inner(), cfg.into_inner(), pool.into_inner()).await {
         Ok(_) => {
             info!("Output succesfully added");
             Either::Right(
@@ -196,11 +196,16 @@ fn submit_form(
     }
 }
 
-fn add_output(form: OutputForm, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+async fn add_output(form: OutputForm, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+    web::block(move || {
+        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
-    form.try_into_output()
-        .and_then(|output| cfg.add_output(&mut conn, &output))?;
+        form.try_into_output()
+            .and_then(|output| cfg.add_output(&mut conn, &output))
+    })
+    .await
+    .unwrap()?;
+
     Ok(())
 }
 

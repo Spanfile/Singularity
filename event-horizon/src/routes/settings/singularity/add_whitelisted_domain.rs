@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
@@ -26,7 +28,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::resource("/add_whitelisted_domain")
             .app_data(web::FormConfig::default().error_handler(form_error_handler))
-            .route(web::get().to(add_whitelisted_domain))
+            .route(web::get().to(add_whitelisted_domain_page))
             .route(web::post().to(submit_form)),
     );
 }
@@ -41,7 +43,7 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     .into()
 }
 
-async fn add_whitelisted_domain() -> impl Responder {
+async fn add_whitelisted_domain_page() -> impl Responder {
     page()
 }
 
@@ -52,7 +54,7 @@ async fn submit_form(
 ) -> impl Responder {
     info!("Adding new whitelisted domain: {:?}", domain);
 
-    match add_domain(domain.into_inner().domain, &cfg, &pool) {
+    match add_domain(domain.into_inner().domain, cfg.into_inner(), pool.into_inner()).await {
         Ok(_) => {
             info!("Whitelisted domain succesfully added");
 
@@ -92,9 +94,14 @@ async fn submit_form(
     }
 }
 
-fn add_domain(domain: String, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    cfg.add_whitelisted_domain(&mut conn, &domain)?;
+async fn add_domain(domain: String, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+    web::block(move || {
+        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        cfg.add_whitelisted_domain(&mut conn, &domain)
+    })
+    .await
+    .unwrap()?;
+
     Ok(())
 }
 

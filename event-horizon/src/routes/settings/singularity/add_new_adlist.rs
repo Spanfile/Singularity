@@ -16,6 +16,7 @@ use actix_web::{
 };
 use log::*;
 use singularity::Adlist;
+use std::sync::Arc;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -47,7 +48,7 @@ async fn submit_form(
 ) -> impl Responder {
     info!("Adding new adlist: {:?}", adlist);
 
-    match add_adlist(adlist.into_inner(), &cfg, &pool) {
+    match add_adlist(adlist.into_inner(), cfg.into_inner(), pool.into_inner()).await {
         Ok(_) => {
             info!("Adlist succesfully added");
             Either::Right(
@@ -89,9 +90,14 @@ async fn submit_form(
     }
 }
 
-fn add_adlist(adlist: Adlist, cfg: &SingularityConfig, pool: &DbPool) -> EvhResult<()> {
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-    cfg.add_adlist(&mut conn, &adlist)?;
+async fn add_adlist(adlist: Adlist, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+    web::block(move || {
+        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        cfg.add_adlist(&mut conn, &adlist)
+    })
+    .await
+    .unwrap()?;
+
     Ok(())
 }
 
