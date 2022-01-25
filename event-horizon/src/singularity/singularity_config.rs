@@ -63,7 +63,7 @@ impl SingularityConfig {
             }
 
             for output in rendered.output {
-                self.add_output(conn, &output)?;
+                self.add_output_without_transaction(conn, &output)?;
             }
 
             for domain in rendered.whitelist {
@@ -97,7 +97,7 @@ impl SingularityConfig {
             }
 
             for output in rendered.output {
-                if !ignore_duplicate(|| self.add_output(conn, &output))? {
+                if !ignore_duplicate(|| self.add_output_without_transaction(conn, &output))? {
                     warn!("Ignored duplicate output {:?}", output);
                 }
             }
@@ -190,71 +190,80 @@ impl SingularityConfig {
 
     /// Adds a new output to the configuration. Returns the ID of the newly added output.
     pub fn add_output(&self, conn: &mut DbConn, output: &Output) -> EvhResult<DbId> {
+        conn.immediate_transaction::<_, EvhError, _>(|conn| self.do_add_output(conn, output))
+    }
+
+    /// Adds a new output to the configuration. Returns the ID of the newly added output.
+    ///
+    /// The counterpart to this function, [`add_output`], spawns a database transaction to run its own multiple queries
+    /// inside. This function doesn't use a transaction, and is meant to use in scenarios where you already have a
+    /// running transaction.
+    pub fn add_output_without_transaction(&self, conn: &mut DbConn, output: &Output) -> EvhResult<DbId> {
+        self.do_add_output(conn, output)
+    }
+
+    fn do_add_output(&self, conn: &mut DbConn, output: &Output) -> EvhResult<DbId> {
         use crate::database::schema::{
             singularity_output_hosts_includes, singularity_output_pdns_lua, singularity_outputs,
         };
 
-        let id = conn.immediate_transaction::<_, EvhError, _>(|conn| {
-            let mut hosts_includes = Vec::new();
-            let mut pdns_lua = None;
+        let mut hosts_includes = Vec::new();
+        let mut pdns_lua = None;
 
-            let blackhole_address = output.blackhole_address().to_string();
-            let model = models::NewSingularityOutput {
-                singularity_config_id: self.0,
-                ty: match output.ty() {
-                    OutputType::Hosts { include } => {
-                        for path in include {
-                            hosts_includes.push(path.as_path());
-                        }
-
-                        "Hosts"
+        let blackhole_address = output.blackhole_address().to_string();
+        let model = models::NewSingularityOutput {
+            singularity_config_id: self.0,
+            ty: match output.ty() {
+                OutputType::Hosts { include } => {
+                    for path in include {
+                        hosts_includes.push(path.as_path());
                     }
-                    OutputType::PdnsLua {
-                        output_metric,
-                        metric_name,
-                    } => {
-                        pdns_lua = Some((*output_metric, metric_name.as_str()));
 
-                        "PdnsLua"
-                    }
-                },
-                destination: output.destination().as_os_str().as_bytes(),
-                blackhole_address: blackhole_address.as_str(),
-                deduplicate: output.deduplicate(),
-            };
+                    "Hosts"
+                }
+                OutputType::PdnsLua {
+                    output_metric,
+                    metric_name,
+                } => {
+                    pdns_lua = Some((*output_metric, metric_name.as_str()));
 
-            let output = diesel::insert_into(singularity_outputs::table)
-                .values(&model)
-                .get_result::<models::SingularityOutput>(conn)?;
+                    "PdnsLua"
+                }
+            },
+            destination: output.destination().as_os_str().as_bytes(),
+            blackhole_address: blackhole_address.as_str(),
+            deduplicate: output.deduplicate(),
+        };
 
-            debug!("Insert output: {:#?}", output);
-            debug!("Hosts includes: {:?}", hosts_includes);
-            debug!("PDNS Lua: {:?}", pdns_lua);
+        let output = diesel::insert_into(singularity_outputs::table)
+            .values(&model)
+            .get_result::<models::SingularityOutput>(conn)?;
 
-            for include in hosts_includes {
-                diesel::insert_into(singularity_output_hosts_includes::table)
-                    .values(models::NewSingularityOutputHostsInclude {
-                        singularity_output_id: output.id,
-                        path: include.as_os_str().as_bytes(),
-                    })
-                    .execute(conn)?;
-            }
+        debug!("Insert output: {:#?}", output);
+        debug!("Hosts includes: {:?}", hosts_includes);
+        debug!("PDNS Lua: {:?}", pdns_lua);
 
-            if let Some((output_metric, metric_name)) = pdns_lua {
-                diesel::insert_into(singularity_output_pdns_lua::table)
-                    .values(models::NewSingularityOutputPdnsLua {
-                        singularity_output_id: output.id,
-                        output_metric,
-                        metric_name,
-                    })
-                    .execute(conn)?;
-            }
+        for include in hosts_includes {
+            diesel::insert_into(singularity_output_hosts_includes::table)
+                .values(models::NewSingularityOutputHostsInclude {
+                    singularity_output_id: output.id,
+                    path: include.as_os_str().as_bytes(),
+                })
+                .execute(conn)?;
+        }
 
-            self.set_dirty(conn, true)?;
-            Ok(output.id)
-        })?;
+        if let Some((output_metric, metric_name)) = pdns_lua {
+            diesel::insert_into(singularity_output_pdns_lua::table)
+                .values(models::NewSingularityOutputPdnsLua {
+                    singularity_output_id: output.id,
+                    output_metric,
+                    metric_name,
+                })
+                .execute(conn)?;
+        }
 
-        Ok(id)
+        self.set_dirty(conn, true)?;
+        Ok(output.id)
     }
 
     /// Deletes a given output from the configuration.
