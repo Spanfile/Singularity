@@ -22,6 +22,8 @@ use futures_util::{StreamExt, TryStreamExt};
 use log::*;
 use serde::Deserialize;
 
+const DEFAULT_IMPORTED_CONFIG_NAME: &str = "Imported configuration";
+
 #[derive(Debug, Deserialize)]
 struct TextImport {
     text: String,
@@ -34,6 +36,7 @@ struct ImportId {
 
 #[derive(Debug, Deserialize)]
 struct ImportMergeForm {
+    config_name: String,
     strategy: ImportMergeStrategy,
 }
 
@@ -87,12 +90,12 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
 
         let import_id = web::Query::<ImportId>::from_query(req.query_string())
             .expect("failed to extract import ID parameter from query");
-        let rendered_str = importer
+        let (name, cfg) = importer
             .get_blocking(&import_id.id, &mut *redis_conn)
-            .and_then(|cfg| cfg.as_string())
+            .and_then(|cfg| cfg.into_name_string_tuple())
             .expect("failed to get rendered config");
 
-        finish_page(Some(rendered_str))
+        finish_page(Some((&name, &cfg)))
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
             .render()
@@ -114,9 +117,9 @@ async fn finish_config_import_page(
         .map_err(EvhError::RedisConnectionAcquireFailed)
         // TODO: move blocking call to the thread pool
         .and_then(|mut redis_conn| importer.get_blocking(&import_id.id, &mut *redis_conn))
-        .and_then(|cfg| cfg.as_string())
+        .and_then(|cfg| cfg.into_name_string_tuple())
     {
-        Ok(rendered) => finish_page(Some(rendered)),
+        Ok((name, cfg)) => finish_page(Some((&name, &cfg))),
         Err(e) => match e {
             EvhError::NoActiveImport(_) => {
                 warn!("{}", e);
@@ -181,9 +184,12 @@ async fn submit_finish_form(
         import_id.id, merge_form.strategy
     );
 
+    let form = merge_form.into_inner();
+
     match finish_import(
         import_id.into_inner().id,
-        merge_form.into_inner().strategy,
+        form.config_name,
+        form.strategy,
         importer.into_inner(),
         sing_cfg.into_inner(),
         db_pool.into_inner(),
@@ -234,10 +240,10 @@ async fn begin_import(
     importer: Arc<ConfigImporter>,
     redis_pool: Arc<RedisPool>,
 ) -> EvhResult<String> {
-    let content = match payload {
+    let (name, content) = match payload {
         Either::Left(form) => {
             info!("Importing Singularity config from text");
-            form.into_inner().text
+            (DEFAULT_IMPORTED_CONFIG_NAME.to_string(), form.into_inner().text)
         }
         Either::Right(mut payload) => {
             info!("Importing Singularity config from file");
@@ -248,6 +254,13 @@ async fn begin_import(
                 .map_err(|e| e.into())
                 .and_then(|field| field.ok_or(EvhError::EmptyMultipartField))?;
 
+            // TODO: sanitise this name
+            let filename = field
+                .content_disposition()
+                .get_filename()
+                .map(|f| f.to_owned())
+                .ok_or(EvhError::MissingFieldFilename)?;
+
             let mut buf = Vec::new();
 
             while let Some(chunk) = field.next().await {
@@ -255,9 +268,9 @@ async fn begin_import(
                 buf.extend_from_slice(&data);
             }
 
-            debug!("File size: {}", buf.len());
+            debug!("File name: {}, size: {}", filename, buf.len());
             match String::from_utf8(buf) {
-                Ok(content) => content,
+                Ok(content) => (filename, content),
                 Err(_) => {
                     return Err(EvhError::UploadedFileNotUtf8);
                 }
@@ -265,9 +278,9 @@ async fn begin_import(
         }
     };
 
-    debug!("Received config:\n{}", content);
+    debug!("Received config '{}':\n{}", name, content);
 
-    let rendered = RenderedConfig::from_str(&content)?;
+    let rendered = RenderedConfig::from_str(name, &content)?;
     debug!("Rendered: {:#?}", rendered);
 
     let import_id = web::block(move || {
@@ -283,6 +296,7 @@ async fn begin_import(
 
 async fn finish_import(
     id: String,
+    config_name: String,
     strategy: ImportMergeStrategy,
     importer: Arc<ConfigImporter>,
     sing_cfg: Arc<SingularityConfig>,
@@ -297,7 +311,7 @@ async fn finish_import(
 
         match strategy {
             ImportMergeStrategy::New => {
-                let new_config = SingularityConfig::new(&mut db_conn)?;
+                let new_config = SingularityConfig::new(&mut db_conn, config_name)?;
                 new_config.overwrite(&mut db_conn, rendered)
             }
             ImportMergeStrategy::Merge => sing_cfg.merge(&mut db_conn, rendered),
@@ -315,7 +329,7 @@ fn import_page() -> ResponseBuilder<'static> {
     template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::ImportSingularityConfig))
 }
 
-fn finish_page(rendered_cfg: Option<String>) -> ResponseBuilder<'static> {
+fn finish_page(rendered_cfg: Option<(&str, &str)>) -> ResponseBuilder<'static> {
     template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::FinishConfigImport(
         rendered_cfg,
     )))

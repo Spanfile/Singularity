@@ -10,6 +10,7 @@ table! {
 table! {
     singularity_configs (id) {
         id -> Integer,
+        name -> Text,
         dirty -> Bool,
         http_timeout -> Integer,
     }

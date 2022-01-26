@@ -1,5 +1,6 @@
 CREATE TABLE singularity_configs (
     id INTEGER NOT NULL,
+    name TEXT UNIQUE NOT NULL,
     dirty BOOLEAN NOT NULL,
     http_timeout INTEGER NOT NULL,
     PRIMARY KEY (id)
@@ -8,7 +9,7 @@ CREATE TABLE singularity_configs (
 CREATE TABLE singularity_adlists (
     id INTEGER NOT NULL,
     singularity_config_id INTEGER NOT NULL,
-    source TEXT UNIQUE NOT NULL,
+    source TEXT NOT NULL,
     format TEXT NOT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY (singularity_config_id) REFERENCES singularity_configs (id) ON DELETE CASCADE,
@@ -20,7 +21,7 @@ CREATE TABLE singularity_outputs (
     id INTEGER NOT NULL,
     singularity_config_id INTEGER NOT NULL,
     ty TEXT NOT NULL,
-    destination BLOB UNIQUE NOT NULL,
+    destination BLOB NOT NULL,
     blackhole_address TEXT NOT NULL,
     deduplicate BOOLEAN NOT NULL,
     PRIMARY KEY (id),

@@ -26,11 +26,18 @@ impl ConfigImporter {
     where
         C: redis::ConnectionLike,
     {
-        let serialised = rendered.as_string()?;
+        let (name, serialised) = rendered.into_name_string_tuple()?;
         let id = nanoid!();
 
-        redis::cmd("set")
-            .arg(format!("config_import:{id}"))
+        redis::pipe()
+            .atomic()
+            .cmd("set")
+            .arg(config_import_name_key(&id))
+            .arg(name)
+            .arg("ex")
+            .arg(self.max_import_lifetime)
+            .cmd("set")
+            .arg(config_import_key(&id))
             .arg(serialised)
             .arg("ex")
             .arg(self.max_import_lifetime)
@@ -43,13 +50,16 @@ impl ConfigImporter {
     where
         C: redis::ConnectionLike,
     {
-        // TODO: this should be an option or smth?
-        let serialised: String = redis::cmd("get")
-            .arg(format!("config_import:{import_id}"))
-            .query::<Option<String>>(redis)?
+        let (name, serialised): (String, String) = redis::pipe()
+            .atomic()
+            .cmd("get")
+            .arg(config_import_name_key(import_id))
+            .cmd("get")
+            .arg(config_import_key(import_id))
+            .query::<Option<_>>(redis)?
             .ok_or_else(|| EvhError::NoActiveImport(import_id.to_string()))?;
 
-        let rendered = RenderedConfig::from_str(&serialised)?;
+        let rendered = RenderedConfig::from_str(name, &serialised)?;
         Ok(rendered)
     }
 
@@ -57,12 +67,24 @@ impl ConfigImporter {
     where
         C: redis::ConnectionLike,
     {
-        let serialised: String = redis::cmd("getdel")
-            .arg(format!("config_import:{import_id}"))
-            .query::<Option<String>>(redis)?
+        let (name, serialised): (String, String) = redis::pipe()
+            .atomic()
+            .cmd("getdel")
+            .arg(config_import_name_key(import_id))
+            .cmd("getdel")
+            .arg(config_import_key(import_id))
+            .query::<Option<_>>(redis)?
             .ok_or_else(|| EvhError::NoActiveImport(import_id.to_string()))?;
 
-        let rendered = RenderedConfig::from_str(&serialised)?;
+        let rendered = RenderedConfig::from_str(name, &serialised)?;
         Ok(rendered)
     }
+}
+
+fn config_import_key(id: &str) -> String {
+    format!("config_import:{id}")
+}
+
+fn config_import_name_key(id: &str) -> String {
+    format!("config_import:{id}:name")
 }

@@ -6,13 +6,15 @@ use singularity::{Adlist, AdlistFormat};
 #[derive(Identifiable, Queryable, Insertable, PartialEq, Debug)]
 pub struct SingularityConfig {
     pub id: DbId,
+    pub name: String,
     pub dirty: bool,
     pub http_timeout: i32,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = singularity_configs)]
-pub struct NewSingularityConfig {
+pub struct NewSingularityConfig<'a> {
+    pub name: &'a str,
     pub dirty: bool,
     pub http_timeout: i32,
 }

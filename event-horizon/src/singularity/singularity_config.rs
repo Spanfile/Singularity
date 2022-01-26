@@ -20,13 +20,17 @@ pub type WhitelistCollection = Vec<(DbId, String)>;
 pub struct SingularityConfig(DbId);
 
 impl SingularityConfig {
-    pub fn new(conn: &mut DbConn) -> EvhResult<Self> {
+    pub fn new<S>(conn: &mut DbConn, name: S) -> EvhResult<Self>
+    where
+        S: AsRef<str>,
+    {
         use crate::database::schema::singularity_configs;
 
         let cfg = diesel::insert_into(singularity_configs::table)
             .values(models::NewSingularityConfig {
                 dirty: false,
                 http_timeout: HTTP_CONNECT_TIMEOUT as i32,
+                name: name.as_ref(),
             })
             .get_result::<models::SingularityConfig>(conn)?;
 
@@ -34,7 +38,7 @@ impl SingularityConfig {
         Ok(Self(cfg.id))
     }
 
-    pub fn load(id: DbId, conn: &mut DbConn) -> EvhResult<Self> {
+    pub fn load(id: DbId, conn: &mut DbConn) -> EvhResult<(String, Self)> {
         use crate::database::schema::singularity_configs;
 
         let cfg = singularity_configs::table
@@ -42,17 +46,17 @@ impl SingularityConfig {
             .first::<models::SingularityConfig>(conn)?;
 
         debug!("Singularity config {}: {:?}", id, cfg);
-        Ok(Self(cfg.id))
+        Ok((cfg.name, Self(cfg.id)))
     }
 
-    pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<Self>> {
+    pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<(String, Self)>> {
         use crate::database::schema::singularity_configs;
 
         let cfgs = singularity_configs::table
             .load::<models::SingularityConfig>(conn)?
             .into_iter()
-            .map(|cfg| Self(cfg.id))
-            .collect::<Vec<Self>>();
+            .map(|cfg| (cfg.name, Self(cfg.id)))
+            .collect::<Vec<_>>();
 
         debug!("Singularity configs: {}", cfgs.len());
         Ok(cfgs)

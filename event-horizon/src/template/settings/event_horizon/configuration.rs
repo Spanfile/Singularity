@@ -1,7 +1,7 @@
 use crate::singularity::SingularityConfig;
 use maud::{html, Markup};
 
-pub fn config_card(cfgs: Option<&[SingularityConfig]>) -> Markup {
+pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             // TODO: add settings for:
@@ -23,9 +23,9 @@ pub fn config_card(cfgs: Option<&[SingularityConfig]>) -> Markup {
                     }
                     tbody {
                         @if let Some(cfgs) = cfgs {
-                            @for cfg in cfgs {
+                            @for (name, cfg) in cfgs {
                                 tr {
-                                    td ."align-middle" { (cfg.id()) }
+                                    td ."align-middle" { (name) }
                                     td {
                                         a .btn ."btn-outline-danger" ."btn-sm" ."float-end" href={
                                             "/settings/event_horizon/delete_singularity_config?id=" (cfg.id())

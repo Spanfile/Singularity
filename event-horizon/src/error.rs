@@ -28,6 +28,8 @@ pub enum EvhError {
     MultipartError(#[from] actix_multipart::MultipartError),
     #[error("Multipart field in file upload was empty")]
     EmptyMultipartField,
+    #[error("Multipart field in the file upload has no filename")]
+    MissingFieldFilename,
     #[error("The uploaded file was not encoded in UTF-8")]
     UploadedFileNotUtf8,
 

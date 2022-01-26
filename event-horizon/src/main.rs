@@ -30,6 +30,8 @@ use diesel::{
 use log::*;
 use std::time::Duration;
 
+const DEFAULT_SINGULARITY_CONFIG_NAME: &str = "Default configuration";
+
 #[actix_web::main]
 async fn main() -> EvhResult<()> {
     if cfg!(debug_assertions) {
@@ -49,10 +51,10 @@ async fn main() -> EvhResult<()> {
     let mut conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
     // attempt to load the config with ID 1, or if it fails because it doesn't exist, attempt to create a new config
-    let singularity_config = SingularityConfig::load(1, &mut conn).or_else(|e| {
+    let singularity_config = SingularityConfig::load(1, &mut conn).map(|(_, cfg)| cfg).or_else(|e| {
         if let EvhError::Database(diesel::result::Error::NotFound) = e {
             warn!("No existing Singularity config found, falling back to creating a new one");
-            SingularityConfig::new(&mut conn)
+            SingularityConfig::new(&mut conn, DEFAULT_SINGULARITY_CONFIG_NAME)
         } else {
             Err(e)
         }
