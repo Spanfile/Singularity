@@ -67,6 +67,17 @@ impl SingularityConfig {
         Ok(cfgs)
     }
 
+    pub fn name_exists(conn: &mut DbConn, name: &str) -> EvhResult<bool> {
+        use crate::database::schema::singularity_configs;
+
+        let count: i64 = singularity_configs::table
+            .filter(singularity_configs::name.eq(name))
+            .count()
+            .get_result(conn)?;
+
+        Ok(count > 0)
+    }
+
     pub fn id(&self) -> DbId {
         self.0
     }

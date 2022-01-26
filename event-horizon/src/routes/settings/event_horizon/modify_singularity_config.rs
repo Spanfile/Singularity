@@ -132,16 +132,23 @@ async fn delete_singularity_config_page(
     Either::Left(display_page(delete_config_page, id, db_pool).await)
 }
 
-async fn form_action<F>(id: DbId, db_pool: web::Data<DbPool>, action: F) -> impl Responder
+async fn form_action<FForm, FPage>(id: DbId, db_pool: web::Data<DbPool>, page: FPage, action: FForm) -> impl Responder
 where
-    F: FnOnce(&mut DbConn, SingularityConfig) -> EvhResult<()> + Send + 'static,
+    FForm: FnOnce(&mut DbConn, SingularityConfig) -> EvhResult<()> + Send + 'static,
+    FPage: Fn(Option<&str>) -> ResponseBuilder<'static>,
 {
     let pool = db_pool.clone();
     match web::block(move || {
-        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
-        let (_, cfg) = SingularityConfig::load(id, &mut conn)?;
+        // stupid hack: the name of the config may be required in the error handler to display the page properly, so
+        // slap it in here with the error type if it's been loaded. guess this is one of those moments it's good Result
+        // doesn't enforce its error type being Error huh?
 
-        (action)(&mut conn, cfg)
+        let mut conn = pool
+            .get()
+            .map_err(|e| (None, EvhError::DatabaseConnectionAcquireFailed(e)))?;
+        let (name, cfg) = SingularityConfig::load(id, &mut conn).map_err(|e| (None, e))?;
+
+        (action)(&mut conn, cfg).map_err(|e| (Some(name), e))
     })
     .await
     .unwrap()
@@ -151,31 +158,29 @@ where
                 .append_header((header::LOCATION, "/settings/event_horizon"))
                 .finish(),
         ),
+        Err((name, e)) => match e {
+            EvhError::EmptyConfigName | EvhError::DuplicateConfigName => {
+                warn!(
+                    "Failed to edit Singularity config ID {} due to an user error: {}",
+                    id, e
+                );
 
-        Err(EvhError::NoSuchConfig(id)) => {
-            warn!("No such Singularity config with ID {}", id);
+                Either::Left(
+                    (page)(name.as_deref())
+                        .alert(Alert::Warning(e.to_string()))
+                        .bad_request(),
+                )
+            }
+            e => {
+                error!("Failed to edit Singularity config with ID {}: {}", id, e);
 
-            Either::Left(
-                use_config_page(None)
-                    .alert(Alert::Warning(format!(
-                        "Failed to set active Singularity configuration: ID {} not found",
-                        id
-                    )))
-                    .bad_request(),
-            )
-        }
-        Err(e) => {
-            error!("Failed to set Singularity config with ID {}: {}", id, e);
-
-            Either::Left(
-                use_config_page(None)
-                    .alert(Alert::Error(format!(
-                        "Failed to set active Singularity configuration due to an internal server error: {}",
-                        e
-                    )))
-                    .internal_server_error(),
-            )
-        }
+                Either::Left(
+                    (page)(None)
+                        .alert(Alert::Error(format!("An internal server error occurred: {}", e)))
+                        .internal_server_error(),
+                )
+            }
+        },
     }
 }
 
@@ -198,8 +203,7 @@ async fn submit_use_form(
     }
 
     Either::Left(
-        form_action(id, db_pool, move |conn, cfg| {
-            info!("Setting current active Singularity config to {:?}", cfg);
+        form_action(id, db_pool, use_config_page, move |conn, cfg| {
             cfg_mg.set_active_config(cfg);
             cfg.set_dirty(conn, true)
         })
@@ -216,13 +220,14 @@ async fn submit_rename_form(
     let name = rename_form.into_inner().name;
     info!("Renaming Singularity configuration with ID {} to {}", id, name);
 
-    // TODO: sanitise name:
-    // - not empty
-    // - not a duplicate
-
-    form_action(id, db_pool, move |conn, cfg| {
-        info!("Renaming Singularity config {} to {}", cfg.id(), name);
-        cfg.set_name(conn, &name)
+    form_action(id, db_pool, rename_config_page, move |conn, cfg| {
+        if name.trim().is_empty() {
+            Err(EvhError::EmptyConfigName)
+        } else if SingularityConfig::name_exists(conn, &name)? {
+            Err(EvhError::DuplicateConfigName)
+        } else {
+            cfg.set_name(conn, &name)
+        }
     })
     .await
 }
@@ -245,13 +250,7 @@ async fn submit_delete_form(
         );
     }
 
-    Either::Left(
-        form_action(id, db_pool, move |conn, cfg| {
-            info!("Deleting Singularity config {}", cfg.id());
-            cfg.delete(conn)
-        })
-        .await,
-    )
+    Either::Left(form_action(id, db_pool, delete_config_page, move |conn, cfg| cfg.delete(conn)).await)
 }
 
 async fn display_page<F>(page_fn: F, id: DbId, db_pool: web::Data<DbPool>) -> impl Responder

@@ -37,6 +37,10 @@ pub enum EvhError {
     InvalidSetting(DbId, String),
     #[error("No such Singularity config: {0}")]
     NoSuchConfig(DbId),
+    #[error("The provided name was empty")]
+    EmptyConfigName,
+    #[error("The provided name is already set for some other configuration")]
+    DuplicateConfigName,
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]
