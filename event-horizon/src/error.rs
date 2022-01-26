@@ -35,6 +35,8 @@ pub enum EvhError {
     UploadedFileNotUtf8,
     #[error("EVH setting has invalid value for type {0}: {1}")]
     InvalidSetting(DbId, String),
+    #[error("No such Singularity config: {0}")]
+    NoSuchConfig(DbId),
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]

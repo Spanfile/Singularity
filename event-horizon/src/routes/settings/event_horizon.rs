@@ -1,5 +1,6 @@
 mod danger_zone;
 mod import_singularity_config;
+mod modify_singularity_config;
 
 use crate::{
     database::DbPool,
@@ -19,6 +20,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         web::scope("/event_horizon")
             .route("", web::get().to(event_horizon_page))
             .configure(import_singularity_config::config)
+            .configure(modify_singularity_config::config)
             .configure(danger_zone::config),
     );
 }

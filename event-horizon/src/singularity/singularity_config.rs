@@ -45,7 +45,9 @@ impl SingularityConfig {
 
         let cfg = singularity_configs::table
             .filter(singularity_configs::id.eq(id))
-            .first::<models::SingularityConfig>(conn)?;
+            .first::<models::SingularityConfig>(conn)
+            .optional()?
+            .ok_or(EvhError::NoSuchConfig(id))?;
 
         debug!("Singularity config {}: {:?}", id, cfg);
         Ok((cfg.name, Self(cfg.id)))

@@ -1,6 +1,7 @@
 mod configuration;
 mod danger_zone;
 mod import_singularity_config;
+mod modify_singularity_config;
 
 use crate::{
     config::{EnvConfig, EvhConfig},
@@ -20,6 +21,9 @@ pub enum EventHorizonSubPage<'a> {
     },
     ImportSingularityConfig,
     FinishConfigImport(Option<(&'a str, &'a str)>),
+    UseSingularityConfig(Option<&'a str>),
+    RenameSingularityConfig,
+    DeleteSingularityConfig,
 }
 
 pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
@@ -30,6 +34,9 @@ pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
         EventHorizonSubPage::FinishConfigImport(rendered_cfg) => {
             import_singularity_config::finish_config_import(rendered_cfg)
         }
+        EventHorizonSubPage::UseSingularityConfig(name) => modify_singularity_config::use_singularity_config(name),
+        EventHorizonSubPage::RenameSingularityConfig => todo!(),
+        EventHorizonSubPage::DeleteSingularityConfig => todo!(),
     }
 }
 
