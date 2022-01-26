@@ -1,13 +1,18 @@
-use crate::singularity::SingularityConfig;
+use crate::{database::DbId, singularity::SingularityConfig};
 use maud::{html, Markup};
 
-pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>) -> Markup {
+pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>, active_cfg: DbId) -> Markup {
+    html! {
+        // TODO: add settings for:
+        // - timing
+
+        (config_selection_card(cfgs, active_cfg))
+    }
+}
+
+fn config_selection_card(cfgs: Option<&[(String, SingularityConfig)]>, active_cfg: DbId) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
-            // TODO: add settings for:
-            // - timing
-            // - selecting a config
-
             ."card-header" { "Available Singularity configurations" }
             ."card-body" {
                 a .btn ."btn-primary" href="/settings/event_horizon/import_singularity_config" {
@@ -24,22 +29,59 @@ pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>) -> Markup {
                     tbody {
                         @if let Some(cfgs) = cfgs {
                             @for (name, cfg) in cfgs {
-                                tr {
-                                    td ."align-middle" { (name) }
-                                    td {
-                                        a .btn ."btn-outline-danger" ."btn-sm" ."float-end" href={
-                                            "/settings/event_horizon/delete_singularity_config?id=" (cfg.id())
-                                        } { "Delete" }
-
-                                        a .btn ."btn-primary" ."btn-sm" ."float-end" ."me-3" href={
-                                            "/settings/event_horizon/use_singularity_config?id=" (cfg.id())
-                                        } { "Use" }
-                                    }
+                                @if cfg.id() == active_cfg {
+                                    (active_config_table_row(name, cfg))
+                                } @else {
+                                    (config_table_row(name, cfg))
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+fn active_config_table_row(name: &str, cfg: &SingularityConfig) -> Markup {
+    html! {
+        tr {
+            td ."align-middle" { strong { "Active: " } (name) }
+            td ."d-flex" {
+                // this element is used to push the other elements to the right
+                ."me-auto" {}
+
+                a .btn ."btn-primary" ."btn-sm" .disabled ."me-3" ."px-4" href="#" { "Use" }
+
+                a .btn ."btn-primary" ."btn-sm" ."me-3" href={
+                    "/settings/event_horizon/rename_singularity_config?id=" (cfg.id())
+                } { "Rename" }
+
+                a .btn ."btn-outline-danger" ."btn-sm" .disabled href="#" { "Delete" }
+            }
+        }
+    }
+}
+
+fn config_table_row(name: &str, cfg: &SingularityConfig) -> Markup {
+    html! {
+        tr {
+            td ."align-middle" { (name) }
+            td ."d-flex" {
+                // this element is used to push the other elements to the right
+                ."me-auto" {}
+
+                a .btn ."btn-primary" ."btn-sm" ."me-3" ."px-4" href={
+                    "/settings/event_horizon/use_singularity_config?id=" (cfg.id())
+                } { "Use" }
+
+                a .btn ."btn-primary" ."btn-sm" ."me-3" href={
+                    "/settings/event_horizon/rename_singularity_config?id=" (cfg.id())
+                } { "Rename" }
+
+                a .btn ."btn-outline-danger" ."btn-sm" href={
+                    "/settings/event_horizon/delete_singularity_config?id=" (cfg.id())
+                } { "Delete" }
             }
         }
     }
