@@ -18,7 +18,7 @@ const DEFAULT_SINGULARITY_CONFIG_NAME: &str = "Default configuration";
 
 #[derive(Debug)]
 pub struct ConfigManager {
-    // TODO: keep track of the current config's name?
+    // TODO: keep track of the current config's name? otoh it means figuring out when its name changes so maybe don't?
     active_config: RwLock<SingularityConfig>,
 }
 
@@ -44,11 +44,11 @@ impl ConfigManager {
 
         debug!("Stored active config ID: {:?}", active_config_id);
 
-        let (name, cfg) = match active_config_id {
+        let cfg = match active_config_id {
             // if the config setting exists, attempt to use that config...
             Some(id) => {
                 info!("Using active configuration with ID {}", id);
-                SingularityConfig::load(id, conn)?
+                SingularityConfig::load(id, conn)?.1
             }
             // otherwise try to load the config with the default ID if it exists...
             None => {
@@ -57,7 +57,7 @@ impl ConfigManager {
                     DEFAULT_SINGULARITY_CONFIG_ID
                 );
 
-                let (name, cfg) = SingularityConfig::load(DEFAULT_SINGULARITY_CONFIG_ID, conn).or_else(|e| {
+                let (_, cfg) = SingularityConfig::load(DEFAULT_SINGULARITY_CONFIG_ID, conn).or_else(|e| {
                     if let EvhError::Database(diesel::result::Error::NotFound) = e {
                         // if all else fails create a new config with the default name
                         warn!("No existing Singularity config found, falling back to creating a new one");
@@ -76,14 +76,14 @@ impl ConfigManager {
                     .values(models::NewEvhSetting {
                         setting_type: type_id,
                         // TODO: this is kinda stupid, to allocate a new string just to borrow it for diesel to store in
-                        // the database as an integer again
+                        // the database as an integer again. might as well use an integer directly ukno?
                         value: &cfg.id().to_string(),
                     })
                     .get_result::<models::EvhSetting>(conn)?;
 
                 debug!("Stored new active config setting: {:?}", new_setting);
 
-                (name, cfg)
+                cfg
             }
         };
 
