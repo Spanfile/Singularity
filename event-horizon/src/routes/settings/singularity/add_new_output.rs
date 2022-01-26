@@ -127,18 +127,18 @@ async fn add_new_lua_output_page() -> impl Responder {
 
 async fn submit_hosts_form(
     output: web::Form<OutputForm>,
-    cfg: web::Data<ConfigManager>,
+    cfg_mg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    submit_form(Action::AddNewHostsOutput, output, cfg, pool).await
+    submit_form(Action::AddNewHostsOutput, output, cfg_mg, pool).await
 }
 
 async fn submit_lua_form(
     output: web::Form<OutputForm>,
-    cfg: web::Data<ConfigManager>,
+    cfg_mg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    submit_form(Action::AddNewLuaOutput, output, cfg, pool).await
+    submit_form(Action::AddNewLuaOutput, output, cfg_mg, pool).await
 }
 
 fn add_new_output(action: Action) -> impl Responder {
@@ -148,12 +148,12 @@ fn add_new_output(action: Action) -> impl Responder {
 async fn submit_form(
     action: Action,
     output: web::Form<OutputForm>,
-    cfg: web::Data<ConfigManager>,
+    cfg_mg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding output: {:#?}", output);
 
-    match add_output(output.into_inner(), cfg.get_active_config(), pool.into_inner()).await {
+    match add_output(output.into_inner(), cfg_mg.get_active_config(), pool.into_inner()).await {
         Ok(_) => {
             info!("Output succesfully added");
             Either::Right(
@@ -196,7 +196,7 @@ async fn submit_form(
     }
 }
 
-async fn add_output(form: OutputForm, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+async fn add_output(form: OutputForm, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
     web::block(move || {
         let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 

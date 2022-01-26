@@ -49,12 +49,18 @@ async fn add_whitelisted_domain_page() -> impl Responder {
 
 async fn submit_form(
     domain: web::Form<WhitelistedDomain>,
-    cfg: web::Data<ConfigManager>,
+    cfg_mg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding new whitelisted domain: {:?}", domain);
 
-    match add_domain(domain.into_inner().domain, cfg.get_active_config(), pool.into_inner()).await {
+    match add_domain(
+        domain.into_inner().domain,
+        cfg_mg.get_active_config(),
+        pool.into_inner(),
+    )
+    .await
+    {
         Ok(_) => {
             info!("Whitelisted domain succesfully added");
 
@@ -94,7 +100,7 @@ async fn submit_form(
     }
 }
 
-async fn add_domain(domain: String, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+async fn add_domain(domain: String, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
     web::block(move || {
         let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
         cfg.add_whitelisted_domain(&mut conn, &domain)

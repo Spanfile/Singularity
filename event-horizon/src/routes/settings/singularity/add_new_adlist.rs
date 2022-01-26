@@ -43,12 +43,12 @@ async fn add_new_adlist() -> impl Responder {
 
 async fn submit_form(
     adlist: web::Form<Adlist>,
-    cfg: web::Data<ConfigManager>,
+    cfg_mg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding new adlist: {:?}", adlist);
 
-    match add_adlist(adlist.into_inner(), cfg.get_active_config(), pool.into_inner()).await {
+    match add_adlist(adlist.into_inner(), cfg_mg.get_active_config(), pool.into_inner()).await {
         Ok(_) => {
             info!("Adlist succesfully added");
             Either::Right(
@@ -90,7 +90,7 @@ async fn submit_form(
     }
 }
 
-async fn add_adlist(adlist: Adlist, cfg: Arc<SingularityConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+async fn add_adlist(adlist: Adlist, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
     web::block(move || {
         let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
         cfg.add_adlist(&mut conn, &adlist)

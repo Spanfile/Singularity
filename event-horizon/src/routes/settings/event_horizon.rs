@@ -25,8 +25,8 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn event_horizon_page(cfg: web::Data<ConfigManager>, db_pool: web::Data<DbPool>) -> impl Responder {
-    let active_cfg = cfg.get_active_config().id();
+async fn event_horizon_page(cfg_mg: web::Data<ConfigManager>, db_pool: web::Data<DbPool>) -> impl Responder {
+    let active_cfg = cfg_mg.get_active_config().id();
 
     match web::block(move || {
         let mut conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;

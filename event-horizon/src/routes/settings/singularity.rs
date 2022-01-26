@@ -31,8 +31,8 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn singularity(cfg: web::Data<ConfigManager>, pool: web::Data<DbPool>) -> impl Responder {
-    match page(cfg.get_active_config(), pool.into_inner()).await {
+async fn singularity(cfg_mg: web::Data<ConfigManager>, pool: web::Data<DbPool>) -> impl Responder {
+    match page(cfg_mg.get_active_config(), pool.into_inner()).await {
         Ok((adlists, outputs, whitelist)) => template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
             adlists: &adlists,
             outputs: &outputs,
@@ -46,7 +46,7 @@ async fn singularity(cfg: web::Data<ConfigManager>, pool: web::Data<DbPool>) -> 
 }
 
 async fn page(
-    cfg: Arc<SingularityConfig>,
+    cfg: SingularityConfig,
     pool: Arc<DbPool>,
 ) -> EvhResult<(AdlistCollection, OutputCollection, WhitelistCollection)> {
     web::block(move || {

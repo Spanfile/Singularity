@@ -174,7 +174,7 @@ async fn submit_finish_form(
     import_id: web::Query<ImportId>,
     merge_form: web::Form<ImportMergeForm>,
     importer: web::Data<ConfigImporter>,
-    cfg: web::Data<ConfigManager>,
+    cfg_mg: web::Data<ConfigManager>,
     db_pool: web::Data<DbPool>,
     redis_pool: web::Data<RedisPool>,
 ) -> impl Responder {
@@ -190,7 +190,7 @@ async fn submit_finish_form(
         form.config_name,
         form.strategy,
         importer.into_inner(),
-        cfg.get_active_config(),
+        cfg_mg.get_active_config(),
         db_pool.into_inner(),
         redis_pool.into_inner(),
     )
@@ -298,7 +298,7 @@ async fn finish_import(
     config_name: String,
     strategy: ImportMergeStrategy,
     importer: Arc<ConfigImporter>,
-    cfg: Arc<SingularityConfig>,
+    cfg: SingularityConfig,
     db_pool: Arc<DbPool>,
     redis_pool: Arc<RedisPool>,
 ) -> EvhResult<()> {

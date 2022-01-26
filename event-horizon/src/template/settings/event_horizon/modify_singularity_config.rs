@@ -6,9 +6,9 @@ pub fn use_singularity_config(name: Option<&str>) -> Markup {
             ."card-header" { "Use this Singularity configuration?" }
             ."card-body" {
                 form method="POST" {
-                    input ."form-control" type="text" value=(name.unwrap_or("")) disabled readonly;
+                    input ."form-control" ."mb-3" type="text" value=(name.unwrap_or("")) disabled readonly;
 
-                    button .btn ."btn-primary" type="submit" disabled[name.is_none()] { "Use" }
+                    button .btn ."btn-primary" ."me-3" type="submit" disabled[name.is_none()] { "Use" }
                     a .btn ."btn-secondary" href="/settings/event_horizon" { "Cancel" }
                 }
             }

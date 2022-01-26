@@ -10,17 +10,16 @@ use crate::{
 };
 use diesel::prelude::*;
 use log::*;
-use std::sync::Arc;
+use std::sync::RwLock;
 
 // this is actually determined by the database
 const DEFAULT_SINGULARITY_CONFIG_ID: DbId = 1;
 const DEFAULT_SINGULARITY_CONFIG_NAME: &str = "Default configuration";
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ConfigManager {
-    // TODO: not a fan of how these two values are separated from each other
-    active_config_name: Arc<String>,
-    active_config: Arc<SingularityConfig>,
+    // TODO: keep track of the current config's name?
+    active_config: RwLock<SingularityConfig>,
 }
 
 impl ConfigManager {
@@ -89,16 +88,21 @@ impl ConfigManager {
         };
 
         Ok(Self {
-            active_config_name: Arc::new(name),
-            active_config: Arc::new(cfg),
+            active_config: RwLock::new(cfg),
         })
     }
 
-    pub fn get_active_config(&self) -> Arc<SingularityConfig> {
-        Arc::clone(&self.active_config)
+    pub fn get_active_config(&self) -> SingularityConfig {
+        *self
+            .active_config
+            .read()
+            .expect("configmanager active_config rwlock is poisoned")
     }
 
-    pub fn get_active_config_name(&self) -> &str {
-        self.active_config_name.as_str()
+    pub fn set_active_config(&self, cfg: SingularityConfig) {
+        *self
+            .active_config
+            .write()
+            .expect("configmanager active_config rwlock is poisoned") = cfg;
     }
 }

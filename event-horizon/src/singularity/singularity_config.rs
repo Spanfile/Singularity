@@ -18,7 +18,8 @@ pub type AdlistCollection = Vec<(DbId, Adlist)>;
 pub type OutputCollection = Vec<(DbId, Output)>;
 pub type WhitelistCollection = Vec<(DbId, String)>;
 
-#[derive(Debug, Default)]
+// this should be kept trivially copiable for simplicity
+#[derive(Debug, Default, Copy, Clone)]
 pub struct SingularityConfig(DbId);
 
 impl SingularityConfig {
