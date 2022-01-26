@@ -1,3 +1,5 @@
+pub(super) mod config_manager;
+
 use super::RenderedConfig;
 use crate::{
     database::{models, DbConn, DbId},

@@ -1,3 +1,4 @@
+use crate::database::DbId;
 use thiserror::Error;
 
 pub type EvhResult<T> = std::result::Result<T, EvhError>;
@@ -32,6 +33,8 @@ pub enum EvhError {
     MissingFieldFilename,
     #[error("The uploaded file was not encoded in UTF-8")]
     UploadedFileNotUtf8,
+    #[error("EVH setting has invalid value for type {0}: {1}")]
+    InvalidSetting(DbId, String),
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]

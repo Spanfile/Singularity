@@ -18,7 +18,7 @@ use crate::{
     config::{EnvConfig, EvhConfig, Listen},
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::{ConfigImporter, SingularityConfig},
+    singularity::{ConfigImporter, ConfigManager},
 };
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};
@@ -29,8 +29,6 @@ use diesel::{
 };
 use log::*;
 use std::time::Duration;
-
-const DEFAULT_SINGULARITY_CONFIG_NAME: &str = "Default configuration";
 
 #[actix_web::main]
 async fn main() -> EvhResult<()> {
@@ -50,62 +48,14 @@ async fn main() -> EvhResult<()> {
     let redis_pool = create_redis_pool(&evh_config)?;
     let mut conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
 
-    // attempt to load the config with ID 1, or if it fails because it doesn't exist, attempt to create a new config
-    let singularity_config = SingularityConfig::load(1, &mut conn).map(|(_, cfg)| cfg).or_else(|e| {
-        if let EvhError::Database(diesel::result::Error::NotFound) = e {
-            warn!("No existing Singularity config found, falling back to creating a new one");
-            SingularityConfig::new(&mut conn, DEFAULT_SINGULARITY_CONFIG_NAME)
-        } else {
-            Err(e)
-        }
-    })?;
-
-    // add some dummy data
-    // singularity_config.add_adlist(Adlist::new(
-    //     "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
-    //     AdlistFormat::Hosts,
-    // )?);
-
-    // singularity_config.add_adlist(Adlist::new(
-    //     "https://raw.githubusercontent.com/VeleSila/yhosts/master/hosts",
-    //     AdlistFormat::Hosts,
-    // )?);
-
-    // singularity_config.add_adlist(Adlist::new(
-    //     "https://github.com/notracking/hosts-blocklists/raw/master/dnsmasq/dnsmasq.blacklist.txt",
-    //     AdlistFormat::Dnsmasq,
-    // )?);
-
-    // singularity_config.add_output(
-    //     Output::builder(
-    //         OutputType::PdnsLua {
-    //             output_metric: false,
-    //             metric_name: String::from("metric"),
-    //         },
-    //         "test/path",
-    //     )
-    //     .build()
-    //     .unwrap(),
-    // );
-
-    // singularity_config.add_output(
-    //     Output::builder(
-    //         OutputType::Hosts {
-    //             include: vec!["hosts1".into(), "hosts2".into(), "hosts3".into()],
-    //         },
-    //         "test/path",
-    //     )
-    //     .build()
-    //     .unwrap(),
-    // );
+    let cfg_manager = ConfigManager::load(&mut conn)?;
+    let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
 
     let env_config = web::Data::new(env_config);
     let evh_config = web::Data::new(evh_config);
     let db_pool = web::Data::new(db_pool);
     let redis_pool = web::Data::new(redis_pool);
-    let singularity_config = web::Data::new(singularity_config);
-
-    let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
+    let cfg_manager = web::Data::new(cfg_manager);
 
     let listener = match env_config.listen {
         Listen::Http { bind } => bind,
@@ -124,7 +74,7 @@ async fn main() -> EvhResult<()> {
             .app_data(evh_config.clone())
             .app_data(db_pool.clone())
             .app_data(redis_pool.clone())
-            .app_data(singularity_config.clone())
+            .app_data(cfg_manager.clone())
             .app_data(config_importer.clone())
             .service(Files::new("/static", "static/"))
             .configure(routes::index::config)

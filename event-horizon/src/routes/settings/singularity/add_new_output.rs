@@ -1,7 +1,7 @@
 use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::SingularityConfig,
+    singularity::{ConfigManager, SingularityConfig},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
@@ -127,7 +127,7 @@ async fn add_new_lua_output_page() -> impl Responder {
 
 async fn submit_hosts_form(
     output: web::Form<OutputForm>,
-    cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     submit_form(Action::AddNewHostsOutput, output, cfg, pool).await
@@ -135,7 +135,7 @@ async fn submit_hosts_form(
 
 async fn submit_lua_form(
     output: web::Form<OutputForm>,
-    cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     submit_form(Action::AddNewLuaOutput, output, cfg, pool).await
@@ -148,12 +148,12 @@ fn add_new_output(action: Action) -> impl Responder {
 async fn submit_form(
     action: Action,
     output: web::Form<OutputForm>,
-    cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding output: {:#?}", output);
 
-    match add_output(output.into_inner(), cfg.into_inner(), pool.into_inner()).await {
+    match add_output(output.into_inner(), cfg.get_active_config(), pool.into_inner()).await {
         Ok(_) => {
             info!("Output succesfully added");
             Either::Right(

@@ -8,7 +8,7 @@ mod delete_whitelisted_domain;
 use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::{AdlistCollection, OutputCollection, SingularityConfig, WhitelistCollection},
+    singularity::{AdlistCollection, ConfigManager, OutputCollection, SingularityConfig, WhitelistCollection},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
@@ -31,8 +31,8 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn singularity(cfg: web::Data<SingularityConfig>, pool: web::Data<DbPool>) -> impl Responder {
-    match page(cfg.into_inner(), pool.into_inner()).await {
+async fn singularity(cfg: web::Data<ConfigManager>, pool: web::Data<DbPool>) -> impl Responder {
+    match page(cfg.get_active_config(), pool.into_inner()).await {
         Ok((adlists, outputs, whitelist)) => template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
             adlists: &adlists,
             outputs: &outputs,

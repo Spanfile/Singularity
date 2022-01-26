@@ -4,4 +4,6 @@ mod singularity_config;
 
 pub use config_importer::ConfigImporter;
 pub use rendered_config::RenderedConfig;
-pub use singularity_config::{AdlistCollection, OutputCollection, SingularityConfig, WhitelistCollection};
+pub use singularity_config::{
+    config_manager::ConfigManager, AdlistCollection, OutputCollection, SingularityConfig, WhitelistCollection,
+};

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     database::{DbId, DbPool},
     error::{EvhError, EvhResult},
-    singularity::SingularityConfig,
+    singularity::{ConfigManager, SingularityConfig},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
@@ -40,14 +40,14 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     let req = req.clone();
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
         let cfg = req
-            .app_data::<web::Data<SingularityConfig>>()
+            .app_data::<web::Data<ConfigManager>>()
             .expect("missing singularity config");
         let pool = req.app_data::<web::Data<DbPool>>().expect("missing DB pool");
 
         let source = web::Query::<DeleteId>::from_query(req.query_string())
             .expect("failed to extract source parameter from query");
 
-        page_blocking(source.id, cfg, pool)
+        page_blocking(source.id, &cfg.get_active_config(), pool)
             .alert(Alert::Warning(format!("Failed to delete whitelisted domain: {}", err)))
             .bad_request()
             .render()
@@ -57,23 +57,22 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
 
 async fn delete_whitelisted_domain_page(
     id: web::Query<DeleteId>,
-    cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    page(id.id, cfg.into_inner(), pool.into_inner()).await
+    page(id.id, cfg.get_active_config(), pool.into_inner()).await
 }
 
 async fn submit_form(
     id: web::Form<DeleteId>,
-    cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
-    let cfg = cfg.into_inner();
     let pool = pool.into_inner();
     let id = id.into_inner().id;
     info!("Deleting whitelisted domain: {}", id);
 
-    match delete(id, Arc::clone(&cfg), Arc::clone(&pool)).await {
+    match delete(id, cfg.get_active_config(), Arc::clone(&pool)).await {
         Ok(_) => {
             info!("Whitelisted domain succesfully deleted");
 
@@ -89,7 +88,7 @@ async fn submit_form(
                 warn!("{}", e);
 
                 Either::Right(
-                    page(id, cfg, pool)
+                    page(id, cfg.get_active_config(), pool)
                         .await
                         .alert(Alert::Warning("Whitelisted domain to delete was not found".to_string()))
                         .bad_request(),
@@ -99,7 +98,7 @@ async fn submit_form(
                 error!("Failed to delete output: {}", e);
 
                 Either::Right(
-                    page(id, cfg, pool)
+                    page(id, cfg.get_active_config(), pool)
                         .await
                         .alert(Alert::Warning(format!(
                             "Failed to delete whitelisted domain due to an internal server error: {}",

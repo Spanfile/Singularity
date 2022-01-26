@@ -1,4 +1,19 @@
 table! {
+    evh_settings (id) {
+        id -> Integer,
+        setting_type -> Integer,
+        value -> Text,
+    }
+}
+
+table! {
+    evh_settings_type_values (id) {
+        id -> Integer,
+        name -> Text,
+    }
+}
+
+table! {
     singularity_adlists (id) {
         id -> Integer,
         singularity_config_id -> Integer,
@@ -52,6 +67,7 @@ table! {
     }
 }
 
+joinable!(evh_settings -> evh_settings_type_values (setting_type));
 joinable!(singularity_adlists -> singularity_configs (singularity_config_id));
 joinable!(singularity_output_hosts_includes -> singularity_outputs (singularity_output_id));
 joinable!(singularity_output_pdns_lua -> singularity_outputs (singularity_output_id));
@@ -59,6 +75,8 @@ joinable!(singularity_outputs -> singularity_configs (singularity_config_id));
 joinable!(singularity_whitelists -> singularity_configs (singularity_config_id));
 
 allow_tables_to_appear_in_same_query!(
+    evh_settings,
+    evh_settings_type_values,
     singularity_adlists,
     singularity_configs,
     singularity_output_hosts_includes,

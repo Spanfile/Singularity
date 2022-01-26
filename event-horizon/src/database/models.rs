@@ -1,7 +1,25 @@
-use crate::error::EvhError;
-
 use super::{schema::*, DbId};
+use crate::error::EvhError;
 use singularity::{Adlist, AdlistFormat};
+
+#[derive(Identifiable, Queryable, Insertable, PartialEq, Debug)]
+pub struct EvhSetting {
+    pub id: DbId,
+    pub setting_type: DbId,
+    pub value: String,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = evh_settings)]
+pub struct NewEvhSetting<'a> {
+    pub setting_type: DbId,
+    pub value: &'a str,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum EvhSettingType {
+    ActiveSingularityConfig = 0,
+}
 
 #[derive(Identifiable, Queryable, Insertable, PartialEq, Debug)]
 pub struct SingularityConfig {

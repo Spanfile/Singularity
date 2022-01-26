@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
 use crate::{
     database::{DbPool, RedisPool},
     error::{EvhError, EvhResult},
-    singularity::{RenderedConfig, SingularityConfig},
+    singularity::{ConfigManager, RenderedConfig, SingularityConfig},
     template::{
         self,
         settings::{EventHorizonSubPage, SettingsPage},
@@ -21,6 +19,7 @@ use actix_web::{
 use futures_util::{StreamExt, TryStreamExt};
 use log::*;
 use serde::Deserialize;
+use std::sync::Arc;
 
 const DEFAULT_IMPORTED_CONFIG_NAME: &str = "Imported configuration";
 
@@ -175,7 +174,7 @@ async fn submit_finish_form(
     import_id: web::Query<ImportId>,
     merge_form: web::Form<ImportMergeForm>,
     importer: web::Data<ConfigImporter>,
-    sing_cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     db_pool: web::Data<DbPool>,
     redis_pool: web::Data<RedisPool>,
 ) -> impl Responder {
@@ -191,7 +190,7 @@ async fn submit_finish_form(
         form.config_name,
         form.strategy,
         importer.into_inner(),
-        sing_cfg.into_inner(),
+        cfg.get_active_config(),
         db_pool.into_inner(),
         redis_pool.into_inner(),
     )
@@ -299,7 +298,7 @@ async fn finish_import(
     config_name: String,
     strategy: ImportMergeStrategy,
     importer: Arc<ConfigImporter>,
-    sing_cfg: Arc<SingularityConfig>,
+    cfg: Arc<SingularityConfig>,
     db_pool: Arc<DbPool>,
     redis_pool: Arc<RedisPool>,
 ) -> EvhResult<()> {
@@ -314,8 +313,8 @@ async fn finish_import(
                 let new_config = SingularityConfig::new(&mut db_conn, config_name)?;
                 new_config.overwrite(&mut db_conn, rendered)
             }
-            ImportMergeStrategy::Merge => sing_cfg.merge(&mut db_conn, rendered),
-            ImportMergeStrategy::Overwrite => sing_cfg.overwrite(&mut db_conn, rendered),
+            ImportMergeStrategy::Merge => cfg.merge(&mut db_conn, rendered),
+            ImportMergeStrategy::Overwrite => cfg.overwrite(&mut db_conn, rendered),
             ImportMergeStrategy::Cancel => Ok(()),
         }
     })

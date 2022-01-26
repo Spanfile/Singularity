@@ -1,7 +1,7 @@
 use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::SingularityConfig,
+    singularity::{ConfigManager, SingularityConfig},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
@@ -43,12 +43,12 @@ async fn add_new_adlist() -> impl Responder {
 
 async fn submit_form(
     adlist: web::Form<Adlist>,
-    cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding new adlist: {:?}", adlist);
 
-    match add_adlist(adlist.into_inner(), cfg.into_inner(), pool.into_inner()).await {
+    match add_adlist(adlist.into_inner(), cfg.get_active_config(), pool.into_inner()).await {
         Ok(_) => {
             info!("Adlist succesfully added");
             Either::Right(

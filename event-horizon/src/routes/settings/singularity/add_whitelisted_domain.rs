@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::SingularityConfig,
+    singularity::{ConfigManager, SingularityConfig},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},
@@ -49,12 +49,12 @@ async fn add_whitelisted_domain_page() -> impl Responder {
 
 async fn submit_form(
     domain: web::Form<WhitelistedDomain>,
-    cfg: web::Data<SingularityConfig>,
+    cfg: web::Data<ConfigManager>,
     pool: web::Data<DbPool>,
 ) -> impl Responder {
     info!("Adding new whitelisted domain: {:?}", domain);
 
-    match add_domain(domain.into_inner().domain, cfg.into_inner(), pool.into_inner()).await {
+    match add_domain(domain.into_inner().domain, cfg.get_active_config(), pool.into_inner()).await {
         Ok(_) => {
             info!("Whitelisted domain succesfully added");
 
