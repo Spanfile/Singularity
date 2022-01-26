@@ -22,8 +22,8 @@ pub enum EventHorizonSubPage<'a> {
     ImportSingularityConfig,
     FinishConfigImport(Option<(&'a str, &'a str)>),
     UseSingularityConfig(Option<&'a str>),
-    RenameSingularityConfig,
-    DeleteSingularityConfig,
+    RenameSingularityConfig(Option<&'a str>),
+    DeleteSingularityConfig(Option<&'a str>),
 }
 
 pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
@@ -35,8 +35,12 @@ pub fn event_horizon(sub: EventHorizonSubPage) -> Markup {
             import_singularity_config::finish_config_import(rendered_cfg)
         }
         EventHorizonSubPage::UseSingularityConfig(name) => modify_singularity_config::use_singularity_config(name),
-        EventHorizonSubPage::RenameSingularityConfig => todo!(),
-        EventHorizonSubPage::DeleteSingularityConfig => todo!(),
+        EventHorizonSubPage::RenameSingularityConfig(name) => {
+            modify_singularity_config::rename_singularity_config(name)
+        }
+        EventHorizonSubPage::DeleteSingularityConfig(name) => {
+            modify_singularity_config::delete_singularity_config(name)
+        }
     }
 }
 

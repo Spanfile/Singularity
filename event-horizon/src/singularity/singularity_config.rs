@@ -149,6 +149,19 @@ impl SingularityConfig {
         Ok(model)
     }
 
+    pub fn delete(&self, conn: &mut DbConn) -> EvhResult<()> {
+        use crate::database::schema::singularity_configs;
+
+        diesel::delete(singularity_configs::table.filter(singularity_configs::id.eq(self.0))).execute(conn)?;
+
+        debug!("{:?} deleted", self);
+        Ok(())
+    }
+
+    pub fn get_dirty(&self, conn: &mut DbConn) -> EvhResult<bool> {
+        Ok(self.own_model(conn)?.dirty)
+    }
+
     /// Sets the dirty flag for this config.
     pub fn set_dirty(&self, conn: &mut DbConn, dirty: bool) -> EvhResult<()> {
         use crate::database::schema::singularity_configs;
@@ -158,6 +171,21 @@ impl SingularityConfig {
             .execute(conn)?;
 
         debug!("{:?} dirty: {}", self, dirty);
+        Ok(())
+    }
+
+    pub fn get_name(&self, conn: &mut DbConn) -> EvhResult<String> {
+        Ok(self.own_model(conn)?.name)
+    }
+
+    pub fn set_name(&self, conn: &mut DbConn, name: &str) -> EvhResult<()> {
+        use crate::database::schema::singularity_configs;
+
+        diesel::update(singularity_configs::table.filter(singularity_configs::id.eq(self.0)))
+            .set(singularity_configs::name.eq(name))
+            .execute(conn)?;
+
+        debug!("{:?} name: {}", self, name);
         Ok(())
     }
 
