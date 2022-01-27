@@ -132,11 +132,14 @@ async fn delete_singularity_config_page(
     Either::Left(display_page(delete_config_page, id, db_pool).await)
 }
 
+// all the different form handlers have essentially the same implementation, only what they exactly do with the config
+// differs, so use this one function to combine them
 async fn form_action<FForm, FPage>(id: DbId, db_pool: web::Data<DbPool>, page: FPage, action: FForm) -> impl Responder
 where
     FForm: FnOnce(&mut DbConn, SingularityConfig) -> EvhResult<()> + Send + 'static,
     FPage: Fn(Option<&str>) -> ResponseBuilder<'static>,
 {
+    // actix_web::Data is internally just an Arc to its data so it's fine to clone them
     let pool = db_pool.clone();
     match web::block(move || {
         // stupid hack: the name of the config may be required in the error handler to display the page properly, so
@@ -251,6 +254,7 @@ async fn submit_delete_form(
     Either::Left(form_action(id, db_pool, delete_config_page, move |conn, cfg| cfg.delete(conn)).await)
 }
 
+// this is meant to be used in conjunction with the page template renderer functions below
 async fn display_page<F>(page_fn: F, id: DbId, db_pool: web::Data<DbPool>) -> impl Responder
 where
     F: Fn(Option<&str>) -> ResponseBuilder<'static>,

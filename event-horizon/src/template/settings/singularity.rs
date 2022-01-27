@@ -9,6 +9,7 @@ use singularity::{Adlist, Output};
 #[derive(PartialEq, Eq)]
 pub enum SingularitySubPage<'a> {
     Main {
+        cfg_name: &'a str,
         adlists: &'a [(DbId, Adlist)],
         outputs: &'a [(DbId, Output)],
         whitelist: &'a [(DbId, String)],
@@ -25,10 +26,11 @@ pub enum SingularitySubPage<'a> {
 pub fn singularity(sub_page: SingularitySubPage) -> Markup {
     match sub_page {
         SingularitySubPage::Main {
+            cfg_name,
             adlists,
             outputs,
             whitelist,
-        } => main(adlists, outputs, whitelist),
+        } => main(cfg_name, adlists, outputs, whitelist),
         SingularitySubPage::AddNewAdlist => adlists::add_new_adlist(),
         SingularitySubPage::DeleteAdlist(id, adlist) => adlists::delete_adlist(id, adlist),
         SingularitySubPage::AddNewHostsOutput => outputs::add_new_hosts_output(),
@@ -39,8 +41,26 @@ pub fn singularity(sub_page: SingularitySubPage) -> Markup {
     }
 }
 
-fn main(adlists: &[(DbId, Adlist)], outputs: &[(DbId, Output)], whitelist: &[(DbId, String)]) -> Markup {
+fn main(
+    cfg_name: &str,
+    adlists: &[(DbId, Adlist)],
+    outputs: &[(DbId, Output)],
+    whitelist: &[(DbId, String)],
+) -> Markup {
     html! {
+        .row {
+            label ."col-auto" ."col-form-label" for="configName" { "Current active Singularity configuration:" }
+            ."col-auto" {
+                input ."form-control-plaintext" #configName type="text" value=(cfg_name) readonly;
+            }
+        }
+
+        p {
+            "You may change the active configuration in the "
+            a href="/settings/event_horizon" { "Event Horizon settings. " }
+            "Only one configuration may be active at one time."
+        }
+
         (adlists::adlists_card(adlists))
         (outputs::outputs_card(outputs))
         (whitelist::whitelist_card(whitelist))

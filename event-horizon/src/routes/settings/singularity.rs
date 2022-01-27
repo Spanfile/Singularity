@@ -1,3 +1,5 @@
+// TODO: all of these routes are more-or-less identical, but sorta complex, so it'd be nice to refactor them into one
+// common implementation
 mod add_new_adlist;
 mod add_new_output;
 mod add_whitelisted_domain;
@@ -33,11 +35,14 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 
 async fn singularity(cfg_mg: web::Data<ConfigManager>, pool: web::Data<DbPool>) -> impl Responder {
     match page(cfg_mg.get_active_config(), pool.into_inner()).await {
-        Ok((adlists, outputs, whitelist)) => template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
-            adlists: &adlists,
-            outputs: &outputs,
-            whitelist: &whitelist,
-        })),
+        Ok((name, adlists, outputs, whitelist)) => {
+            template::settings(SettingsPage::Singularity(SingularitySubPage::Main {
+                cfg_name: &name,
+                adlists: &adlists,
+                outputs: &outputs,
+                whitelist: &whitelist,
+            }))
+        }
         Err(e) => {
             error!("Failed to get main page: {}", e);
             todo!()
@@ -48,15 +53,16 @@ async fn singularity(cfg_mg: web::Data<ConfigManager>, pool: web::Data<DbPool>) 
 async fn page(
     cfg: SingularityConfig,
     pool: Arc<DbPool>,
-) -> EvhResult<(AdlistCollection, OutputCollection, WhitelistCollection)> {
+) -> EvhResult<(String, AdlistCollection, OutputCollection, WhitelistCollection)> {
     web::block(move || {
         let mut conn = pool.get()?;
 
+        let name = cfg.get_name(&mut conn)?;
         let adlists = cfg.adlists(&mut conn)?;
         let outputs = cfg.outputs(&mut conn)?;
         let whitelist = cfg.whitelist(&mut conn)?;
 
-        Ok((adlists, outputs, whitelist))
+        Ok((name, adlists, outputs, whitelist))
     })
     .await
     .unwrap()
