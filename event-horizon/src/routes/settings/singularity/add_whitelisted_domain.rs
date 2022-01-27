@@ -102,7 +102,7 @@ async fn submit_form(
 
 async fn add_domain(domain: String, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
     web::block(move || {
-        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut conn = pool.get()?;
         cfg.add_whitelisted_domain(&mut conn, &domain)
     })
     .await

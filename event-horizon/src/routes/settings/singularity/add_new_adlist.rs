@@ -92,7 +92,7 @@ async fn submit_form(
 
 async fn add_adlist(adlist: Adlist, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
     web::block(move || {
-        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut conn = pool.get()?;
         cfg.add_adlist(&mut conn, &adlist)
     })
     .await

@@ -303,7 +303,7 @@ async fn finish_import(
     redis_pool: Arc<RedisPool>,
 ) -> EvhResult<()> {
     web::block(move || {
-        let mut db_conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut db_conn = db_pool.get()?;
         let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
         let rendered = importer.remove_blocking(&id, &mut *redis_conn)?;
         debug!("Using rendered config {}: {:#?}", id, rendered);

@@ -7,7 +7,7 @@ mod delete_whitelisted_domain;
 
 use crate::{
     database::DbPool,
-    error::{EvhError, EvhResult},
+    error::EvhResult,
     singularity::{AdlistCollection, ConfigManager, OutputCollection, SingularityConfig, WhitelistCollection},
     template::{
         self,
@@ -50,7 +50,7 @@ async fn page(
     pool: Arc<DbPool>,
 ) -> EvhResult<(AdlistCollection, OutputCollection, WhitelistCollection)> {
     web::block(move || {
-        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut conn = pool.get()?;
 
         let adlists = cfg.adlists(&mut conn)?;
         let outputs = cfg.outputs(&mut conn)?;

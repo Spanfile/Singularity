@@ -198,7 +198,7 @@ async fn submit_form(
 
 async fn add_output(form: OutputForm, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
     web::block(move || {
-        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut conn = pool.get()?;
 
         form.try_into_output()
             .and_then(|output| cfg.add_output(&mut conn, &output))

@@ -46,7 +46,7 @@ async fn main() -> EvhResult<()> {
 
     let db_pool = create_db_pool(&evh_config)?;
     let redis_pool = create_redis_pool(&evh_config)?;
-    let mut conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+    let mut conn = db_pool.get()?;
 
     let cfg_manager = ConfigManager::load(&mut conn)?;
     let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
@@ -97,7 +97,7 @@ fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
         .map_err(EvhError::DatabasePoolInitialisationFailed)?;
 
     debug!("{:#?}", pool);
-    Ok(pool)
+    Ok(DbPool::new(pool))
 }
 
 fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<RedisPool> {

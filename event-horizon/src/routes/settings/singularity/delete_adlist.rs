@@ -112,7 +112,7 @@ async fn submit_form(
 
 async fn delete(id: DbId, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
     web::block(move || {
-        let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut conn = pool.get()?;
         cfg.delete_adlist(&mut conn, id)
     })
     .await
@@ -122,7 +122,7 @@ async fn delete(id: DbId, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResul
 }
 
 fn page_blocking<'a>(id: DbId, cfg: SingularityConfig, pool: &DbPool) -> ResponseBuilder<'a> {
-    let mut conn = pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed).unwrap();
+    let mut conn = pool.get().unwrap();
     let adlist = cfg.get_adlist(&mut conn, id).expect("failed to get adlist");
     template::settings(SettingsPage::Singularity(SingularitySubPage::DeleteAdlist(id, &adlist)))
 }

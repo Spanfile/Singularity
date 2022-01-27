@@ -4,7 +4,6 @@ mod modify_singularity_config;
 
 use crate::{
     database::DbPool,
-    error::EvhError,
     singularity::{ConfigManager, SingularityConfig},
     template::{
         self,
@@ -29,7 +28,7 @@ async fn event_horizon_page(cfg_mg: web::Data<ConfigManager>, db_pool: web::Data
     let active_cfg = cfg_mg.get_active_config().id();
 
     match web::block(move || {
-        let mut conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut conn = db_pool.get()?;
         SingularityConfig::load_all(&mut conn)
     })
     .await

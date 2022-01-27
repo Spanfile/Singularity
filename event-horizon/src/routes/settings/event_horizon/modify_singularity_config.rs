@@ -143,9 +143,7 @@ where
         // slap it in here with the error type if it's been loaded. guess this is one of those moments it's good Result
         // doesn't enforce its error type being Error huh?
 
-        let mut conn = pool
-            .get()
-            .map_err(|e| (None, EvhError::DatabaseConnectionAcquireFailed(e)))?;
+        let mut conn = pool.get().map_err(|e| (None, e))?;
         let (name, cfg) = SingularityConfig::load(id, &mut conn).map_err(|e| (None, e))?;
 
         (action)(&mut conn, cfg).map_err(|e| (Some(name), e))
@@ -258,7 +256,7 @@ where
     F: Fn(Option<&str>) -> ResponseBuilder<'static>,
 {
     match web::block(move || {
-        let mut conn = db_pool.get().map_err(EvhError::DatabaseConnectionAcquireFailed)?;
+        let mut conn = db_pool.get()?;
         SingularityConfig::load(id, &mut conn)
     })
     .await
