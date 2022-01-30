@@ -3,15 +3,6 @@ use maud::{html, Markup};
 
 pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>, active_cfg: DbId) -> Markup {
     html! {
-        // TODO: add settings for:
-        // - timing
-
-        (config_selection_card(cfgs, active_cfg))
-    }
-}
-
-fn config_selection_card(cfgs: Option<&[(String, SingularityConfig)]>, active_cfg: DbId) -> Markup {
-    html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Available Singularity configurations" }
             ."card-body" {

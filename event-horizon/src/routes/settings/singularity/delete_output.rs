@@ -122,6 +122,7 @@ async fn delete(id: DbId, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResul
 }
 
 fn page_blocking<'a>(id: DbId, cfg: SingularityConfig, pool: &DbPool) -> ResponseBuilder<'a> {
+    // TODO: these unwraps and expects panic everything if the user queries for an output that doesn't exist
     let mut conn = pool.get().unwrap();
     let (output, _) = cfg.get_output(&mut conn, id).expect("failed to get output");
 
