@@ -1,8 +1,4 @@
-// TODO: all of these routes are more-or-less identical, but sorta complex, so it'd be nice to refactor them into one
-// common implementation
-mod add_new_adlist;
-mod add_new_output;
-mod add_whitelisted_domain;
+mod add_item;
 mod delete_item;
 mod set_timing;
 
@@ -24,12 +20,13 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/singularity")
             .route("", web::get().to(singularity))
-            .configure(add_new_adlist::config)
+            // .configure(add_new_adlist::config)
             // .configure(delete_adlist::config)
-            .configure(add_new_output::config)
+            // .configure(add_new_output::config)
             // .configure(delete_output::config)
-            .configure(add_whitelisted_domain::config)
+            //.configure(add_whitelisted_domain::config)
             // .configure(delete_whitelisted_domain::config)
+            .configure(add_item::config)
             .configure(delete_item::config)
             .configure(set_timing::config),
     );

@@ -107,6 +107,8 @@ async fn delete_output_page(
     cfg_mg: web::Data<ConfigManager>,
     db_pool: web::Data<DbPool>,
 ) -> impl Responder {
+    // TODO: safeguard against attempting to delete a builtin output
+
     let id = id_query.id;
     display_page(
         id,
@@ -124,6 +126,7 @@ async fn delete_whitelisted_domain_page(
     db_pool: web::Data<DbPool>,
 ) -> impl Responder {
     let id = id_query.id;
+
     display_page(
         id,
         db_pool.into_inner(),
