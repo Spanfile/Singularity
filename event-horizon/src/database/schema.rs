@@ -28,6 +28,8 @@ table! {
         name -> Text,
         dirty -> Bool,
         http_timeout -> Integer,
+        timing -> Text,
+        last_run -> Nullable<Text>,
     }
 }
 

@@ -41,6 +41,8 @@ pub enum EvhError {
     EmptyConfigName,
     #[error("The provided name is already set for some other configuration")]
     DuplicateConfigName,
+    #[error("Invalid Cron schedule: {0}")]
+    InvalidCronSchedule(cron_clock::error::Error),
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]
@@ -51,6 +53,8 @@ pub enum EvhError {
     Database(#[from] diesel::result::Error),
     #[error("Redis returned error: {0}")]
     Redis(#[from] redis::RedisError),
+    #[error("Failed to parse datetime: {0}")]
+    DateTime(#[from] chrono::format::ParseError),
 
     // transparent errors
     #[error(transparent)]

@@ -2,7 +2,10 @@ mod event_horizon;
 mod recursor;
 mod singularity;
 
-pub use self::{event_horizon::EventHorizonSubPage, singularity::SingularitySubPage};
+pub use self::{
+    event_horizon::EventHorizonSubPage,
+    singularity::{SingularityMainPageInformation, SingularitySubPage},
+};
 
 use super::ResponseBuilder;
 use maud::html;

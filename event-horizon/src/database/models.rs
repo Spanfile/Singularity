@@ -27,6 +27,8 @@ pub struct SingularityConfig {
     pub name: String,
     pub dirty: bool,
     pub http_timeout: i32,
+    pub timing: String,
+    pub last_run: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -35,6 +37,8 @@ pub struct NewSingularityConfig<'a> {
     pub name: &'a str,
     pub dirty: bool,
     pub http_timeout: i32,
+    pub timing: &'a str,
+    pub last_run: Option<&'a str>,
 }
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]

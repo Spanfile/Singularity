@@ -48,6 +48,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
+// TODO: these error handlers can probably be refactored into one common implementation
 fn use_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Error {
     warn!("Use Singularity config POST failed: {}", err);
     warn!("{:?}", req);

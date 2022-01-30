@@ -1,19 +1,19 @@
 mod adlists;
 mod outputs;
+mod run_and_timing;
 mod whitelist;
 
-use crate::database::DbId;
+use crate::{
+    database::DbId,
+    singularity::{AdlistCollection, OutputCollection, WhitelistCollection},
+};
+use chrono::{DateTime, Local};
 use maud::{html, Markup};
 use singularity::{Adlist, Output};
 
 #[derive(PartialEq, Eq)]
 pub enum SingularitySubPage<'a> {
-    Main {
-        cfg_name: &'a str,
-        adlists: &'a [(DbId, Adlist)],
-        outputs: &'a [(DbId, Output)],
-        whitelist: &'a [(DbId, String)],
-    },
+    Main(SingularityMainPageInformation),
     AddNewAdlist,
     DeleteAdlist(DbId, &'a Adlist),
     AddNewHostsOutput,
@@ -23,14 +23,20 @@ pub enum SingularitySubPage<'a> {
     DeleteWhitelistedDomain(DbId, &'a str),
 }
 
+#[derive(PartialEq, Eq)]
+pub struct SingularityMainPageInformation {
+    pub cfg_name: String,
+    pub last_run: Option<DateTime<Local>>,
+    pub next_run: DateTime<Local>,
+    pub timing: String,
+    pub adlists: AdlistCollection,
+    pub outputs: OutputCollection,
+    pub whitelist: WhitelistCollection,
+}
+
 pub fn singularity(sub_page: SingularitySubPage) -> Markup {
     match sub_page {
-        SingularitySubPage::Main {
-            cfg_name,
-            adlists,
-            outputs,
-            whitelist,
-        } => main(cfg_name, adlists, outputs, whitelist),
+        SingularitySubPage::Main(info) => main(info),
         SingularitySubPage::AddNewAdlist => adlists::add_new_adlist(),
         SingularitySubPage::DeleteAdlist(id, adlist) => adlists::delete_adlist(id, adlist),
         SingularitySubPage::AddNewHostsOutput => outputs::add_new_hosts_output(),
@@ -41,17 +47,12 @@ pub fn singularity(sub_page: SingularitySubPage) -> Markup {
     }
 }
 
-fn main(
-    cfg_name: &str,
-    adlists: &[(DbId, Adlist)],
-    outputs: &[(DbId, Output)],
-    whitelist: &[(DbId, String)],
-) -> Markup {
+fn main(info: SingularityMainPageInformation) -> Markup {
     html! {
         .row {
             label ."col-auto" ."col-form-label" for="configName" { "Current active Singularity configuration:" }
             ."col-auto" {
-                input ."form-control-plaintext" #configName type="text" value=(cfg_name) readonly;
+                input ."form-control-plaintext" #configName type="text" value=(info.cfg_name) readonly;
             }
         }
 
@@ -61,8 +62,9 @@ fn main(
             "Only one configuration may be active at one time."
         }
 
-        (adlists::adlists_card(adlists))
-        (outputs::outputs_card(outputs))
-        (whitelist::whitelist_card(whitelist))
+        (run_and_timing::run_and_timing_card(info.last_run, info.next_run, &info.timing))
+        (adlists::adlists_card(&info.adlists))
+        (outputs::outputs_card(&info.outputs))
+        (whitelist::whitelist_card(&info.whitelist))
     }
 }

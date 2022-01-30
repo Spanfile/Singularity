@@ -5,6 +5,7 @@ use crate::{
     database::{models, DbConn, DbId},
     error::{EvhError, EvhResult},
 };
+use chrono::{DateTime, Local};
 use diesel::prelude::*;
 use log::*;
 use singularity::{Adlist, Output, OutputType, HTTP_CONNECT_TIMEOUT};
@@ -17,6 +18,8 @@ use std::{
 pub type AdlistCollection = Vec<(DbId, Adlist)>;
 pub type OutputCollection = Vec<(DbId, Output)>;
 pub type WhitelistCollection = Vec<(DbId, String)>;
+
+pub const DEFAULT_RUN_TIMING: &str = "0 0 * * * ";
 
 // this should be kept trivially copiable for simplicity
 #[derive(Debug, Default, Copy, Clone)]
@@ -34,6 +37,8 @@ impl SingularityConfig {
                 dirty: false,
                 http_timeout: HTTP_CONNECT_TIMEOUT as i32,
                 name: name.as_ref(),
+                timing: DEFAULT_RUN_TIMING,
+                last_run: None,
             })
             .get_result::<models::SingularityConfig>(conn)?;
 
@@ -156,7 +161,6 @@ impl SingularityConfig {
             .filter(singularity_configs::id.eq(self.0))
             .first::<models::SingularityConfig>(conn)?;
 
-        debug!("{:?}: {:?}", self, model);
         Ok(model)
     }
 
@@ -197,6 +201,36 @@ impl SingularityConfig {
             .execute(conn)?;
 
         debug!("{:?} name: {}", self, name);
+        Ok(())
+    }
+
+    pub fn get_timing(&self, conn: &mut DbConn) -> EvhResult<String> {
+        Ok(self.own_model(conn)?.timing)
+    }
+
+    pub fn set_timing(&self, conn: &mut DbConn, timing: &str) -> EvhResult<()> {
+        use crate::database::schema::singularity_configs;
+
+        diesel::update(singularity_configs::table.filter(singularity_configs::id.eq(self.0)))
+            .set(singularity_configs::timing.eq(timing))
+            .execute(conn)?;
+
+        debug!("{:?} timing: {}", self, timing);
+        self.set_dirty(conn, true)
+    }
+
+    pub fn get_last_run(&self, conn: &mut DbConn) -> EvhResult<Option<DateTime<Local>>> {
+        Ok(self.own_model(conn)?.last_run.map(|time| time.parse()).transpose()?)
+    }
+
+    pub fn set_last_run(&self, conn: &mut DbConn, last_run: DateTime<Local>) -> EvhResult<()> {
+        use crate::database::schema::singularity_configs;
+
+        diesel::update(singularity_configs::table.filter(singularity_configs::id.eq(self.0)))
+            .set(singularity_configs::last_run.eq(last_run.to_string()))
+            .execute(conn)?;
+
+        debug!("{:?} last run: {}", self, last_run);
         Ok(())
     }
 
