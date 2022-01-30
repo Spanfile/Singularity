@@ -57,9 +57,9 @@ impl Output {
 
     pub fn write_primer(&mut self) -> anyhow::Result<()> {
         match self.ty {
-            OutputType::Hosts(_) => writeln!(&mut self.destination, "# {}", get_generated_at_comment())?,
+            OutputType::Hosts(_) => writeln!(self.destination, "# {}", get_generated_at_comment())?,
             OutputType::PdnsLua { .. } => write!(
-                &mut self.destination,
+                self.destination,
                 "-- {}\n{}",
                 get_generated_at_comment(),
                 PDNS_LUA_PRIMER
@@ -77,10 +77,10 @@ impl Output {
             self.seen.insert(host.to_string());
         }
         match self.ty {
-            OutputType::Hosts(_) => writeln!(&mut self.destination, "{} {}", self.blackhole_address, host)?,
+            OutputType::Hosts(_) => writeln!(self.destination, "{} {}", self.blackhole_address, host)?,
             OutputType::PdnsLua { .. } => {
                 let host = host.split_once('#').map(|(left, _)| left).unwrap_or(host).trim_end();
-                write!(&mut self.destination, r#""{}","#, host)?
+                write!(self.destination, r#""{}","#, host)?
             }
         }
 
@@ -92,7 +92,7 @@ impl Output {
             OutputType::Hosts(include) => {
                 for path in &include {
                     let mut include_file = File::open(path)?;
-                    writeln!(&mut self.destination, "\n# hosts included from {}\n", path.display())?;
+                    writeln!(self.destination, "\n# hosts included from {}\n", path.display())?;
                     io::copy(&mut include_file, &mut self.destination)?;
                 }
             }
@@ -100,10 +100,7 @@ impl Output {
                 output_metric,
                 metric_name,
             } => {
-                write!(
-                    &mut self.destination,
-                    "}} function preresolve(q) if b:check(q.qname) then "
-                )?;
+                write!(self.destination, "}} function preresolve(q) if b:check(q.qname) then ")?;
 
                 let record = match self.blackhole_address {
                     IpAddr::V4(_) => "A",
@@ -111,17 +108,17 @@ impl Output {
                 };
 
                 write!(
-                    &mut self.destination,
+                    self.destination,
                     "if q.qtype==pdns.{record} then q:addAnswer(pdns.{record},\"{addr}\") ",
                     record = record,
                     addr = self.blackhole_address
                 )?;
 
                 if output_metric {
-                    write!(&mut self.destination, "m=getMetric(\"{}\") m:inc() ", metric_name)?;
+                    write!(self.destination, "m=getMetric(\"{}\") m:inc() ", metric_name)?;
                 }
 
-                writeln!(&mut self.destination, "return true end end return false end")?;
+                writeln!(self.destination, "return true end end return false end")?;
             }
         }
 
