@@ -109,10 +109,10 @@ fn form_error_handler(action: Action, err: UrlencodedError, req: &HttpRequest) -
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        page(action)
+        Ok(page(action)
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
-            .render()
+            .render())
     })
     .into()
 }
@@ -204,7 +204,7 @@ async fn add_output(form: OutputForm, cfg: SingularityConfig, pool: Arc<DbPool>)
             .and_then(|output| cfg.add_output(&mut conn, &output))
     })
     .await
-    .unwrap()?;
+    .expect("failed to spawn task in blocking thread pool")?;
 
     Ok(())
 }

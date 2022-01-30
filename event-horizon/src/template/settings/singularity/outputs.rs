@@ -25,7 +25,7 @@ pub fn outputs_card(outputs: &[(DbId, Output, bool)]) -> Markup {
 
                 ."list-group" ."mt-3" {
                     @for (id, output, builtin) in outputs {
-                        (single_output_card(*id, output, *builtin))
+                        (single_output_card(*id, output, *builtin, true))
                     }
                 }
             }
@@ -76,19 +76,21 @@ pub fn add_new_lua_output() -> Markup {
     }
 }
 
-pub fn delete_output(id: DbId, output: &Output) -> Markup {
+pub fn delete_output(id_output: Option<(DbId, &Output)>) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Delete Output" }
             ."card-body" {
                 p ."card-text" { "Are you sure you want to delete this output? The operation is irreversible!" }
                 p ."card-text" {
-                    (single_output_card(id, output, false))
+                    @if let Some((id, output)) = id_output {
+                        (single_output_card(id, output, false, false))
+                    }
                 }
 
                 form method="POST" {
-                    input name="id" value=(id) type="hidden";
-                    button .btn ."btn-danger" ."me-3" type="submit" { "Delete" }
+                    input name="id" value=(id_output.map(|a| a.0).unwrap_or(-1)) type="hidden";
+                    button .btn ."btn-danger" ."me-3" type="submit" disabled[id_output.is_none()] { "Delete" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }
@@ -96,7 +98,7 @@ pub fn delete_output(id: DbId, output: &Output) -> Markup {
     }
 }
 
-fn single_output_card(id: DbId, output: &Output, builtin: bool) -> Markup {
+fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."container-fluid" {
@@ -109,13 +111,15 @@ fn single_output_card(id: DbId, output: &Output, builtin: bool) -> Markup {
                         (output.ty()) " - " (output.destination().display())
                     }
 
-                    ."col-auto" {
-                        a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={
-                            "/settings/singularity/edit_output?id=" (id)
-                        } { "Edit" }
+                    @if controls {
+                        ."col-auto" {
+                            a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={
+                                "/settings/singularity/edit_output?id=" (id)
+                            } { "Edit" }
+                        }
                     }
 
-                    @if !builtin {
+                    @if !builtin && controls {
                         ."col-auto" {
                             a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } {
                                 "Delete"

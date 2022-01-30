@@ -56,7 +56,7 @@ pub fn add_new_whitelisted_domain() -> Markup {
     }
 }
 
-pub fn delete_whitelisted_domain(id: DbId, domain: &str) -> Markup {
+pub fn delete_whitelisted_domain(id_domain: Option<(DbId, &str)>) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Delete whitelisted domain" }
@@ -65,12 +65,14 @@ pub fn delete_whitelisted_domain(id: DbId, domain: &str) -> Markup {
                     "Are you sure you want to delete this whitelisted domain? The operation is irreversible!"
                 }
                 p ."card-text" {
-                    (domain)
+                    @if let Some((_, domain)) = id_domain {
+                        (domain)
+                    }
                 }
 
                 form method="POST" {
-                    input name="id" value=(id) type="hidden";
-                    button .btn ."btn-danger" ."me-3" type="submit" { "Delete" }
+                    input name="id" value=(id_domain.map(|a| a.0).unwrap_or(-1)) type="hidden";
+                    button .btn ."btn-danger" ."me-3" type="submit" disabled[id_domain.is_none()] { "Delete" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }

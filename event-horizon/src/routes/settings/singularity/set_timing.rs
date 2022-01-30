@@ -33,9 +33,9 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        HttpResponse::build(StatusCode::SEE_OTHER)
+        Ok(HttpResponse::build(StatusCode::SEE_OTHER)
             .append_header((header::LOCATION, "/settings/singularity"))
-            .finish()
+            .finish())
     })
     .into()
 }
@@ -84,5 +84,5 @@ async fn do_set_schedule(timing: TimingForm, cfg: SingularityConfig, pool: Arc<D
         cfg.set_timing(&mut conn, &timing.expression)
     })
     .await
-    .unwrap()
+    .expect("failed to spawn task in blocking thread pool")
 }

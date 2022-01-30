@@ -3,9 +3,7 @@
 mod add_new_adlist;
 mod add_new_output;
 mod add_whitelisted_domain;
-mod delete_adlist;
-mod delete_output;
-mod delete_whitelisted_domain;
+mod delete_item;
 mod set_timing;
 
 use crate::{
@@ -27,11 +25,12 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         web::scope("/singularity")
             .route("", web::get().to(singularity))
             .configure(add_new_adlist::config)
-            .configure(delete_adlist::config)
+            // .configure(delete_adlist::config)
             .configure(add_new_output::config)
-            .configure(delete_output::config)
+            // .configure(delete_output::config)
             .configure(add_whitelisted_domain::config)
-            .configure(delete_whitelisted_domain::config)
+            // .configure(delete_whitelisted_domain::config)
+            .configure(delete_item::config)
             .configure(set_timing::config),
     );
 }
@@ -71,5 +70,5 @@ async fn page(cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<Singularit
         })
     })
     .await
-    .unwrap()
+    .expect("failed to spawn task in blocking thread pool")
 }

@@ -58,7 +58,7 @@ impl ConfigManager {
                 );
 
                 let (_, cfg) = SingularityConfig::load(DEFAULT_SINGULARITY_CONFIG_ID, conn).or_else(|e| {
-                    if let EvhError::NoSuchConfig(_) = e {
+                    if let EvhError::NoSuchConfigItem(_) = e {
                         // if all else fails create a new config with the default name
                         warn!("No existing Singularity config found, falling back to creating a new one");
 

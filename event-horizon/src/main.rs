@@ -115,5 +115,5 @@ fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<RedisPool> {
     let pool = r2d2::Pool::builder()
         .build(client)
         .map_err(EvhError::RedisPoolInitialisationFailed)?;
-    Ok(pool)
+    Ok(RedisPool::new(pool))
 }

@@ -54,7 +54,7 @@ impl SingularityConfig {
             .filter(singularity_configs::id.eq(id))
             .first::<models::SingularityConfig>(conn)
             .optional()?
-            .ok_or(EvhError::NoSuchConfig(id))?;
+            .ok_or(EvhError::NoSuchConfigItem(id))?;
 
         debug!("Singularity config {}: {:?}", id, cfg);
         Ok((cfg.name, Self(cfg.id)))
@@ -258,7 +258,9 @@ impl SingularityConfig {
     pub fn delete_adlist(&self, conn: &mut DbConn, id: DbId) -> EvhResult<()> {
         use crate::database::schema::singularity_adlists;
 
-        let rows = diesel::delete(singularity_adlists::table.filter(singularity_adlists::id.eq(id))).execute(conn)?;
+        let rows = diesel::delete(singularity_adlists::table.filter(singularity_adlists::id.eq(id)))
+            .execute(conn)
+            .map_err(map_not_found_to_evh_error(id))?;
         debug!("Delete adlist {}: {} rows deleted", id, rows);
 
         self.set_dirty(conn, true)
@@ -269,7 +271,8 @@ impl SingularityConfig {
 
         let adlist = singularity_adlists::table
             .filter(singularity_adlists::id.eq(id))
-            .first::<models::SingularityAdlist>(conn)?
+            .first::<models::SingularityAdlist>(conn)
+            .map_err(map_not_found_to_evh_error(id))?
             .try_into()?;
 
         debug!("Adlist {}: {:#?}", id, adlist);
@@ -396,7 +399,9 @@ impl SingularityConfig {
         use crate::database::schema::singularity_outputs;
 
         // TODO: so uhh the ON DELETE CASCADE in the pdns lua table isn't working?
-        let rows = diesel::delete(singularity_outputs::table.filter(singularity_outputs::id.eq(id))).execute(conn)?;
+        let rows = diesel::delete(singularity_outputs::table.filter(singularity_outputs::id.eq(id)))
+            .execute(conn)
+            .map_err(map_not_found_to_evh_error(id))?;
         debug!("Delete output {}: {} rows deleted", id, rows);
 
         self.set_dirty(conn, true)
@@ -407,7 +412,8 @@ impl SingularityConfig {
 
         let output = singularity_outputs::table
             .filter(singularity_outputs::id.eq(id))
-            .first::<models::SingularityOutput>(conn)?;
+            .first::<models::SingularityOutput>(conn)
+            .map_err(map_not_found_to_evh_error(id))?;
         let builtin = output.builtin;
         let output = self.output_from_model(conn, output)?;
 
@@ -487,8 +493,9 @@ impl SingularityConfig {
     pub fn delete_whitelisted_domain(&self, conn: &mut DbConn, id: DbId) -> EvhResult<()> {
         use crate::database::schema::singularity_whitelists;
 
-        let rows =
-            diesel::delete(singularity_whitelists::table.filter(singularity_whitelists::id.eq(id))).execute(conn)?;
+        let rows = diesel::delete(singularity_whitelists::table.filter(singularity_whitelists::id.eq(id)))
+            .execute(conn)
+            .map_err(map_not_found_to_evh_error(id))?;
         debug!("Delete whitelist {}: {} rows deleted", id, rows);
 
         self.set_dirty(conn, true)
@@ -499,7 +506,8 @@ impl SingularityConfig {
 
         let whitelist = singularity_whitelists::table
             .filter(singularity_whitelists::id.eq(id))
-            .first::<models::SingularityWhitelist>(conn)?;
+            .first::<models::SingularityWhitelist>(conn)
+            .map_err(map_not_found_to_evh_error(id))?;
 
         debug!("Whitelist {}: {:#?}", id, whitelist);
         Ok(whitelist.domain)
@@ -515,5 +523,12 @@ impl SingularityConfig {
 
         debug!("Whitelist in {}: {}", self.0, whitelist.len());
         Ok(whitelist)
+    }
+}
+
+fn map_not_found_to_evh_error(id: DbId) -> impl FnOnce(diesel::result::Error) -> EvhError {
+    move |e| match e {
+        diesel::result::Error::NotFound => EvhError::NoSuchConfigItem(id),
+        e => e.into(),
     }
 }

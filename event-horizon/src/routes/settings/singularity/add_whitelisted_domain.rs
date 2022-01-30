@@ -38,7 +38,7 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        page().alert(Alert::Warning(err.to_string())).bad_request().render()
+        Ok(page().alert(Alert::Warning(err.to_string())).bad_request().render())
     })
     .into()
 }
@@ -106,7 +106,7 @@ async fn add_domain(domain: String, cfg: SingularityConfig, pool: Arc<DbPool>) -
         cfg.add_whitelisted_domain(&mut conn, &domain)
     })
     .await
-    .unwrap()?;
+    .expect("failed to spawn task in blocking thread pool")?;
 
     Ok(())
 }

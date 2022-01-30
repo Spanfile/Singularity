@@ -2,6 +2,7 @@ pub mod request_callback_error;
 pub mod round_duration;
 
 use crate::error::{EvhError, EvhResult};
+use actix_web::HttpResponse;
 use chrono::{DateTime, Local};
 use cron_clock::Schedule;
 
@@ -22,4 +23,14 @@ pub fn next_cron_run(expression: &str) -> EvhResult<DateTime<Local>> {
         .expect("no upcoming datetimes in schedule");
 
     Ok(next)
+}
+
+pub fn internal_server_error_response<D>(message: D) -> HttpResponse
+where
+    D: std::fmt::Display,
+{
+    HttpResponse::InternalServerError().body(format!(
+        "An internal server error occurred: {}\nPlease see the server logs for more information.",
+        message
+    ))
 }

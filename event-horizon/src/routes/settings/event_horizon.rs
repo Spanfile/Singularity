@@ -32,7 +32,7 @@ async fn event_horizon_page(cfg_mg: web::Data<ConfigManager>, db_pool: web::Data
         SingularityConfig::load_all(&mut conn)
     })
     .await
-    .unwrap()
+    .expect("failed to spawn task in blocking thread pool")
     {
         Ok(cfgs) => template::settings(SettingsPage::EventHorizon(EventHorizonSubPage::Main {
             cfgs: Some(&cfgs),

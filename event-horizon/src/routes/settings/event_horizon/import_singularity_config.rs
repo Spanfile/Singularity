@@ -67,10 +67,10 @@ fn import_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        import_page()
+        Ok(import_page()
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
-            .render()
+            .render())
     })
     .into()
 }
@@ -83,21 +83,19 @@ fn finish_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
         let importer = req
             .app_data::<web::Data<ConfigImporter>>()
-            .expect("missing config importer");
-        let redis_pool = req.app_data::<web::Data<RedisPool>>().expect("missing redis pool");
-        let mut redis_conn = redis_pool.get().expect("failed to get redis connection");
+            .ok_or(EvhError::MissingAppData)?;
+        let redis_pool = req.app_data::<web::Data<RedisPool>>().ok_or(EvhError::MissingAppData)?;
+        let mut redis_conn = redis_pool.get()?;
 
-        let import_id = web::Query::<ImportId>::from_query(req.query_string())
-            .expect("failed to extract import ID parameter from query");
+        let import_id = web::Query::<ImportId>::from_query(req.query_string()).map_err(EvhError::InvalidQueryString)?;
         let (name, cfg) = importer
             .get_blocking(&import_id.id, &mut *redis_conn)
-            .and_then(|cfg| cfg.into_name_string_tuple())
-            .expect("failed to get rendered config");
+            .and_then(|cfg| cfg.into_name_string_tuple())?;
 
-        finish_page(Some((&name, &cfg)))
+        Ok(finish_page(Some((&name, &cfg)))
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
-            .render()
+            .render())
     })
     .into()
 }
@@ -113,7 +111,6 @@ async fn finish_config_import_page(
 ) -> impl Responder {
     match redis_pool
         .get()
-        .map_err(EvhError::RedisConnectionAcquireFailed)
         // TODO: move blocking call to the thread pool
         .and_then(|mut redis_conn| importer.get_blocking(&import_id.id, &mut *redis_conn))
         .and_then(|cfg| cfg.into_name_string_tuple())
@@ -283,11 +280,11 @@ async fn begin_import(
     debug!("Rendered: {:#?}", rendered);
 
     let import_id = web::block(move || {
-        let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
+        let mut redis_conn = redis_pool.get()?;
         importer.add_blocking(rendered, &mut *redis_conn)
     })
     .await
-    .unwrap()?;
+    .expect("failed to spawn task in blocking thread pool")?;
 
     debug!("Began config import with ID {}", import_id);
     Ok(import_id)
@@ -304,7 +301,7 @@ async fn finish_import(
 ) -> EvhResult<()> {
     web::block(move || {
         let mut db_conn = db_pool.get()?;
-        let mut redis_conn = redis_pool.get().map_err(EvhError::RedisConnectionAcquireFailed)?;
+        let mut redis_conn = redis_pool.get()?;
         let rendered = importer.remove_blocking(&id, &mut *redis_conn)?;
         debug!("Using rendered config {}: {:#?}", id, rendered);
 
@@ -319,7 +316,7 @@ async fn finish_import(
         }
     })
     .await
-    .unwrap()?;
+    .expect("failed to spawn task in blocking thread pool")?;
 
     Ok(())
 }

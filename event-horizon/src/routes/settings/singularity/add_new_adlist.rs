@@ -32,7 +32,7 @@ fn form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web::Err
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        page().alert(Alert::Warning(err.to_string())).bad_request().render()
+        Ok(page().alert(Alert::Warning(err.to_string())).bad_request().render())
     })
     .into()
 }
@@ -96,7 +96,7 @@ async fn add_adlist(adlist: Adlist, cfg: SingularityConfig, pool: Arc<DbPool>) -
         cfg.add_adlist(&mut conn, &adlist)
     })
     .await
-    .unwrap()?;
+    .expect("failed to spawn task in blocking thread pool")?;
 
     Ok(())
 }

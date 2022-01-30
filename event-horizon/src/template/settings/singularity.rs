@@ -15,12 +15,12 @@ use singularity::{Adlist, Output};
 pub enum SingularitySubPage<'a> {
     Main(SingularityMainPageInformation),
     AddNewAdlist,
-    DeleteAdlist(DbId, &'a Adlist),
+    DeleteAdlist(Option<(DbId, &'a Adlist)>),
     AddNewHostsOutput,
     AddNewLuaOutput,
-    DeleteOutput(DbId, &'a Output),
+    DeleteOutput(Option<(DbId, &'a Output)>),
     AddNewWhitelistedDomain,
-    DeleteWhitelistedDomain(DbId, &'a str),
+    DeleteWhitelistedDomain(Option<(DbId, &'a str)>),
 }
 
 #[derive(PartialEq, Eq)]
@@ -38,12 +38,12 @@ pub fn singularity(sub_page: SingularitySubPage) -> Markup {
     match sub_page {
         SingularitySubPage::Main(info) => main(info),
         SingularitySubPage::AddNewAdlist => adlists::add_new_adlist(),
-        SingularitySubPage::DeleteAdlist(id, adlist) => adlists::delete_adlist(id, adlist),
+        SingularitySubPage::DeleteAdlist(id_adlist) => adlists::delete_adlist(id_adlist),
         SingularitySubPage::AddNewHostsOutput => outputs::add_new_hosts_output(),
         SingularitySubPage::AddNewLuaOutput => outputs::add_new_lua_output(),
-        SingularitySubPage::DeleteOutput(id, output) => outputs::delete_output(id, output),
+        SingularitySubPage::DeleteOutput(id_output) => outputs::delete_output(id_output),
         SingularitySubPage::AddNewWhitelistedDomain => whitelist::add_new_whitelisted_domain(),
-        SingularitySubPage::DeleteWhitelistedDomain(id, domain) => whitelist::delete_whitelisted_domain(id, domain),
+        SingularitySubPage::DeleteWhitelistedDomain(id_domain) => whitelist::delete_whitelisted_domain(id_domain),
     }
 }
 

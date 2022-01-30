@@ -35,14 +35,18 @@ pub enum EvhError {
     UploadedFileNotUtf8,
     #[error("EVH setting has invalid value for type {0}: {1}")]
     InvalidSetting(DbId, String),
-    #[error("No such Singularity config: {0}")]
-    NoSuchConfig(DbId),
+    #[error("No such Singularity configuration item: {0}")]
+    NoSuchConfigItem(DbId),
     #[error("The provided name was empty")]
     EmptyConfigName,
     #[error("The provided name is already set for some other configuration")]
     DuplicateConfigName,
     #[error("Invalid Cron schedule: {0}")]
     InvalidCronSchedule(cron_clock::error::Error),
+    #[error("Object is missing from the app data")]
+    MissingAppData,
+    #[error("A request's query string is invalid")]
+    InvalidQueryString(actix_web::error::QueryPayloadError),
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]

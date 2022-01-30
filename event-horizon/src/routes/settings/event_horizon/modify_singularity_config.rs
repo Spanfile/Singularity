@@ -54,10 +54,10 @@ fn use_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_web:
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        use_config_page(None)
+        Ok(use_config_page(None)
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
-            .render()
+            .render())
     })
     .into()
 }
@@ -67,10 +67,10 @@ fn rename_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        rename_config_page(None)
+        Ok(rename_config_page(None)
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
-            .render()
+            .render())
     })
     .into()
 }
@@ -80,10 +80,10 @@ fn delete_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> actix_w
     warn!("{:?}", req);
 
     RequestCallbackError::new(StatusCode::BAD_REQUEST, move || {
-        delete_config_page(None)
+        Ok(delete_config_page(None)
             .alert(Alert::Warning(err.to_string()))
             .bad_request()
-            .render()
+            .render())
     })
     .into()
 }
@@ -153,7 +153,7 @@ where
         (action)(&mut conn, cfg).map_err(|e| (Some(name), e))
     })
     .await
-    .unwrap()
+    .expect("failed to spawn task in blocking thread pool")
     {
         Ok(_) => Either::Right(
             HttpResponse::build(StatusCode::SEE_OTHER)
@@ -265,10 +265,10 @@ where
         SingularityConfig::load(id, &mut conn)
     })
     .await
-    .unwrap()
+    .expect("failed to spawn task in blocking thread pool")
     {
         Ok((name, _)) => Either::Left((page_fn)(Some(&name))),
-        Err(EvhError::NoSuchConfig(id)) => {
+        Err(EvhError::NoSuchConfigItem(id)) => {
             warn!("No such Singularity config with ID {}", id);
 
             Either::Right(

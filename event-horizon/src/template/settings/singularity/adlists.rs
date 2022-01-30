@@ -66,19 +66,23 @@ pub fn add_new_adlist() -> Markup {
     }
 }
 
-pub fn delete_adlist(id: DbId, adlist: &Adlist) -> Markup {
+pub fn delete_adlist(id_adlist: Option<(DbId, &Adlist)>) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Delete adlist" }
             ."card-body" {
                 p ."card-text" { "Are you sure you want to delete this adlist? The operation is irreversible!" }
                 p ."card-text" {
-                    a href=(adlist.source()) { (adlist.source()) }
+                    @if let Some((_, adlist)) = id_adlist {
+                        a href=(adlist.source()) { (adlist.source()) }
+                    } @else {
+                        a href="#" { }
+                    }
                 }
 
                 form method="POST" {
-                    input name="id" value=(id) type="hidden";
-                    button .btn ."btn-danger" ."me-3" type="submit" { "Delete" }
+                    input name="id" value=(id_adlist.map(|a| a.0).unwrap_or(-1)) type="hidden";
+                    button .btn ."btn-danger" ."me-3" type="submit" disabled[id_adlist.is_none()] { "Delete" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }
