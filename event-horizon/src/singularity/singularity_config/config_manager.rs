@@ -58,14 +58,14 @@ impl ConfigManager {
                 );
 
                 let (_, cfg) = SingularityConfig::load(DEFAULT_SINGULARITY_CONFIG_ID, conn).or_else(|e| {
-                    if let EvhError::Database(diesel::result::Error::NotFound) = e {
+                    if let EvhError::NoSuchConfig(_) = e {
                         // if all else fails create a new config with the default name
                         warn!("No existing Singularity config found, falling back to creating a new one");
 
-                        Ok((
-                            DEFAULT_SINGULARITY_CONFIG_NAME.to_string(),
-                            SingularityConfig::new(conn, DEFAULT_SINGULARITY_CONFIG_NAME)?,
-                        ))
+                        let cfg = SingularityConfig::new(conn, DEFAULT_SINGULARITY_CONFIG_NAME)?;
+                        cfg.add_builtin_output(conn)?;
+
+                        Ok((DEFAULT_SINGULARITY_CONFIG_NAME.to_string(), cfg))
                     } else {
                         Err(e)
                     }

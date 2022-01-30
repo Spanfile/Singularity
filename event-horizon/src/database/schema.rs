@@ -58,6 +58,7 @@ table! {
         destination -> Binary,
         blackhole_address -> Text,
         deduplicate -> Bool,
+        builtin -> Bool,
     }
 }
 

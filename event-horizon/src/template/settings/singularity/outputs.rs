@@ -4,7 +4,7 @@ use singularity::{
     Output, OutputType, DEFAULT_BLACKHOLE_ADDRESS_V4, DEFAULT_DEDUPLICATE, DEFAULT_METRIC_NAME, DEFAULT_OUTPUT_METRIC,
 };
 
-pub fn outputs_card(outputs: &[(DbId, Output)]) -> Markup {
+pub fn outputs_card(outputs: &[(DbId, Output, bool)]) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" { "Outputs" }
@@ -24,8 +24,8 @@ pub fn outputs_card(outputs: &[(DbId, Output)]) -> Markup {
                 }
 
                 ."list-group" ."mt-3" {
-                    @for (id, output) in outputs {
-                        (single_output_card(*id, output, true))
+                    @for (id, output, builtin) in outputs {
+                        (single_output_card(*id, output, *builtin))
                     }
                 }
             }
@@ -96,20 +96,26 @@ pub fn delete_output(id: DbId, output: &Output) -> Markup {
     }
 }
 
-fn single_output_card(id: DbId, output: &Output, controls: bool) -> Markup {
+fn single_output_card(id: DbId, output: &Output, builtin: bool) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."container-fluid" {
                 .row ."g-3" {
                     ."col-auto" ."me-auto" ."d-flex" ."align-items-center" {
+                        @if builtin {
+                            // TODO: figure out how to make this space show up (&nbsp; doesn't work?)
+                            strong { "Built-in: " }
+                        }
                         (output.ty()) " - " (output.destination().display())
                     }
-                    @if controls {
-                        ."col-auto" {
-                            a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={
-                                "/settings/singularity/edit_output?id=" (id)
-                            } { "Edit" }
-                        }
+
+                    ."col-auto" {
+                        a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={
+                            "/settings/singularity/edit_output?id=" (id)
+                        } { "Edit" }
+                    }
+
+                    @if !builtin {
                         ."col-auto" {
                             a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } {
                                 "Delete"
@@ -120,6 +126,11 @@ fn single_output_card(id: DbId, output: &Output, controls: bool) -> Markup {
             }
 
             ."card-body" {
+                @if builtin {
+                    p { "This is a built-in output required for Event Horizon to work. You cannot delete it, but you \
+                        may edit its blackhole address and deduplication settings."}
+                }
+
                 .row {
                     ."col-md" {
                         dl .row {

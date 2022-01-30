@@ -123,7 +123,8 @@ async fn delete(id: DbId, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResul
 
 fn page_blocking<'a>(id: DbId, cfg: SingularityConfig, pool: &DbPool) -> ResponseBuilder<'a> {
     let mut conn = pool.get().unwrap();
-    let output = cfg.get_output(&mut conn, id).expect("failed to get output");
+    let (output, _) = cfg.get_output(&mut conn, id).expect("failed to get output");
+
     template::settings(SettingsPage::Singularity(SingularitySubPage::DeleteOutput(id, &output)))
 }
 

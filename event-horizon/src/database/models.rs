@@ -67,6 +67,7 @@ pub struct SingularityOutput {
     pub destination: Vec<u8>,
     pub blackhole_address: String,
     pub deduplicate: bool,
+    pub builtin: bool,
 }
 
 #[derive(Insertable)]
@@ -77,6 +78,7 @@ pub struct NewSingularityOutput<'a> {
     pub destination: &'a [u8],
     pub blackhole_address: &'a str,
     pub deduplicate: bool,
+    pub builtin: bool,
 }
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]

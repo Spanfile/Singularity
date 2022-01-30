@@ -11,12 +11,13 @@ use log::*;
 use singularity::{Adlist, Output, OutputType, HTTP_CONNECT_TIMEOUT};
 use std::{
     ffi::OsString,
+    net::{IpAddr, Ipv4Addr},
     os::unix::ffi::{OsStrExt, OsStringExt},
     path::PathBuf,
 };
 
 pub type AdlistCollection = Vec<(DbId, Adlist)>;
-pub type OutputCollection = Vec<(DbId, Output)>;
+pub type OutputCollection = Vec<(DbId, Output, bool)>;
 pub type WhitelistCollection = Vec<(DbId, String)>;
 
 pub const DEFAULT_RUN_TIMING: &str = "0 0 * * * ";
@@ -288,8 +289,12 @@ impl SingularityConfig {
     }
 
     /// Adds a new output to the configuration. Returns the ID of the newly added output.
+    ///
+    /// This function spawns a database transaction to run its own multiple queries inside. This function has a
+    /// counterpart, [`add_output_without_transaction`] meant to use in scenarios when you already have a running
+    /// transaction.
     pub fn add_output(&self, conn: &mut DbConn, output: &Output) -> EvhResult<DbId> {
-        conn.immediate_transaction::<_, EvhError, _>(|conn| self.do_add_output(conn, output))
+        conn.immediate_transaction::<_, EvhError, _>(|conn| self.do_add_output(conn, output, false))
     }
 
     /// Adds a new output to the configuration. Returns the ID of the newly added output.
@@ -298,10 +303,30 @@ impl SingularityConfig {
     /// inside. This function doesn't use a transaction, and is meant to use in scenarios where you already have a
     /// running transaction.
     pub fn add_output_without_transaction(&self, conn: &mut DbConn, output: &Output) -> EvhResult<DbId> {
-        self.do_add_output(conn, output)
+        self.do_add_output(conn, output, false)
     }
 
-    fn do_add_output(&self, conn: &mut DbConn, output: &Output) -> EvhResult<DbId> {
+    /// Adds a builtin output that is required for PDNS Recursor to properly filter blocked domains.
+    pub fn add_builtin_output(&self, conn: &mut DbConn) -> EvhResult<DbId> {
+        conn.immediate_transaction::<_, EvhError, _>(|conn| {
+            self.do_add_output(
+                conn,
+                &Output::builder(
+                    OutputType::PdnsLua {
+                        output_metric: true,
+                        metric_name: "blocked-queries".to_string(),
+                    },
+                    PathBuf::from("blackhole.lua"),
+                )
+                .blackhole_ipaddr(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)))
+                .deduplicate(false)
+                .build()?,
+                true,
+            )
+        })
+    }
+
+    fn do_add_output(&self, conn: &mut DbConn, output: &Output, builtin: bool) -> EvhResult<DbId> {
         use crate::database::schema::{
             singularity_output_hosts_includes, singularity_output_pdns_lua, singularity_outputs,
         };
@@ -332,6 +357,7 @@ impl SingularityConfig {
             destination: output.destination().as_os_str().as_bytes(),
             blackhole_address: blackhole_address.as_str(),
             deduplicate: output.deduplicate(),
+            builtin,
         };
 
         let output = diesel::insert_into(singularity_outputs::table)
@@ -376,16 +402,17 @@ impl SingularityConfig {
         self.set_dirty(conn, true)
     }
 
-    pub fn get_output(&self, conn: &mut DbConn, id: DbId) -> EvhResult<Output> {
+    pub fn get_output(&self, conn: &mut DbConn, id: DbId) -> EvhResult<(Output, bool)> {
         use crate::database::schema::singularity_outputs;
 
         let output = singularity_outputs::table
             .filter(singularity_outputs::id.eq(id))
             .first::<models::SingularityOutput>(conn)?;
+        let builtin = output.builtin;
         let output = self.output_from_model(conn, output)?;
 
-        debug!("Output {}: {:#?}", id, output);
-        Ok(output)
+        debug!("Output {} (builtin: {}): {:#?}", id, builtin, output);
+        Ok((output, builtin))
     }
 
     pub fn outputs(&self, conn: &mut DbConn) -> EvhResult<OutputCollection> {
@@ -393,7 +420,10 @@ impl SingularityConfig {
         let outputs = models::SingularityOutput::belonging_to(&own_model)
             .load::<models::SingularityOutput>(conn)?
             .into_iter()
-            .map(|model| Ok((model.id, self.output_from_model(conn, model)?)))
+            .map(|model| {
+                let builtin = model.builtin;
+                Ok((model.id, self.output_from_model(conn, model)?, builtin))
+            })
             .collect::<EvhResult<OutputCollection>>()?;
 
         debug!("Outputs in {}: {}", self.0, outputs.len());

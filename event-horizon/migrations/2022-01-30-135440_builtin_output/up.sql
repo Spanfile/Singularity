@@ -1,0 +1,1 @@
+ALTER TABLE singularity_outputs ADD builtin BOOLEAN NOT NULL DEFAULT FALSE;
