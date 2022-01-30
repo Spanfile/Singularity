@@ -168,9 +168,9 @@ impl Output {
 impl ActiveOutput {
     pub fn write_primer(&mut self) -> Result<()> {
         match self.ty {
-            OutputType::Hosts { .. } => writeln!(&mut self.download_dest, "# {}", get_generated_at_comment())?,
+            OutputType::Hosts { .. } => writeln!(self.download_dest, "# {}", get_generated_at_comment())?,
             OutputType::PdnsLua { .. } => write!(
-                &mut self.download_dest,
+                self.download_dest,
                 "-- {}\n{}",
                 get_generated_at_comment(),
                 PDNS_LUA_PRIMER
@@ -190,11 +190,11 @@ impl ActiveOutput {
         }
 
         match self.ty {
-            OutputType::Hosts { .. } => writeln!(&mut self.download_dest, "{} {}", self.blackhole_address, host)?,
+            OutputType::Hosts { .. } => writeln!(self.download_dest, "{} {}", self.blackhole_address, host)?,
             OutputType::PdnsLua { .. } => {
                 // get rid of any comment on the same line as the host
                 let host = host.split_once('#').map(|(left, _)| left).unwrap_or(host).trim_end();
-                write!(&mut self.download_dest, r#""{}","#, host)?
+                write!(self.download_dest, r#""{}","#, host)?
             }
         }
 
@@ -206,7 +206,7 @@ impl ActiveOutput {
             OutputType::Hosts { include } => {
                 for path in include {
                     let mut include_file = File::open(path)?;
-                    writeln!(&mut self.download_dest, "\n# hosts included from {}\n", path.display())?;
+                    writeln!(self.download_dest, "\n# hosts included from {}\n", path.display())?;
                     io::copy(&mut include_file, &mut self.download_dest)?;
                 }
             }
@@ -215,7 +215,7 @@ impl ActiveOutput {
                 metric_name,
             } => {
                 write!(
-                    &mut self.download_dest,
+                    self.download_dest,
                     "}} function preresolve(q) if b:check(q.qname) then "
                 )?;
 
@@ -225,17 +225,17 @@ impl ActiveOutput {
                 };
 
                 write!(
-                    &mut self.download_dest,
+                    self.download_dest,
                     "if q.qtype==pdns.{record} then q:addAnswer(pdns.{record},\"{addr}\") ",
                     record = record,
                     addr = self.blackhole_address
                 )?;
 
                 if *output_metric {
-                    write!(&mut self.download_dest, "m=getMetric(\"{}\") m:inc() ", metric_name)?;
+                    write!(self.download_dest, "m=getMetric(\"{}\") m:inc() ", metric_name)?;
                 }
 
-                writeln!(&mut self.download_dest, "return true end end return false end")?;
+                writeln!(self.download_dest, "return true end end return false end")?;
             }
         }
 
