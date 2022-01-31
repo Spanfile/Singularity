@@ -23,7 +23,7 @@ pub fn outputs_card(outputs: &[(DbId, Output, bool)]) -> Markup {
                     }
                 }
 
-                ."list-group" ."mt-3" {
+                ."list-group" {
                     @for (id, output, builtin) in outputs {
                         (single_output_card(*id, output, *builtin, true))
                     }
@@ -103,7 +103,7 @@ pub fn delete_output(id_output: Option<(DbId, &Output, bool)>) -> Markup {
 
 fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) -> Markup {
     html! {
-        .card ."border-dark" ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mt-3" {
             ."card-header" ."container-fluid" {
                 .row ."g-3" {
                     ."col-auto" ."me-auto" ."d-flex" ."align-items-center" {
@@ -116,7 +116,7 @@ fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) 
 
                     @if controls {
                         ."col-auto" {
-                            a ."btn" ."btn-outline-primary" ."btn-sm" href={
+                            a ."btn" ."btn-outline-primary" ."btn-sm" ."w-4" href={
                                 "/settings/singularity/edit_output?id=" (id)
                             } { "Edit" }
                         }

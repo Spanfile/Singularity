@@ -74,7 +74,7 @@ pub fn delete_adlist(id_adlist: Option<(DbId, &Adlist)>) -> Markup {
                 p ."card-text" { "Are you sure you want to delete this adlist? The operation is irreversible!" }
                 p ."card-text" {
                     @if let Some((_, adlist)) = id_adlist {
-                        a href=(adlist.source()) { (adlist.source()) }
+                        a href=(adlist.source()) target="_blank" { (adlist.source()) }
                     } @else {
                         a href="#" { }
                     }

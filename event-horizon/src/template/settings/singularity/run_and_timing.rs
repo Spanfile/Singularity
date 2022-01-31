@@ -50,7 +50,7 @@ fn timing_body(timing: &str) -> Markup {
     html! {
         p {
             "Define the interval when to automatically run Singularity with a "
-            a href="https://en.wikipedia.org/wiki/Cron#Overview" target="_blank" { "cronjob expression." }
+            a href="https://en.wikipedia.org/wiki/Cron#Overview" target="_blank" { "cron expression." }
             " Several presets are available, and the website "
             a href="https://crontab.guru/" target="_blank" { "https://crontab.guru/" }
             " may be used to help write the expressions."
