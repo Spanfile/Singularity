@@ -21,7 +21,7 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
                         @for (id, adlist) in adlists {
                             tr {
                                 // TODO: horizontal overflow to this element
-                                td ."align-middle" {a href=(adlist.source()) { (adlist.source()) } }
+                                td ."align-middle" { a href=(adlist.source()) target="_blank" { (adlist.source()) } }
                                 td ."align-middle" { (adlist.format()) }
                                 td {
                                     a .btn ."btn-danger" ."btn-sm" ."float-end" href={
