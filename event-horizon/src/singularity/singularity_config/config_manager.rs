@@ -72,18 +72,7 @@ impl ConfigManager {
                 })?;
 
                 // since the active configuration wasn't set and it now effectively is this one we just loaded, store it
-                let new_setting = diesel::insert_into(evh_settings::table)
-                    .values(models::NewEvhSetting {
-                        setting_type: type_id,
-                        // TODO: the column type in the database is TEXT, so this conversion is necessary to keep diesel
-                        // happy. while technically SQLite wouldn't bat an eye if I gave it an integer anyways, diesel
-                        // does care to ensure the data type is correct. maybe there's a way to avoid the conversion
-                        // with a custom type that accepts both strings and integers?
-                        value: &cfg.id().to_string(),
-                    })
-                    .get_result::<models::EvhSetting>(conn)?;
-
-                debug!("Stored new active config setting: {:?}", new_setting);
+                store_active_config(cfg.id(), conn)?;
 
                 cfg
             }
@@ -101,10 +90,37 @@ impl ConfigManager {
             .expect("configmanager active_config rwlock is poisoned")
     }
 
-    pub fn set_active_config(&self, cfg: SingularityConfig) {
+    pub fn set_active_config(&self, conn: &mut DbConn, cfg: SingularityConfig) -> EvhResult<()> {
         *self
             .active_config
             .write()
             .expect("configmanager active_config rwlock is poisoned") = cfg;
+
+        store_active_config(cfg.id(), conn)
     }
+}
+
+fn store_active_config(id: DbId, conn: &mut DbConn) -> EvhResult<()> {
+    use crate::database::schema::evh_settings;
+
+    let type_id = EvhSettingType::ActiveSingularityConfig as DbId;
+    let value = id.to_string();
+
+    let new_setting = diesel::insert_into(evh_settings::table)
+        .values(models::NewEvhSetting {
+            setting_type: type_id,
+            // TODO: the column type in the database is TEXT, so this conversion is necessary to keep diesel
+            // happy. while technically SQLite wouldn't bat an eye if I gave it an integer anyways, diesel
+            // does care to ensure the data type is correct. maybe there's a way to avoid the conversion
+            // with a custom type that accepts both strings and integers?
+            value: &value,
+        })
+        // make the statement into an UPSERT
+        .on_conflict(evh_settings::setting_type)
+        .do_update()
+        .set(evh_settings::value.eq(&value))
+        .get_result::<models::EvhSetting>(conn)?;
+
+    debug!("Stored new active config setting: {:?}", new_setting);
+    Ok(())
 }

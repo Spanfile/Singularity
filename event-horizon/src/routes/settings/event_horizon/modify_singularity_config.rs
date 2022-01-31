@@ -196,7 +196,7 @@ async fn submit_use_form(
 
     Either::Left(
         form_action(id, db_pool, use_template, move |conn, cfg| {
-            cfg_mg.set_active_config(cfg);
+            cfg_mg.set_active_config(conn, cfg)?;
             cfg.set_dirty(conn, true)
         })
         .await,
