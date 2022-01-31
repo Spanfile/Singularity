@@ -20,12 +20,6 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/singularity")
             .route("", web::get().to(singularity))
-            // .configure(add_new_adlist::config)
-            // .configure(delete_adlist::config)
-            // .configure(add_new_output::config)
-            // .configure(delete_output::config)
-            //.configure(add_whitelisted_domain::config)
-            // .configure(delete_whitelisted_domain::config)
             .configure(add_item::config)
             .configure(delete_item::config)
             .configure(set_timing::config),

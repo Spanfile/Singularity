@@ -76,21 +76,24 @@ pub fn add_new_lua_output() -> Markup {
     }
 }
 
-pub fn delete_output(id_output: Option<(DbId, &Output)>) -> Markup {
+pub fn delete_output(id_output: Option<(DbId, &Output, bool)>) -> Markup {
     html! {
         .card ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Delete Output" }
             ."card-body" {
                 p ."card-text" { "Are you sure you want to delete this output? The operation is irreversible!" }
                 p ."card-text" {
-                    @if let Some((id, output)) = id_output {
-                        (single_output_card(id, output, false, false))
+                    @if let Some((id, output, builtin)) = id_output {
+                        (single_output_card(id, output, builtin, false))
                     }
                 }
 
                 form method="POST" {
                     input name="id" value=(id_output.map(|a| a.0).unwrap_or(-1)) type="hidden";
-                    button .btn ."btn-danger" ."me-3" type="submit" disabled[id_output.is_none()] { "Delete" }
+                    button .btn ."btn-danger" ."me-3" type="submit" disabled[match id_output {
+                        Some((_, _, builtin)) => builtin,
+                        None => true,
+                    }] { "Delete" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }

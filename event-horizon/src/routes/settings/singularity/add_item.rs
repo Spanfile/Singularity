@@ -124,6 +124,8 @@ fn whitelist_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> acti
     form_error_handler(err, req, whitelist_template)
 }
 
+// common function to handle an invalid POSTed form for each route. template_fn is a function to create a page
+// displaying "the item", while actually not displaying it all by passing None to the template function
 fn form_error_handler<P>(err: UrlencodedError, req: &HttpRequest, template_fn: P) -> actix_web::Error
 where
     P: Fn() -> ResponseBuilder<'static> + 'static,
@@ -216,6 +218,9 @@ async fn submit_whitelist_form(
     .await
 }
 
+// common function to handle the POSTed forms for each route. add_fn is a function that adds the certain item T to the
+// configuration, and template_fn is a function displaying its corresponding page in case the adding fails because of an
+// error
 async fn submit_form<T, F, P>(
     item: T,
     cfg: SingularityConfig,

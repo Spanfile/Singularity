@@ -75,8 +75,10 @@ impl ConfigManager {
                 let new_setting = diesel::insert_into(evh_settings::table)
                     .values(models::NewEvhSetting {
                         setting_type: type_id,
-                        // TODO: this is kinda stupid, to allocate a new string just to borrow it for diesel to store in
-                        // the database as an integer again. might as well use an integer directly ukno?
+                        // TODO: the column type in the database is TEXT, so this conversion is necessary to keep diesel
+                        // happy. while technically SQLite wouldn't bat an eye if I gave it an integer anyways, diesel
+                        // does care to ensure the data type is correct. maybe there's a way to avoid the conversion
+                        // with a custom type that accepts both strings and integers?
                         value: &cfg.id().to_string(),
                     })
                     .get_result::<models::EvhSetting>(conn)?;

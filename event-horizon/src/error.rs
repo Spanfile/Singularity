@@ -47,6 +47,8 @@ pub enum EvhError {
     MissingAppData,
     #[error("A request's query string is invalid")]
     InvalidQueryString(actix_web::error::QueryPayloadError),
+    #[error("Attempt to delete builtin output ID {0}")]
+    AttemptToDeleteBuiltinOutput(DbId, singularity::Output),
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]

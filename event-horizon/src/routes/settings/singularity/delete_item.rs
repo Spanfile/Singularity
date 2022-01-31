@@ -57,6 +57,8 @@ fn whitelist_form_error_handler(err: UrlencodedError, req: &HttpRequest) -> acti
     form_error_handler(err, req, SingularityConfig::get_whitelist, whitelist_template)
 }
 
+// common function to handle an invalid POSTed form for each route. item_fn is a function that retrieves a certain item
+// T from the configuration, and template_fn is a function to create a page displaying it
 fn form_error_handler<T, F, P>(err: UrlencodedError, req: &HttpRequest, item_fn: F, template_fn: P) -> actix_web::Error
 where
     T: Send + 'static,
@@ -107,14 +109,20 @@ async fn delete_output_page(
     cfg_mg: web::Data<ConfigManager>,
     db_pool: web::Data<DbPool>,
 ) -> impl Responder {
-    // TODO: safeguard against attempting to delete a builtin output
-
     let id = id_query.id;
     display_page(
         id,
         db_pool.into_inner(),
         cfg_mg.get_active_config(),
-        SingularityConfig::get_output,
+        |cfg, conn, id| {
+            let (output, builtin) = cfg.get_output(conn, id)?;
+
+            if builtin {
+                Err(EvhError::AttemptToDeleteBuiltinOutput(id, output))
+            } else {
+                Ok((output, builtin))
+            }
+        },
         output_template,
     )
     .await
@@ -126,7 +134,6 @@ async fn delete_whitelisted_domain_page(
     db_pool: web::Data<DbPool>,
 ) -> impl Responder {
     let id = id_query.id;
-
     display_page(
         id,
         db_pool.into_inner(),
@@ -137,6 +144,8 @@ async fn delete_whitelisted_domain_page(
     .await
 }
 
+// common function to display a page for each route GET. item_fn is a function that retrieves a certain item T from the
+// configuration, and template_fn is a function to create a page displaying it
 async fn display_page<T, F, P>(
     id: DbId,
     db_pool: Arc<DbPool>,
@@ -166,6 +175,21 @@ where
                     .bad_request(),
             )
         }
+
+        // output deletion has a special case that it's not allowed to delete any builtin outputs, so handle that error
+        // here instead of in the output function to keep the code short
+        Err(EvhError::AttemptToDeleteBuiltinOutput(id, output)) => {
+            warn!("Refusing to delete builtin output ID {}", id);
+
+            Either::Left(
+                // this is pretty terrible to call the output template directly with the builtin set to true but what
+                // can you do
+                output_template(Some((id, &(output, true))))
+                    .alert(Alert::Warning(format!("Refusing to delete builtin output ID {}", id)))
+                    .bad_request(),
+            )
+        }
+
         Err(e) => {
             error!("Failed to retrieve item ID {}: {}", id, e);
             Either::Right(util::internal_server_error_response(e))
@@ -190,7 +214,17 @@ async fn submit_output_form(
 ) -> impl Responder {
     let id = id_form.id;
     let cfg = cfg_mg.get_active_config();
-    submit_form(id, cfg, db_pool.into_inner(), SingularityConfig::delete_output).await
+
+    submit_form(id, cfg, db_pool.into_inner(), |cfg, conn, id| {
+        let (output, builtin) = cfg.get_output(conn, id)?;
+
+        if builtin {
+            Err(EvhError::AttemptToDeleteBuiltinOutput(id, output))
+        } else {
+            cfg.delete_output(conn, id)
+        }
+    })
+    .await
 }
 
 async fn submit_whitelist_form(
@@ -209,6 +243,8 @@ async fn submit_whitelist_form(
     .await
 }
 
+// common function to handle the POSTed forms for each route. delete_fn is a function that deletes the certain item T
+// from the configuration
 async fn submit_form<F>(id: DbId, cfg: SingularityConfig, db_pool: Arc<DbPool>, delete_fn: F) -> impl Responder
 where
     F: Fn(&SingularityConfig, &mut DbConn, DbId) -> EvhResult<()> + Send + 'static,
@@ -236,6 +272,18 @@ where
                 .append_header((header::LOCATION, "/settings/singularity"))
                 .finish()
         }
+
+        // output deletion has a special case that it's not allowed to delete any builtin outputs, so handle that error
+        // here instead of in the output function to keep the code short
+        Err(EvhError::AttemptToDeleteBuiltinOutput(id, _)) => {
+            warn!("Attempt to delete builtin output ID {}", id);
+
+            // TODO: maybe the display the output template page here?
+            HttpResponse::SeeOther()
+                .append_header((header::LOCATION, "/settings/singularity"))
+                .finish()
+        }
+
         Err(e) => {
             error!("Failed to delete item: {}", e);
             util::internal_server_error_response(e)
@@ -249,7 +297,7 @@ fn adlist_template(id_adlist: Option<(DbId, &Adlist)>) -> ResponseBuilder<'stati
 
 fn output_template(id_output: Option<(DbId, &(Output, bool))>) -> ResponseBuilder<'static> {
     template::settings(SettingsPage::Singularity(SingularitySubPage::DeleteOutput(
-        id_output.map(|(id, (output, _))| (id, output)),
+        id_output.map(|(id, (output, builtin))| (id, output, *builtin)),
     )))
 }
 

@@ -18,7 +18,7 @@ pub enum SingularitySubPage<'a> {
     DeleteAdlist(Option<(DbId, &'a Adlist)>),
     AddNewHostsOutput,
     AddNewLuaOutput,
-    DeleteOutput(Option<(DbId, &'a Output)>),
+    DeleteOutput(Option<(DbId, &'a Output, bool)>),
     AddNewWhitelistedDomain,
     DeleteWhitelistedDomain(Option<(DbId, &'a str)>),
 }
