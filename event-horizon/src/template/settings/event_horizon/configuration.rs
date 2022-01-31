@@ -48,7 +48,7 @@ fn active_config_table_row(name: &str, cfg: &SingularityConfig) -> Markup {
                     "/settings/event_horizon/rename_singularity_config?id=" (cfg.id())
                 } { "Rename" }
 
-                a .btn ."btn-outline-danger" ."btn-sm" .disabled href="#" { "Delete" }
+                a .btn ."btn-secondary" ."btn-sm" .disabled href="#" { "Delete" }
             }
         }
     }
@@ -70,7 +70,7 @@ fn config_table_row(name: &str, cfg: &SingularityConfig) -> Markup {
                     "/settings/event_horizon/rename_singularity_config?id=" (cfg.id())
                 } { "Rename" }
 
-                a .btn ."btn-outline-danger" ."btn-sm" href={
+                a .btn ."btn-secondary" ."btn-sm" href={
                     "/settings/event_horizon/delete_singularity_config?id=" (cfg.id())
                 } { "Delete" }
             }
