@@ -12,8 +12,6 @@ use diesel::prelude::*;
 use log::*;
 use std::sync::RwLock;
 
-// this is actually determined by the database
-const DEFAULT_SINGULARITY_CONFIG_ID: DbId = 1;
 const DEFAULT_SINGULARITY_CONFIG_NAME: &str = "Default configuration";
 
 #[derive(Debug)]
@@ -50,15 +48,12 @@ impl ConfigManager {
                 info!("Using active configuration with ID {}", id);
                 SingularityConfig::load(id, conn)?.1
             }
-            // otherwise try to load the config with the default ID if it exists...
+            // otherwise try to load the first config that the database happens to return...
             None => {
-                warn!(
-                    "Active configuration ID not set, using default ID {}",
-                    DEFAULT_SINGULARITY_CONFIG_ID
-                );
+                warn!("Active configuration ID not set, loading first found");
 
-                let (_, cfg) = SingularityConfig::load(DEFAULT_SINGULARITY_CONFIG_ID, conn).or_else(|e| {
-                    if let EvhError::NoSuchConfigItem(_) = e {
+                let (_, cfg) = SingularityConfig::load_first(conn).or_else(|e| {
+                    if let EvhError::Database(diesel::result::Error::NotFound) = e {
                         // if all else fails create a new config with the default name
                         warn!("No existing Singularity config found, falling back to creating a new one");
 

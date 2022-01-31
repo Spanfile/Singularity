@@ -60,6 +60,15 @@ impl SingularityConfig {
         Ok((cfg.name, Self(cfg.id)))
     }
 
+    pub fn load_first(conn: &mut DbConn) -> EvhResult<(String, Self)> {
+        use crate::database::schema::singularity_configs;
+
+        let cfg = singularity_configs::table.first::<models::SingularityConfig>(conn)?;
+
+        debug!("First found SingularityConfig: {:?}", cfg);
+        Ok((cfg.name, Self(cfg.id)))
+    }
+
     pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<(String, Self)>> {
         use crate::database::schema::singularity_configs;
 
