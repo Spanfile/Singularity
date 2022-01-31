@@ -4,7 +4,7 @@ use maud::{html, Markup};
 
 pub fn run_and_timing_card(last_run: Option<DateTime<Local>>, next_run: DateTime<Local>, timing: &str) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Running and timing" }
             ."card-body" {
                 (run_card(last_run, next_run))
@@ -42,7 +42,7 @@ fn run_card(last_run: Option<DateTime<Local>>, next_run: DateTime<Local>) -> Mar
             "Next scheduled run: in " (to_next_run) " at " (next_run.format("%H:%M, %a %x"))
         }
 
-        a ."btn" ."btn-primary" href="/run_singularity" { "Run Singularity now" }
+        a ."btn" ."btn-outline-success" href="/run_singularity" { "Run Singularity now" }
     }
 }
 
@@ -61,19 +61,19 @@ fn timing_body(timing: &str) -> Markup {
                 ."col-md-10" ."offset-md-2" {
                     .row ."g-3" {
                         ."col-auto" {
-                            button ."btn" ."btn-primary" name="expression" value="0 0 * * *" type="submit" {
+                            button ."btn" ."btn-outline-primary" name="expression" value="0 0 * * *" type="submit" {
                                 "Once daily at midnight"
                             }
                         }
 
                         ."col-auto" {
-                            button ."btn" ."btn-primary" name="expression" value="0 */12 * * *" type="submit" {
+                            button ."btn" ."btn-outline-primary" name="expression" value="0 */12 * * *" type="submit" {
                                 "Twice daily at midnight and at noon"
                             }
                         }
 
                         ."col-auto" {
-                            button ."btn" ."btn-primary" name="expression" value="0 */6 * * *" type="submit" {
+                            button ."btn" ."btn-outline-primary" name="expression" value="0 */6 * * *" type="submit" {
                                 "Every six hours beginning at midnight"
                             }
                         }
@@ -90,7 +90,7 @@ fn timing_body(timing: &str) -> Markup {
                 }
             }
 
-            button ."btn" ."btn-primary" type="submit" { "Save" }
+            button ."btn" ."btn-outline-primary" type="submit" { "Save" }
         }
     }
 }

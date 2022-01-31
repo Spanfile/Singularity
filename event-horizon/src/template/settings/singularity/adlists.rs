@@ -4,10 +4,10 @@ use singularity::Adlist;
 
 pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Adlists" }
             ."card-body" {
-                a .btn ."btn-primary" href="/settings/singularity/add_new_adlist" { "Add new adlist" }
+                a .btn ."btn-outline-primary" href="/settings/singularity/add_new_adlist" { "Add new adlist" }
 
                 table .table ."mt-3" {
                     thead {
@@ -24,7 +24,7 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
                                 td ."align-middle" { a href=(adlist.source()) target="_blank" { (adlist.source()) } }
                                 td ."align-middle" { (adlist.format()) }
                                 td {
-                                    a .btn ."btn-danger" ."btn-sm" ."float-end" href={
+                                    a .btn ."btn-outline-danger" ."btn-sm" ."float-end" href={
                                         "/settings/singularity/delete_adlist?id=" (id)
                                     } { "Delete" }
                                 }
@@ -39,7 +39,7 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
 
 pub fn add_new_adlist() -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Add new adlist" }
             ."card-body" {
                 form method="POST" {
@@ -57,7 +57,7 @@ pub fn add_new_adlist() -> Markup {
                         }
                     }
 
-                    button .btn ."btn-primary" ."me-3" type="submit" { "Add new adlist" }
+                    button .btn ."btn-outline-primary" ."me-3" type="submit" { "Add new adlist" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
 
                 }
@@ -68,7 +68,7 @@ pub fn add_new_adlist() -> Markup {
 
 pub fn delete_adlist(id_adlist: Option<(DbId, &Adlist)>) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-danger" ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Delete adlist" }
             ."card-body" {
                 p ."card-text" { "Are you sure you want to delete this adlist? The operation is irreversible!" }
@@ -82,7 +82,7 @@ pub fn delete_adlist(id_adlist: Option<(DbId, &Adlist)>) -> Markup {
 
                 form method="POST" {
                     input name="id" value=(id_adlist.map(|a| a.0).unwrap_or(-1)) type="hidden";
-                    button .btn ."btn-danger" ."me-3" type="submit" disabled[id_adlist.is_none()] { "Delete" }
+                    button .btn ."btn-outline-danger" ."me-3" type="submit" disabled[id_adlist.is_none()] { "Delete" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }

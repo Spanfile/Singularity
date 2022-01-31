@@ -6,18 +6,18 @@ use singularity::{
 
 pub fn outputs_card(outputs: &[(DbId, Output, bool)]) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Outputs" }
             ."card-body" {
                 .row ."g-3" {
                     ."col-auto" {
-                        a .btn ."btn-primary" href="/settings/singularity/add_new_lua_output" {
+                        a .btn ."btn-outline-primary" href="/settings/singularity/add_new_lua_output" {
                             "Add new PDNS Lua script output"
                         }
                     }
 
                     ."col-auto" {
-                        a .btn ."btn-primary" href="/settings/singularity/add_new_hosts_output" {
+                        a .btn ."btn-outline-primary" href="/settings/singularity/add_new_hosts_output" {
                             "Add new hosts-file output"
                         }
                     }
@@ -35,13 +35,13 @@ pub fn outputs_card(outputs: &[(DbId, Output, bool)]) -> Markup {
 
 pub fn add_new_hosts_output() -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Add new hosts output" }
             ."card-body" {
                 form method="POST" {
                     (common_output_form("hosts"))
 
-                    button .btn ."btn-primary" ."me-3" type="submit" { "Add new output" }
+                    button .btn ."btn-outline-primary" ."me-3" type="submit" { "Add new output" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }
@@ -51,7 +51,7 @@ pub fn add_new_hosts_output() -> Markup {
 
 pub fn add_new_lua_output() -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Add new PDNS Lua script output" }
             ."card-body" {
                 form method="POST" {
@@ -68,7 +68,7 @@ pub fn add_new_lua_output() -> Markup {
                         input #source ."form-control" name="metric_name" type="text" value=(DEFAULT_METRIC_NAME);
                     }
 
-                    button .btn ."btn-primary" ."me-3" type="submit" { "Add new output" }
+                    button .btn ."btn-outline-primary" ."me-3" type="submit" { "Add new output" }
                     a .btn ."btn-secondary" href="/settings/singularity" { "Cancel" }
                 }
             }
@@ -78,8 +78,8 @@ pub fn add_new_lua_output() -> Markup {
 
 pub fn delete_output(id_output: Option<(DbId, &Output, bool)>) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
-            ."card-header" ."bg-danger" ."text-white" { "Delete Output" }
+        .card ."border-danger" ."w-100" ."mb-3" {
+            ."card-header" ."bg-danger" ."text-white" { "Delete output" }
             ."card-body" {
                 p ."card-text" { "Are you sure you want to delete this output? The operation is irreversible!" }
                 p ."card-text" {
@@ -90,7 +90,7 @@ pub fn delete_output(id_output: Option<(DbId, &Output, bool)>) -> Markup {
 
                 form method="POST" {
                     input name="id" value=(id_output.map(|a| a.0).unwrap_or(-1)) type="hidden";
-                    button .btn ."btn-danger" ."me-3" type="submit" disabled[match id_output {
+                    button .btn ."btn-outline-danger" ."me-3" type="submit" disabled[match id_output {
                         Some((_, _, builtin)) => builtin,
                         None => true,
                     }] { "Delete" }
@@ -103,7 +103,7 @@ pub fn delete_output(id_output: Option<(DbId, &Output, bool)>) -> Markup {
 
 fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" ."container-fluid" {
                 .row ."g-3" {
                     ."col-auto" ."me-auto" ."d-flex" ."align-items-center" {
@@ -116,7 +116,7 @@ fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) 
 
                     @if controls {
                         ."col-auto" {
-                            a ."btn" ."btn-primary" ."btn-sm" ."mb-auto" href={
+                            a ."btn" ."btn-outline-primary" ."btn-sm" ."mb-auto" href={
                                 "/settings/singularity/edit_output?id=" (id)
                             } { "Edit" }
                         }
@@ -124,7 +124,7 @@ fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) 
 
                     @if !builtin && controls {
                         ."col-auto" {
-                            a ."btn" ."btn-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } {
+                            a ."btn" ."btn-outline-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } {
                                 "Delete"
                             }
                         }

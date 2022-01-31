@@ -2,7 +2,7 @@ use maud::{html, Markup};
 
 pub fn import_singularity_config() -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Import Singularity configuration" }
             ."card-body" {
                 form method="POST" enctype="multipart/form-data" {
@@ -11,7 +11,7 @@ pub fn import_singularity_config() -> Markup {
                         input ."form-control" #file name="file" type="file" accept=".toml,application/toml" required;
                     }
 
-                    button .btn ."btn-primary" type="submit" { "Import" }
+                    button .btn ."btn-outline-success" type="submit" { "Import" }
                 }
 
                 p ."mt-3" { "Or" }
@@ -22,7 +22,7 @@ pub fn import_singularity_config() -> Markup {
                         textarea ."form-control" #text name="text" rows="5" {}
                     }
 
-                    button .btn ."btn-primary" type="submit" { "Import" }
+                    button .btn ."btn-outline-success" type="submit" { "Import" }
                 }
             }
         }
@@ -31,7 +31,7 @@ pub fn import_singularity_config() -> Markup {
 
 pub fn finish_config_import(rendered_cfg: Option<(&str, &str)>) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Finish importing Singularity configuration" }
             ."card-body" {
                 p { "Choose a name for the configuration and decide how to import it." }
@@ -42,14 +42,14 @@ pub fn finish_config_import(rendered_cfg: Option<(&str, &str)>) -> Markup {
                             input ."form-control" #configName name="config_name" required
                                 value=(rendered_cfg.map(|(name, _)| name).unwrap_or(""))
                                 disabled[rendered_cfg.is_none()];
-                            ."form-text" #configNameHelp {
+                            ."form-text" ."text-dark" #configNameHelp {
                                 "Choose a friendly name for this configuration. The name is purely visual and meant to \
                                 help you distinguish different configurations, so it has to be unique."
                             }
                         }
 
                         ."col-lg-3" {
-                            button .btn ."btn-primary" ."w-100" type="submit" name="strategy" value="New"
+                            button .btn ."btn-outline-primary" ."w-100" type="submit" name="strategy" value="New"
                                 disabled[rendered_cfg.is_none()] {
                                 "Import into new configuration"
                             }
@@ -67,7 +67,7 @@ pub fn finish_config_import(rendered_cfg: Option<(&str, &str)>) -> Markup {
                         }
 
                         ."col-lg-3" {
-                            button .btn ."btn-primary" ."w-100" type="submit" name="strategy" value="Merge"
+                            button .btn ."btn-outline-primary" ."w-100" type="submit" name="strategy" value="Merge"
                                 disabled[rendered_cfg.is_none()] {
                                 "Merge into current configuration"
                             }

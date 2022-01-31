@@ -3,7 +3,7 @@ use maud::{html, Markup};
 
 pub fn danger_zone(evh_config: &EvhConfig, env_config: &EnvConfig) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-danger" ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Danger zone" }
             ."card-body" {
                 p { "These options are internal and critical to Event Horizon's functionality. You probably shouldn't \
@@ -37,7 +37,7 @@ pub fn danger_zone(evh_config: &EvhConfig, env_config: &EnvConfig) -> Markup {
 
 fn redis_card(evh_config: &EvhConfig) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Redis" }
             ."card-body" {
                 .row ."mb-3" {
@@ -69,7 +69,7 @@ fn redis_card(evh_config: &EvhConfig) -> Markup {
 
 fn recursor_card(evh_config: &EvhConfig) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "PDNS Recursor" }
             ."card-body" {
                 .row ."mb-3" {

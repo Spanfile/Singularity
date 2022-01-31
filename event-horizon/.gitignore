@@ -1,5 +1,6 @@
-static
+static/bootstrap.min.css.map
 .env
 *.sqlite
 *.sqlite-journal
 evh.toml
+node_modules

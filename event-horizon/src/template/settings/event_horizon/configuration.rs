@@ -3,10 +3,10 @@ use maud::{html, Markup};
 
 pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>, active_cfg: DbId) -> Markup {
     html! {
-        .card ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Available Singularity configurations" }
             ."card-body" {
-                a .btn ."btn-primary" href="/settings/event_horizon/import_singularity_config" {
+                a .btn ."btn-outline-primary" href="/settings/event_horizon/import_singularity_config" {
                     "Import Singularity configuration"
                 }
 
@@ -42,9 +42,9 @@ fn active_config_table_row(name: &str, cfg: &SingularityConfig) -> Markup {
                 // this element is used to push the other elements to the right
                 ."me-auto" {}
 
-                a .btn ."btn-primary" ."btn-sm" .disabled ."me-3" ."px-4" href="#" { "Use" }
+                a .btn ."btn-outline-success" ."btn-sm" .disabled ."me-3" ."px-4" href="#" { "Use" }
 
-                a .btn ."btn-primary" ."btn-sm" ."me-3" href={
+                a .btn ."btn-outline-primary" ."btn-sm" ."me-3" href={
                     "/settings/event_horizon/rename_singularity_config?id=" (cfg.id())
                 } { "Rename" }
 
@@ -62,11 +62,11 @@ fn config_table_row(name: &str, cfg: &SingularityConfig) -> Markup {
                 // this element is used to push the other elements to the right
                 ."me-auto" {}
 
-                a .btn ."btn-primary" ."btn-sm" ."me-3" ."px-4" href={
+                a .btn ."btn-outline-success" ."btn-sm" ."me-3" ."px-4" href={
                     "/settings/event_horizon/use_singularity_config?id=" (cfg.id())
                 } { "Use" }
 
-                a .btn ."btn-primary" ."btn-sm" ."me-3" href={
+                a .btn ."btn-outline-primary" ."btn-sm" ."me-3" href={
                     "/settings/event_horizon/rename_singularity_config?id=" (cfg.id())
                 } { "Rename" }
 
