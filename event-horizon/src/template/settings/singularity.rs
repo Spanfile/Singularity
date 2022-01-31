@@ -49,11 +49,9 @@ pub fn singularity(sub_page: SingularitySubPage) -> Markup {
 
 fn main(info: SingularityMainPageInformation) -> Markup {
     html! {
-        .row {
-            label ."col-auto" ."col-form-label" for="configName" { "Current active Singularity configuration:" }
-            ."col-auto" {
-                input ."form-control-plaintext" #configName type="text" value=(info.cfg_name) readonly;
-            }
+        p ."mb-1" {
+            "Current active Singularity configuration: "
+            (info.cfg_name)
         }
 
         p {

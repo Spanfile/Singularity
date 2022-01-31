@@ -1,0 +1,7 @@
+#navbarToggleCbox {
+    display: none;
+}
+
+#navbarToggleCbox:checked ~ .collapse {
+    display: block;
+}

@@ -10,7 +10,7 @@ pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>, active_cfg: DbI
                     "Import Singularity configuration"
                 }
 
-                table .table ."mt-3" ."mb-0" {
+                table .table ."table-striped" ."table-borderless" ."mt-3" ."mb-0" {
                     thead {
                         tr {
                             th scope="col" { "Name" }

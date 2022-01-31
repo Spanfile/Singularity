@@ -83,6 +83,7 @@ impl<'a> ResponseBuilder<'a> {
             meta charset="utf-8";
             meta name="viewport" content="width=device-width, initial-scale=1";
             link rel="stylesheet" href="/static/bootstrap.min.css";
+            link rel="stylesheet" href="/static/evh.css";
 
             svg xmlns="http://www.w3.org/2000/svg" style="display: none;" {
                 symbol id="check-circle-fill" fill="currentColor" viewBox="0 0 16 16" {
@@ -100,17 +101,22 @@ impl<'a> ResponseBuilder<'a> {
 
     fn markup_nav(&self) -> Markup {
         html! {
-            nav ."navbar" ."navbar-expand-lg" ."navbar-dark" ."bg-dark" {
-                ."container-md" {
+            nav ."navbar" ."navbar-expand-lg" ."navbar-fixed-top" ."navbar-dark" ."bg-dark" {
+                ."container-fluid" {
                     a ."navbar-brand" href="/" { "Event Horizon" }
-                    button ."navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" {
-                        span ."navbar-toggler-icon" {}
+
+                    input #navbarToggleCbox type="checkbox";
+                    label .collapsed ."navbar-toggler" for="navbarToggleCbox" data-bs-toggle="collapse"
+                        data-bs-target="navbar" aria-expanded="false" aria-controls="navbar" {
+                        span ."visually-hidden" { "Toggle navigation" }
+                        span ."navbar-toggler-icon";
                     }
-                    #navbarSupportedContent .collapse ."navbar-collapse" {
-                        ul ."navbar-nav" ."me-auto" ."mb-2" ."mb-lg-0" {
-                            li ."nav-item" { a ."nav-link" .active[self.current_path == Some("/")] href="/" { "Home" } }
-                            li ."nav-item" { a ."nav-link" .active[self.current_path == Some("/settings")] href="/settings" { "Settings" } }
-                            li ."nav-item" { a ."nav-link" .active[self.current_path == Some("/about")] href="/about" { "About" } }
+
+                    #navbar .collapse ."navbar-collapse" {
+                        .nav ."navbar-nav" {
+                            a ."nav-link" .active[self.current_path == Some("/")] href="/" { "Home" }
+                            a ."nav-link" .active[self.current_path == Some("/settings")] href="/settings" { "Settings" }
+                            a ."nav-link" .active[self.current_path == Some("/about")] href="/about" { "About" }
                         }
                     }
                 }
