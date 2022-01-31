@@ -36,11 +36,7 @@ max_stored_errors = 10
 redis_url = 'redis://localhost'
 
 [recursor]
-hostname = ''
-private_key_location = ''
-remote_host_key = ''
-username = ''
-verify_remote_host_key = false
+control_socket = 'pdns_recursor.controlsocket'
 ```
 
 Run Event Horizon:

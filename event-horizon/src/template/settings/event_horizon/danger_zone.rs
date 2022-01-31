@@ -69,48 +69,14 @@ fn redis_card(evh_config: &EvhConfig) -> Markup {
 
 fn recursor_card(evh_config: &EvhConfig) -> Markup {
     html! {
-        ."border-dark" ."w-100" ."mb-3" {
+        .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "PDNS Recursor" }
             ."card-body" {
                 .row ."mb-3" {
-                    label ."col-form-label" ."col-lg-3" for="hostname" { "Remote hostname" }
+                    label ."col-form-label" ."col-lg-3" for="controlSocket" { "Recursor control socket" }
                     ."col-lg-9" {
-                        input #hostname ."form-control" name="hostname" type="text"
-                            value=(evh_config.recursor.hostname);
-                    }
-                }
-
-                .row ."mb-3" {
-                    label ."col-form-label" ."col-lg-3" for="username" { "Remote username" }
-                    ."col-lg-9" {
-                        input #username ."form-control" name="username" type="text"
-                            value=(evh_config.recursor.username);
-                    }
-                }
-
-                .row ."mb-3" {
-                    label ."col-form-label" ."col-lg-3" for="private_key" { "Private key" }
-                    ."col-lg-9" {
-                        input #private_key ."form-control" name="private_key" type="text"
-                            value=(evh_config.recursor.private_key_location.display());
-                    }
-                }
-
-                .row ."mb-3" {
-                    label ."col-form-label" ."col-lg-3" for="remote_host_key" { "Remote host key" }
-                    ."col-lg-9" {
-                        input #remote_host_key ."form-control" name="remote_host_key" type="text"
-                            value=(evh_config.recursor.remote_host_key);
-                    }
-                }
-
-                .row ."mb-3" {
-                    ."col-lg-9" ."offset-lg-3" {
-                        ."form-check" {
-                            input ."form-check-input" #verify_remote_host_key name="verify_remote_host_key"
-                                type="checkbox" checked[evh_config.recursor.verify_remote_host_key];
-                            label ."form-check-label" for="verify_remote_host_key" { "Verify remote host key" }
-                        }
+                        input #controlSocket ."form-control" name="control_socket" type="text"
+                            value=(evh_config.recursor.control_socket.display());
                     }
                 }
             }

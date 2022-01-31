@@ -37,11 +37,7 @@ pub struct RedisSettings {
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct RecursorSettings {
-    pub hostname: String,
-    pub username: String,
-    pub private_key_location: PathBuf,
-    pub remote_host_key: String,
-    pub verify_remote_host_key: bool,
+    pub control_socket: PathBuf,
 }
 
 impl EvhConfig {
