@@ -9,7 +9,7 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
             ."card-body" {
                 a .btn ."btn-outline-primary" href="/settings/singularity/add_new_adlist" { "Add new adlist" }
 
-                table .table ."table-striped" ."table-borderless" ."mt-3" {
+                table .table ."table-striped" ."table-borderless" ."mt-3" ."mb-0" {
                     thead {
                         tr {
                             th scope="col" { "Source URL" }

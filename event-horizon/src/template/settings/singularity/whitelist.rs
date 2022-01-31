@@ -10,7 +10,7 @@ pub fn whitelist_card(whitelist: &[(DbId, String)]) -> Markup {
                     "Add new whitelisted domain"
                 }
 
-                table .table ."table-striped" ."table-borderless" ."mt-3" {
+                table .table ."table-striped" ."table-borderless" ."mt-3" ."mb-0" {
                     thead {
                         tr {
                             th scope="col" { "Domain name" }
