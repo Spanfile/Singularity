@@ -61,7 +61,7 @@ TODO
 
 ### Sass
 
-During normal development you don't have to touch Sass, NPM and the Bootstrap source files. The `static/` directory already contains a pre-compiled and minified Bootstrap CSS file ready for deployment. If you wish to edit the Bootstrap customisations in `stylesheet/`, however, you'll need `npm` and a Sass compiler such as `ruby-sass`. Then in order to compile and minify the `custom.scss` file, install the Bootstrap dependency locally:
+During normal development you don't have to touch Sass, NPM and the Bootstrap source files. The `static/` directory already contains a pre-compiled and minified Bootstrap CSS file ready for deployment. If you wish to edit the Bootstrap customisations in `stylesheet/`, however, you'll need `npm` and a Sass compiler such as `ruby-sass`. Then in order to compile and minify the `custom.scss` file, install the Bootstrap and Bootswatch dependencies locally:
 
 ```
 npm i

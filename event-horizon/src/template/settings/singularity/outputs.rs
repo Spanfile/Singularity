@@ -116,7 +116,7 @@ fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) 
 
                     @if controls {
                         ."col-auto" {
-                            a ."btn" ."btn-outline-primary" ."btn-sm" ."mb-auto" href={
+                            a ."btn" ."btn-outline-primary" ."btn-sm" href={
                                 "/settings/singularity/edit_output?id=" (id)
                             } { "Edit" }
                         }
@@ -124,9 +124,9 @@ fn single_output_card(id: DbId, output: &Output, builtin: bool, controls: bool) 
 
                     @if !builtin && controls {
                         ."col-auto" {
-                            a ."btn" ."btn-outline-danger" ."btn-sm" href={ "/settings/singularity/delete_output?id=" (id) } {
-                                "Delete"
-                            }
+                            a ."btn" ."btn-secondary" ."btn-sm" href={
+                                "/settings/singularity/delete_output?id=" (id) }
+                            { "Delete" }
                         }
                     }
                 }

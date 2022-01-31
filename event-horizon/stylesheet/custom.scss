@@ -1,6 +1,8 @@
-@import "_variables.scss";
+$border-radius:         0;
+$border-radius-sm:      0;
+$border-radius-lg:      0;
+$border-radius-pill:    0;
 
-$border-radius: 0;
-
-@import "../node_modules/bootstrap/scss/bootstrap.scss";
-@import "_bootswatch.scss";
+@import "../node_modules/bootswatch/dist/cyborg/variables";
+@import "../node_modules/bootstrap/scss/bootstrap";
+@import "../node_modules/bootswatch/dist/cyborg/bootswatch";

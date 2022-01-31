@@ -10,7 +10,7 @@ pub fn whitelist_card(whitelist: &[(DbId, String)]) -> Markup {
                     "Add new whitelisted domain"
                 }
 
-                table .table ."mt-3" {
+                table .table ."table-striped" ."table-borderless" ."mt-3" {
                     thead {
                         tr {
                             th scope="col" { "Domain name" }
@@ -23,7 +23,7 @@ pub fn whitelist_card(whitelist: &[(DbId, String)]) -> Markup {
                                 // TODO: horizontal overflow to this element
                                 td ."align-middle" { (domain) }
                                 td {
-                                    a .btn ."btn-outline-danger" ."btn-sm" ."float-end" href={
+                                    a .btn ."btn-secondary" ."btn-sm" ."float-end" href={
                                         "/settings/singularity/delete_whitelisted_domain?id=" (id)
                                     } { "Delete" }
                                 }

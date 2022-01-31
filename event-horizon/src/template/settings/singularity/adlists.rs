@@ -9,7 +9,7 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
             ."card-body" {
                 a .btn ."btn-outline-primary" href="/settings/singularity/add_new_adlist" { "Add new adlist" }
 
-                table .table ."mt-3" {
+                table .table ."table-striped" ."table-borderless" ."mt-3" {
                     thead {
                         tr {
                             th scope="col" { "Source URL" }
@@ -24,7 +24,7 @@ pub fn adlists_card(adlists: &[(DbId, Adlist)]) -> Markup {
                                 td ."align-middle" { a href=(adlist.source()) target="_blank" { (adlist.source()) } }
                                 td ."align-middle" { (adlist.format()) }
                                 td {
-                                    a .btn ."btn-outline-danger" ."btn-sm" ."float-end" href={
+                                    a .btn ."btn-secondary" ."btn-sm" ."float-end" href={
                                         "/settings/singularity/delete_adlist?id=" (id)
                                     } { "Delete" }
                                 }
