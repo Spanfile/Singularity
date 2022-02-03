@@ -1,0 +1,4 @@
+FROM powerdns/pdns-recursor-master:latest
+
+USER root
+RUN chown root:root /var/run/pdns-recursor /etc/powerdns/recursor.d /etc/powerdns/templates.d

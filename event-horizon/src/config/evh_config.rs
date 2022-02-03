@@ -17,6 +17,8 @@ const REDIS_CONNECTION_TIMEOUT: u64 = 5000;
 const MAX_CONCURRENT_IMPORTS: usize = 5;
 const MAX_IMPORT_LIFETIME: u64 = 300;
 
+const DEFAULT_RECURSOR_CONTROL_SOCKET: &str = "/pdns-recursor/pdns_recursor.controlsocket";
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct EvhConfig {
@@ -34,7 +36,7 @@ pub struct RedisSettings {
     pub max_import_lifetime: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RecursorSettings {
     pub control_socket: PathBuf,
@@ -78,6 +80,14 @@ impl Default for RedisSettings {
             connection_timeout: REDIS_CONNECTION_TIMEOUT,
             max_concurrent_imports: MAX_CONCURRENT_IMPORTS,
             max_import_lifetime: MAX_IMPORT_LIFETIME,
+        }
+    }
+}
+
+impl Default for RecursorSettings {
+    fn default() -> Self {
+        Self {
+            control_socket: PathBuf::from(DEFAULT_RECURSOR_CONTROL_SOCKET),
         }
     }
 }

@@ -89,6 +89,8 @@ async fn main() -> EvhResult<()> {
 }
 
 fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
+    // TODO: run migrations
+
     debug!("Establishing SQLite connection to {}", evh_config.database_url);
 
     let manager = ConnectionManager::<SqliteConnection>::new(&evh_config.database_url);

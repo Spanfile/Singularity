@@ -4,3 +4,14 @@ services:
     restart: always
     ports:
       - "127.0.0.1:6379:6379"
+
+  recursor:
+    build:
+      context: ./containers
+      dockerfile: Dockerfile-pdns-recursor
+    restart: always
+    ports:
+      - "127.0.0.1:5553:53/udp"
+    volumes:
+      - "./pdns-recursor:/var/run/pdns-recursor"
+      - "./recursor-dev.conf:/etc/powerdns/recursor.d/recursor-dev.conf"
