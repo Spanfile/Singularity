@@ -36,7 +36,6 @@ max_stored_errors = 10
 redis_url = 'redis://localhost'
 
 [recursor]
-rec_control_binary = '/usr/bin/rec_control'
 control_socket = 'pdns-recursor/pdns_recursor.controlsocket'
 ```
 

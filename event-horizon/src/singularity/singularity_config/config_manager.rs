@@ -104,10 +104,10 @@ fn store_active_config(id: DbId, conn: &mut DbConn) -> EvhResult<()> {
     let new_setting = diesel::insert_into(evh_settings::table)
         .values(models::NewEvhSetting {
             setting_type: type_id,
-            // TODO: the column type in the database is TEXT, so this conversion is necessary to keep diesel
-            // happy. while technically SQLite wouldn't bat an eye if I gave it an integer anyways, diesel
-            // does care to ensure the data type is correct. maybe there's a way to avoid the conversion
-            // with a custom type that accepts both strings and integers?
+            // TODO: the column type in the database is TEXT, so this conversion is necessary to keep diesel happy.
+            // while technically SQLite wouldn't bat an eye if I gave it an integer anyways, diesel does care to ensure
+            // the data type is correct. maybe there's a way to avoid the conversion with a custom type that accepts
+            // both strings and integers?
             value: &value,
         })
         // make the statement into an UPSERT
