@@ -31,8 +31,8 @@ pub enum EvhError {
     EmptyMultipartField,
     #[error("Multipart field in the file upload has no filename")]
     MissingFieldFilename,
-    #[error("The uploaded file was not encoded in UTF-8")]
-    UploadedFileNotUtf8,
+    #[error("Received text was not encoded in UTF-8")]
+    TextNotUtf8,
     #[error("EVH setting has invalid value for type {0}: {1}")]
     InvalidSetting(DbId, String),
     #[error("No such Singularity configuration item: {0}")]

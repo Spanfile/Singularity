@@ -5,6 +5,7 @@ mod config;
 mod database;
 mod error;
 mod logging;
+mod rec_control;
 mod routes;
 mod singularity;
 mod template;
@@ -28,6 +29,7 @@ use diesel::{
     SqliteConnection,
 };
 use log::*;
+use rec_control::RecControl;
 use std::time::Duration;
 
 #[actix_web::main]
@@ -46,8 +48,9 @@ async fn main() -> EvhResult<()> {
 
     let db_pool = create_db_pool(&evh_config)?;
     let redis_pool = create_redis_pool(&evh_config)?;
-    let mut conn = db_pool.get()?;
+    let rec_control = create_rec_control(&evh_config).await?;
 
+    let mut conn = db_pool.get()?;
     let cfg_manager = ConfigManager::load(&mut conn)?;
     let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
 
@@ -55,6 +58,7 @@ async fn main() -> EvhResult<()> {
     let evh_config = web::Data::new(evh_config);
     let db_pool = web::Data::new(db_pool);
     let redis_pool = web::Data::new(redis_pool);
+    let rec_control = web::Data::new(rec_control);
     let cfg_manager = web::Data::new(cfg_manager);
 
     let listener = match env_config.listen {
@@ -74,6 +78,7 @@ async fn main() -> EvhResult<()> {
             .app_data(evh_config.clone())
             .app_data(db_pool.clone())
             .app_data(redis_pool.clone())
+            .app_data(rec_control.clone())
             .app_data(cfg_manager.clone())
             .app_data(config_importer.clone())
             .service(Files::new("/static", "static/"))
@@ -118,4 +123,13 @@ fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<RedisPool> {
         .build(client)
         .map_err(EvhError::RedisPoolInitialisationFailed)?;
     Ok(RedisPool::new(pool))
+}
+
+async fn create_rec_control(evh_config: &EvhConfig) -> EvhResult<RecControl> {
+    debug!(
+        "Establishing connection to Recursor control socket {}",
+        evh_config.recursor.control_socket.display()
+    );
+
+    RecControl::new(&evh_config.recursor.control_socket).await
 }

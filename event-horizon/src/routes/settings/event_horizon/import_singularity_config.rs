@@ -151,7 +151,7 @@ async fn submit_import_form(
                 .finish(),
         ),
         Err(e) => match e {
-            EvhError::UploadedFileNotUtf8 | EvhError::EmptyMultipartField | EvhError::MultipartError(_) => {
+            EvhError::TextNotUtf8 | EvhError::EmptyMultipartField | EvhError::MultipartError(_) => {
                 Either::Left(import_page().alert(Alert::Error(e.to_string())).bad_request())
             }
             e => {
@@ -268,7 +268,7 @@ async fn begin_import(
             match String::from_utf8(buf) {
                 Ok(content) => (filename, content),
                 Err(_) => {
-                    return Err(EvhError::UploadedFileNotUtf8);
+                    return Err(EvhError::TextNotUtf8);
                 }
             }
         }
