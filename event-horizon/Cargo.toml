@@ -18,6 +18,8 @@ chrono = "0.4.19"
 cron_clock = "0.8.0"
 # the git master is used directly because it's got the "returning_clauses_for_sqlite_3_35" feature that hasn't been released yet
 diesel = {git = "https://github.com/diesel-rs/diesel", rev = "0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f", features = ["sqlite", "r2d2", "returning_clauses_for_sqlite_3_35"]}
+# likewise, use the same git master and revision in order for the crate to be compatible
+diesel_migrations = {git = "https://github.com/diesel-rs/diesel", rev = "0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f" }
 dotenv = "0.15.0"
 envy = "0.4.2"
 fern = {version = "0.6.0", features = ["colored"]}

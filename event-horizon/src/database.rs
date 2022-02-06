@@ -6,6 +6,9 @@ use diesel::{
     r2d2::{self, ConnectionManager},
     SqliteConnection,
 };
+use diesel_migrations::{embed_migrations, EmbeddedMigrations};
+
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 pub type DbConn = SqliteConnection;
 /// The ID type used across the database schema

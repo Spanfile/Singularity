@@ -28,6 +28,7 @@ use diesel::{
     r2d2::{self, ConnectionManager},
     SqliteConnection,
 };
+use diesel_migrations::MigrationHarness;
 use log::*;
 use rec_control::{RecControl, RecursorVersion};
 use std::time::Duration;
@@ -99,17 +100,27 @@ async fn main() -> EvhResult<()> {
 }
 
 fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
-    // TODO: run migrations
-
     debug!("Establishing SQLite connection to {}", evh_config.database_url);
 
     let manager = ConnectionManager::<SqliteConnection>::new(&evh_config.database_url);
     let pool = r2d2::Pool::builder()
         .build(manager)
         .map_err(EvhError::DatabasePoolInitialisationFailed)?;
-
     debug!("{:#?}", pool);
-    Ok(DbPool::new(pool))
+
+    let pool = DbPool::new(pool);
+    let mut conn = pool.get()?;
+    let run_migrations = conn
+        .run_pending_migrations(database::MIGRATIONS)
+        .map_err(EvhError::DatabaseMigrationsFailed)?;
+
+    if run_migrations.is_empty() {
+        debug!("No database migrations to run")
+    } else {
+        debug!("Ran database migrations: {:?}", run_migrations);
+    }
+
+    Ok(pool)
 }
 
 fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<(RedisPool, RedisVersion)> {

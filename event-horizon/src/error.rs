@@ -9,6 +9,8 @@ pub enum EvhError {
     // direct errors
     #[error("Failed to initialise database pool: {0}")]
     DatabasePoolInitialisationFailed(diesel::r2d2::PoolError),
+    #[error("Failed to run database migrations: {0}")]
+    DatabaseMigrationsFailed(Box<dyn std::error::Error + Send + Sync>),
     #[error("Failed to initialise Redis pool: {0}")]
     RedisPoolInitialisationFailed(diesel::r2d2::PoolError),
     #[error("Failed to get Redis information")]

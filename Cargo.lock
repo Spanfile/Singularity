@@ -757,6 +757,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "diesel_migrations"
+version = "2.0.0"
+source = "git+https://github.com/diesel-rs/diesel?rev=0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f#0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f"
+dependencies = [
+ "diesel",
+ "migrations_internals",
+ "migrations_macros",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -855,6 +865,7 @@ dependencies = [
  "chrono",
  "cron_clock",
  "diesel",
+ "diesel_migrations",
  "dotenv",
  "envy",
  "fern",
@@ -1408,6 +1419,25 @@ name = "memchr"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
+
+[[package]]
+name = "migrations_internals"
+version = "2.0.0"
+source = "git+https://github.com/diesel-rs/diesel?rev=0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f#0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f"
+dependencies = [
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "migrations_macros"
+version = "2.0.0"
+source = "git+https://github.com/diesel-rs/diesel?rev=0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f#0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f"
+dependencies = [
+ "migrations_internals",
+ "proc-macro2 1.0.36",
+ "quote 1.0.15",
+]
 
 [[package]]
 name = "mime"
