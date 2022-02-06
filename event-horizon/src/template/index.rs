@@ -4,6 +4,5 @@ use maud::html;
 pub fn index() -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
         p { "Hello!" }
-        a href="/stats" { "Statistics" }
     })
 }

@@ -23,13 +23,13 @@ use crate::{
 };
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};
-use database::RedisPool;
+use database::{RedisPool, RedisVersion};
 use diesel::{
     r2d2::{self, ConnectionManager},
     SqliteConnection,
 };
 use log::*;
-use rec_control::RecControl;
+use rec_control::{RecControl, RecursorVersion};
 use std::time::Duration;
 
 #[actix_web::main]
@@ -47,8 +47,8 @@ async fn main() -> EvhResult<()> {
     debug!("EVH: {:#?}", evh_config);
 
     let db_pool = create_db_pool(&evh_config)?;
-    let redis_pool = create_redis_pool(&evh_config)?;
-    let rec_control = create_rec_control(&evh_config).await?;
+    let (redis_pool, redis_version) = create_redis_pool(&evh_config)?;
+    let (rec_control, rec_version) = create_rec_control(&evh_config).await?;
 
     let mut conn = db_pool.get()?;
     let cfg_manager = ConfigManager::load(&mut conn)?;
@@ -58,7 +58,9 @@ async fn main() -> EvhResult<()> {
     let evh_config = web::Data::new(evh_config);
     let db_pool = web::Data::new(db_pool);
     let redis_pool = web::Data::new(redis_pool);
+    let redis_version = web::Data::new(redis_version);
     let rec_control = web::Data::new(rec_control);
+    let rec_version = web::Data::new(rec_version);
     let cfg_manager = web::Data::new(cfg_manager);
 
     let listener = match env_config.listen {
@@ -78,7 +80,9 @@ async fn main() -> EvhResult<()> {
             .app_data(evh_config.clone())
             .app_data(db_pool.clone())
             .app_data(redis_pool.clone())
+            .app_data(redis_version.clone())
             .app_data(rec_control.clone())
+            .app_data(rec_version.clone())
             .app_data(cfg_manager.clone())
             .app_data(config_importer.clone())
             .service(Files::new("/static", "static/"))
@@ -108,29 +112,42 @@ fn create_db_pool(evh_config: &EvhConfig) -> EvhResult<DbPool> {
     Ok(DbPool::new(pool))
 }
 
-fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<RedisPool> {
+fn create_redis_pool(evh_config: &EvhConfig) -> EvhResult<(RedisPool, RedisVersion)> {
     debug!("Establishing Redis connection to {}", evh_config.redis.redis_url);
 
     // the redis client is kinda silly in that it doesn't allow &Url, only Url, so just fuckin' clone the thing
     let client = redis::Client::open(evh_config.redis.redis_url.clone())?;
     debug!("{:#?}", client);
 
-    // test the connection
+    // test the connection by retrieving redis' version
     let mut conn = client.get_connection_with_timeout(Duration::from_millis(evh_config.redis.connection_timeout))?;
-    let pong: String = redis::cmd("PING").query(&mut conn)?;
-    debug!("Testing Redis connection: {}", pong);
+    let info: String = redis::cmd("INFO").query(&mut conn)?;
+
+    // the INFO reply looks like
+    // # Server
+    // redis_version:X.Y.Z
+    // ...
+    let version = info
+        .lines()
+        .nth(1)
+        .and_then(|line| line.split_once(':').map(|(_, r)| r.to_string()))
+        .ok_or(EvhError::RedisInfoFailed)?;
+    debug!("Redis version: {}", version);
 
     let pool = r2d2::Pool::builder()
         .build(client)
         .map_err(EvhError::RedisPoolInitialisationFailed)?;
-    Ok(RedisPool::new(pool))
+    Ok((RedisPool::new(pool), RedisVersion(version)))
 }
 
-async fn create_rec_control(evh_config: &EvhConfig) -> EvhResult<RecControl> {
+async fn create_rec_control(evh_config: &EvhConfig) -> EvhResult<(RecControl, RecursorVersion)> {
     debug!(
         "Establishing connection to Recursor control socket {}",
         evh_config.recursor.control_socket.display()
     );
 
-    RecControl::new(&evh_config.recursor.control_socket).await
+    let (control, version) = RecControl::new(&evh_config.recursor.control_socket).await?;
+    debug!("Recursor version: {}", version.0);
+
+    Ok((control, version))
 }

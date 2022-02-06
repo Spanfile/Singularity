@@ -11,6 +11,8 @@ pub enum EvhError {
     DatabasePoolInitialisationFailed(diesel::r2d2::PoolError),
     #[error("Failed to initialise Redis pool: {0}")]
     RedisPoolInitialisationFailed(diesel::r2d2::PoolError),
+    #[error("Failed to get Redis information")]
+    RedisInfoFailed,
     #[error("Failed to acquire database connection: {0}")]
     DatabaseConnectionAcquireFailed(diesel::r2d2::PoolError),
     #[error("Failed to acquire Redis connection: {0}")]

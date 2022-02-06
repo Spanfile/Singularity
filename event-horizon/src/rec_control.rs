@@ -1,6 +1,9 @@
 use crate::error::{EvhError, EvhResult};
 use log::*;
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt, BufStream},
     net::UnixStream,
@@ -10,6 +13,7 @@ use tokio::{
 #[non_exhaustive]
 pub enum RecControlMessage<'a> {
     Ping,
+    Version,
     GetAll,
     Get(&'a str),
     ReloadLuaScript(Option<&'a Path>),
@@ -19,8 +23,10 @@ pub struct RecControl {
     control_socket: PathBuf,
 }
 
+pub struct RecursorVersion(pub String);
+
 impl RecControl {
-    pub async fn new<P>(socket_path: P) -> EvhResult<Self>
+    pub async fn new<P>(socket_path: P) -> EvhResult<(Self, RecursorVersion)>
     where
         P: Into<PathBuf>,
     {
@@ -28,8 +34,10 @@ impl RecControl {
             control_socket: socket_path.into(),
         };
 
-        inst.send_control_message(RecControlMessage::Ping).await?;
-        Ok(inst)
+        let version = inst.send_control_message(RecControlMessage::Version).await?;
+        let version = RecursorVersion(version);
+
+        Ok((inst, version))
     }
 
     pub async fn send_control_message(&self, message: RecControlMessage<'_>) -> EvhResult<String> {
@@ -38,10 +46,11 @@ impl RecControl {
         // - the operation's return code. in case the answer is the initial message sent to the recursor, the code is 0
         // - the operation result as a string. in case the answer is the initial message, it is the command to send
 
-        // directions the communication flow, based on https://github.com/PowerDNS/pdns/blob/master/pdns/rec_channel.cc
+        // the communication flow, based on https://github.com/PowerDNS/pdns/blob/master/pdns/rec_channel.cc
         // - send the answer's return code over the channel
         // - send the answer's result string's length
         // - send the result string
+        // all numbers sent over the channel seem to be little endian
 
         // there's a mechanism to send file descriptors as well, TODO: implement it? it's required for things like
         // dumping the cache
@@ -86,17 +95,23 @@ where
     let mut buf = vec![0u8; len];
     sock.read_exact(&mut buf).await?;
 
+    // the last byte in each response is a newline, get rid of it
+    buf.truncate(buf.len() - 1);
+
     String::from_utf8(buf).map_err(|_| EvhError::TextNotUtf8)
 }
 
 impl RecControlMessage<'_> {
-    fn as_string(self) -> String {
+    fn as_string(self) -> Cow<'static, str> {
         match self {
-            RecControlMessage::Ping => "ping".to_string(),
-            RecControlMessage::GetAll => "get-all".to_string(),
-            RecControlMessage::Get(param) => format!("get {}", param),
-            RecControlMessage::ReloadLuaScript(None) => "reload-lua-script".to_string(),
-            RecControlMessage::ReloadLuaScript(Some(filename)) => format!("reload-lua-script {}", filename.display()),
+            RecControlMessage::Ping => Cow::Borrowed("ping"),
+            RecControlMessage::Version => Cow::Borrowed("version"),
+            RecControlMessage::GetAll => Cow::Borrowed("get-all"),
+            RecControlMessage::Get(param) => Cow::Owned(format!("get {}", param)),
+            RecControlMessage::ReloadLuaScript(None) => Cow::Borrowed("reload-lua-script"),
+            RecControlMessage::ReloadLuaScript(Some(filename)) => {
+                Cow::Owned(format!("reload-lua-script {}", filename.display()))
+            }
         }
     }
 }

@@ -6,7 +6,7 @@ use actix_web::{web, Responder};
 use log::*;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::resource("/stats").route(web::get().to(stats)));
+    cfg.service(web::resource("/statistics").route(web::get().to(stats)));
 }
 
 async fn stats(rec_control: web::Data<RecControl>) -> impl Responder {
@@ -17,7 +17,7 @@ async fn stats(rec_control: web::Data<RecControl>) -> impl Responder {
                 .filter_map(|line| line.split_once(char::is_whitespace))
                 .collect::<Vec<(&str, &str)>>();
 
-            template::stats(Some(&stats)).current_path("/")
+            template::stats(Some(&stats)).current_path("/statistics")
         }
         Err(e) => {
             error!("Failed to get Recursor statistics: {}", e);
@@ -27,7 +27,7 @@ async fn stats(rec_control: web::Data<RecControl>) -> impl Responder {
                     "Failed to gather Recursor statistics due to an internal server error: {}",
                     e
                 )))
-                .current_path("/")
+                .current_path("/statistics")
         }
     }
 }

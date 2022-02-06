@@ -14,6 +14,8 @@ pub type DbId = i32;
 pub struct DbPool(r2d2::Pool<ConnectionManager<DbConn>>);
 pub struct RedisPool(r2d2::Pool<redis::Client>);
 
+pub struct RedisVersion(pub String);
+
 impl DbPool {
     pub fn new(pool: r2d2::Pool<ConnectionManager<DbConn>>) -> Self {
         Self(pool)

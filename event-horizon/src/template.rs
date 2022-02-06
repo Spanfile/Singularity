@@ -118,6 +118,7 @@ impl<'a> ResponseBuilder<'a> {
                         .nav ."navbar-nav" {
                             a ."nav-link" .active[self.current_path == Some("/")] href="/" { "Home" }
                             a ."nav-link" .active[self.current_path == Some("/settings")] href="/settings" { "Settings" }
+                            a ."nav-link" .active[self.current_path == Some("/statistics")] href="/statistics" { "Statistics" }
                             a ."nav-link" .active[self.current_path == Some("/about")] href="/about" { "About" }
                         }
                     }
