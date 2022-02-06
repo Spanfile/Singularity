@@ -1,11 +1,13 @@
 pub mod about;
 pub mod index;
+pub mod run_singularity;
 pub mod settings;
 pub mod stats;
 
 // re-exported for convenience
 pub use about::about;
 pub use index::index;
+pub use run_singularity::run_singularity;
 pub use settings::settings;
 pub use stats::stats;
 

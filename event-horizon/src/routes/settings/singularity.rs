@@ -12,7 +12,7 @@ use crate::{
     },
     util,
 };
-use actix_web::{web, Responder};
+use actix_web::{web, Either, Responder};
 use log::*;
 use std::sync::Arc;
 
@@ -28,16 +28,18 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 
 async fn singularity(cfg_mg: web::Data<ConfigManager>, pool: web::Data<DbPool>) -> impl Responder {
     let cfg = cfg_mg.get_active_config();
-    match page(cfg, pool.into_inner()).await {
-        Ok(page_info) => template::settings(SettingsPage::Singularity(SingularitySubPage::Main(page_info))),
+    match get_page_information(cfg, pool.into_inner()).await {
+        Ok(page_info) => Either::Left(template::settings(SettingsPage::Singularity(SingularitySubPage::Main(
+            page_info,
+        )))),
         Err(e) => {
-            error!("Failed to get main page: {}", e);
-            todo!()
+            error!("Failed to get Singularity information: {}", e);
+            Either::Right(util::internal_server_error_response(e.to_string()))
         }
     }
 }
 
-async fn page(cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<SingularityMainPageInformation> {
+async fn get_page_information(cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<SingularityMainPageInformation> {
     web::block(move || {
         let mut conn = pool.get()?;
 

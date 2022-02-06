@@ -1,4 +1,4 @@
-use crate::util::round_duration::RoundDuration;
+use crate::template::run_singularity::{singularity_last_run, singularity_run_now_button};
 use chrono::{DateTime, Local};
 use maud::{html, Markup};
 
@@ -16,33 +16,9 @@ pub fn run_and_timing_card(last_run: Option<DateTime<Local>>, next_run: DateTime
 }
 
 fn run_card(last_run: Option<DateTime<Local>>, next_run: DateTime<Local>) -> Markup {
-    let to_next_run = humantime::format_duration(
-        (next_run - Local::now())
-            .to_std()
-            .expect("failed to convert chrono duration to std duration")
-            .round_to_minutes(),
-    );
-
     html! {
-        p {
-            "Singularity was last run: "
-            @if let Some(last_run) = last_run {
-                (humantime::format_duration(
-                    (Local::now() - last_run)
-                    .to_std()
-                    .expect("failed to convert chrono duration to std duration")
-                    .round_to_minutes()))
-                " ago at " (last_run.format("%H:%M, %a %x"))
-            } @else {
-                "Never"
-            }
-        }
-
-        p {
-            "Next scheduled run: in " (to_next_run) " at " (next_run.format("%H:%M, %a %x"))
-        }
-
-        a ."btn" ."btn-outline-success" href="/run_singularity" { "Run Singularity now" }
+        (singularity_last_run(last_run, next_run))
+        (singularity_run_now_button())
     }
 }
 

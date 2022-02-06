@@ -19,7 +19,10 @@ use crate::{
     config::{EnvConfig, EvhConfig, Listen},
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::{config_importer::ConfigImporter, singularity_config::config_manager::ConfigManager},
+    singularity::{
+        config_importer::ConfigImporter, singularity_config::config_manager::ConfigManager,
+        singularity_runner::SingularityRunner,
+    },
 };
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};
@@ -53,7 +56,6 @@ async fn main() -> EvhResult<()> {
 
     let mut conn = db_pool.get()?;
     let cfg_manager = ConfigManager::load(&mut conn)?;
-    let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
 
     let env_config = web::Data::new(env_config);
     let evh_config = web::Data::new(evh_config);
@@ -63,6 +65,8 @@ async fn main() -> EvhResult<()> {
     let rec_control = web::Data::new(rec_control);
     let rec_version = web::Data::new(rec_version);
     let cfg_manager = web::Data::new(cfg_manager);
+    let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
+    let singularity_runner = web::Data::new(SingularityRunner {});
 
     let listener = match env_config.listen {
         Listen::Http { bind } => bind,
@@ -86,11 +90,9 @@ async fn main() -> EvhResult<()> {
             .app_data(rec_version.clone())
             .app_data(cfg_manager.clone())
             .app_data(config_importer.clone())
+            .app_data(singularity_runner.clone())
             .service(Files::new("/static", "static/"))
-            .configure(routes::index::config)
-            .configure(routes::about::config)
-            .configure(routes::settings::config)
-            .configure(routes::stats::config)
+            .configure(routes::config)
     })
     .bind(listener)?
     .run()
