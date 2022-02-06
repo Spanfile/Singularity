@@ -1,7 +1,7 @@
 use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::{ConfigManager, SingularityConfig},
+    singularity::singularity_config::{config_manager::ConfigManager, SingularityConfig},
     util::{self, request_callback_error::RequestCallbackError},
 };
 use actix_web::{

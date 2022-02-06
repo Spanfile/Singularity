@@ -1,7 +1,10 @@
 use crate::{
     database::{DbPool, RedisPool},
     error::{EvhError, EvhResult},
-    singularity::{ConfigManager, RenderedConfig, SingularityConfig},
+    singularity::{
+        rendered_config::RenderedConfig,
+        singularity_config::{config_manager::ConfigManager, SingularityConfig},
+    },
     template::{
         self,
         settings::{EventHorizonSubPage, SettingsPage},

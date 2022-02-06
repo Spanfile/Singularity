@@ -1,7 +1,7 @@
 use crate::{
     database::{DbConn, DbId, DbPool},
     error::{EvhError, EvhResult},
-    singularity::{ConfigManager, SingularityConfig},
+    singularity::singularity_config::{config_manager::ConfigManager, SingularityConfig},
     template::{
         self,
         settings::{SettingsPage, SingularitySubPage},

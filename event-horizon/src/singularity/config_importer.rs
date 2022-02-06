@@ -1,4 +1,4 @@
-use super::RenderedConfig;
+use super::rendered_config::RenderedConfig;
 use crate::{
     config::EvhConfig,
     error::{EvhError, EvhResult},

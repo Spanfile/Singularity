@@ -5,7 +5,7 @@ mod whitelist;
 
 use crate::{
     database::DbId,
-    singularity::{AdlistCollection, OutputCollection, WhitelistCollection},
+    singularity::singularity_config::{AdlistCollection, OutputCollection, WhitelistCollection},
 };
 use chrono::{DateTime, Local};
 use maud::{html, Markup};

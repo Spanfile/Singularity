@@ -4,7 +4,7 @@ mod modify_singularity_config;
 
 use crate::{
     database::DbPool,
-    singularity::{ConfigManager, SingularityConfig},
+    singularity::singularity_config::{config_manager::ConfigManager, SingularityConfig},
     template::{
         self,
         settings::{EventHorizonSubPage, SettingsPage},

@@ -5,7 +5,7 @@ mod set_timing;
 use crate::{
     database::DbPool,
     error::EvhResult,
-    singularity::{ConfigManager, SingularityConfig},
+    singularity::singularity_config::{config_manager::ConfigManager, SingularityConfig},
     template::{
         self,
         settings::{SettingsPage, SingularityMainPageInformation, SingularitySubPage},

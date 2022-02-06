@@ -1,4 +1,4 @@
-use crate::{database::DbId, singularity::SingularityConfig};
+use crate::{database::DbId, singularity::singularity_config::SingularityConfig};
 use maud::{html, Markup};
 
 pub fn config_card(cfgs: Option<&[(String, SingularityConfig)]>, active_cfg: DbId) -> Markup {

@@ -19,7 +19,7 @@ use crate::{
     config::{EnvConfig, EvhConfig, Listen},
     database::DbPool,
     error::{EvhError, EvhResult},
-    singularity::{ConfigImporter, ConfigManager},
+    singularity::{config_importer::ConfigImporter, singularity_config::config_manager::ConfigManager},
 };
 use actix_files::Files;
 use actix_web::{middleware::Logger, web, App, HttpServer};

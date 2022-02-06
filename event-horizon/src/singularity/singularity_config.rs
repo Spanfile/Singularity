@@ -1,6 +1,6 @@
-pub(super) mod config_manager;
+pub mod config_manager;
 
-use super::RenderedConfig;
+use super::rendered_config::RenderedConfig;
 use crate::{
     database::{models, DbConn, DbId},
     error::{EvhError, EvhResult},

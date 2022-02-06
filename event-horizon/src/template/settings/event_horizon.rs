@@ -6,7 +6,7 @@ mod modify_singularity_config;
 use crate::{
     config::{EnvConfig, EvhConfig},
     database::DbId,
-    singularity::SingularityConfig,
+    singularity::singularity_config::SingularityConfig,
 };
 use maud::{html, Markup};
 
