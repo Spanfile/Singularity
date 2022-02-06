@@ -20,7 +20,7 @@ pub type AdlistCollection = Vec<(DbId, Adlist)>;
 pub type OutputCollection = Vec<(DbId, Output, bool)>;
 pub type WhitelistCollection = Vec<(DbId, String)>;
 
-pub const DEFAULT_RUN_TIMING: &str = "0 0 * * * ";
+pub const DEFAULT_RUN_CRON_SCHEDULE: &str = "0 0 * * * ";
 
 // this should be kept trivially copiable for simplicity
 #[derive(Debug, Default, Copy, Clone)]
@@ -38,7 +38,7 @@ impl SingularityConfig {
                 dirty: false,
                 http_timeout: HTTP_CONNECT_TIMEOUT as i32,
                 name: name.as_ref(),
-                timing: DEFAULT_RUN_TIMING,
+                timing: DEFAULT_RUN_CRON_SCHEDULE,
                 last_run: None,
             })
             .get_result::<models::SingularityConfig>(conn)?;

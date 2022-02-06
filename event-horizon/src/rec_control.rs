@@ -98,11 +98,17 @@ where
     // the last byte in each response is a newline, get rid of it
     buf.truncate(buf.len() - 1);
 
-    String::from_utf8(buf).map_err(|_| EvhError::TextNotUtf8)
+    let resp = String::from_utf8(buf).map_err(|_| EvhError::TextNotUtf8)?;
+
+    if ret == 0 {
+        Ok(resp)
+    } else {
+        Err(EvhError::RecControl(ret, resp))
+    }
 }
 
-impl RecControlMessage<'_> {
-    fn as_string(self) -> Cow<'static, str> {
+impl<'a> RecControlMessage<'a> {
+    fn as_string(self) -> Cow<'a, str> {
         match self {
             RecControlMessage::Ping => Cow::Borrowed("ping"),
             RecControlMessage::Version => Cow::Borrowed("version"),

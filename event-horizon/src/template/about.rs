@@ -40,4 +40,5 @@ pub fn about(recursor_version: &str, redis_version: &str) -> ResponseBuilder<'st
             }
         }
     })
+    .current_path("/about")
 }

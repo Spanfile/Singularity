@@ -6,5 +6,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn about(recursor_version: web::Data<RecursorVersion>, redis_version: web::Data<RedisVersion>) -> impl Responder {
-    template::about(&recursor_version.0, &redis_version.0).current_path("/about")
+    template::about(&recursor_version.0, &redis_version.0)
 }

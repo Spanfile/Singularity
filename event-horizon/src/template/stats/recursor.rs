@@ -1,6 +1,6 @@
 use maud::{html, Markup};
 
-pub fn recursor(recursor: Option<&[(&str, &str)]>) -> Markup {
+pub fn raw_recursor(stats: Option<&[(&str, &str)]>) -> Markup {
     html! {
         .card ."border-dark" ."w-100" ."mb-3" {
             ."card-header" { "Recursor statistics" }
@@ -13,8 +13,8 @@ pub fn recursor(recursor: Option<&[(&str, &str)]>) -> Markup {
                         }
                     }
                     tbody {
-                        @if let Some(recursor) = recursor {
-                            @for (name, value) in recursor {
+                        @if let Some(stats) = stats {
+                            @for (name, value) in stats {
                                 tr {
                                     td ."font-monospace" { (name) }
                                     td ."font-monospace" { (value) }

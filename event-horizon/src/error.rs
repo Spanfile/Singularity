@@ -53,6 +53,8 @@ pub enum EvhError {
     InvalidQueryString(actix_web::error::QueryPayloadError),
     #[error("Attempt to delete builtin output ID {0}")]
     AttemptToDeleteBuiltinOutput(DbId, singularity::Output),
+    #[error("Recursor returned non-zero code {0} in control call: {1}")]
+    RecControl(i32, String),
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]

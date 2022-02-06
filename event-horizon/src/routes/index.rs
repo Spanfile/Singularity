@@ -6,5 +6,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn index() -> impl Responder {
-    template::index().current_path("/")
+    template::index()
 }
