@@ -83,7 +83,7 @@ where
 
     debug!("rec_control: ret {}, len {}", ret, len);
 
-    let mut buf: Vec<u8> = Vec::with_capacity(len);
+    let mut buf = vec![0u8; len];
     sock.read_exact(&mut buf).await?;
 
     String::from_utf8(buf).map_err(|_| EvhError::TextNotUtf8)

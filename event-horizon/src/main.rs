@@ -85,6 +85,7 @@ async fn main() -> EvhResult<()> {
             .configure(routes::index::config)
             .configure(routes::about::config)
             .configure(routes::settings::config)
+            .configure(routes::stats::config)
     })
     .bind(listener)?
     .run()

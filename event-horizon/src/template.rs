@@ -1,11 +1,13 @@
 pub mod about;
 pub mod index;
 pub mod settings;
+pub mod stats;
 
 // re-exported for convenience
 pub use about::about;
 pub use index::index;
 pub use settings::settings;
+pub use stats::stats;
 
 use actix_web::{body::BoxBody, http::StatusCode, HttpResponse, Responder};
 use maud::{html, Markup, DOCTYPE};
@@ -102,7 +104,7 @@ impl<'a> ResponseBuilder<'a> {
     fn markup_nav(&self) -> Markup {
         html! {
             nav ."navbar" ."navbar-expand-lg" ."navbar-fixed-top" ."navbar-dark" ."bg-dark" {
-                ."container-fluid" {
+                ."container" {
                     a ."navbar-brand" href="/" { "Event Horizon" }
 
                     input #navbarToggleCbox type="checkbox";
