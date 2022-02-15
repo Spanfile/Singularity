@@ -1,8 +1,10 @@
 use crate::{
+    error::EvhError,
     singularity::singularity_runner::{CurrentlyRunningSingularity, SingularityRunner},
-    template,
+    template, util,
 };
 use actix_web::{http::header, web, Either, HttpResponse, Responder};
+use log::*;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -13,7 +15,7 @@ pub fn config(cfg: &mut web::ServiceConfig) {
 }
 
 async fn run_singularity_page(runner: web::Data<SingularityRunner>) -> impl Responder {
-    match runner.get_currently_running() {
+    match runner.get_currently_running().await {
         None => Either::Right(
             HttpResponse::SeeOther()
                 .append_header((header::LOCATION, "/singularity"))
@@ -24,10 +26,18 @@ async fn run_singularity_page(runner: web::Data<SingularityRunner>) -> impl Resp
     }
 }
 
-async fn submit_run_singularity_form() -> impl Responder {
-    // trigger the run here
-
-    HttpResponse::SeeOther()
-        .append_header((header::LOCATION, "/singularity/run"))
-        .finish()
+async fn submit_run_singularity_form(runner: web::Data<SingularityRunner>) -> impl Responder {
+    match runner.run().await {
+        Ok(_) => HttpResponse::SeeOther()
+            .append_header((header::LOCATION, "/singularity/run"))
+            .finish(),
+        Err(EvhError::SingularityAlreadyRunning) => {
+            warn!("Failed to run Singularity: already running");
+            HttpResponse::BadRequest().body("Singularity is already running")
+        }
+        Err(e) => {
+            error!("Failed to run Singularity: {}", e);
+            util::internal_server_error_response(e)
+        }
+    }
 }

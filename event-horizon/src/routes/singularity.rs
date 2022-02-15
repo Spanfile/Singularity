@@ -35,7 +35,7 @@ async fn singularity_page(
     match get_singularity_run_times(cfg, pool.into_inner()).await {
         Ok((last_run, next_run)) => {
             let currently_running = matches!(
-                runner.get_currently_running(),
+                runner.get_currently_running().await,
                 Some(CurrentlyRunningSingularity::Running)
             );
 

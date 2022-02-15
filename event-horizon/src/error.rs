@@ -55,6 +55,8 @@ pub enum EvhError {
     AttemptToDeleteBuiltinOutput(DbId, singularity::Output),
     #[error("Recursor returned non-zero code {0} in control call: {1}")]
     RecControl(i32, String),
+    #[error("Singularity is already running")]
+    SingularityAlreadyRunning,
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]
