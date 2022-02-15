@@ -1,7 +1,7 @@
 pub mod about;
 pub mod index;
-pub mod run_singularity;
 pub mod settings;
+pub mod singularity;
 pub mod stats;
 
 use actix_web::web;
@@ -11,5 +11,5 @@ pub fn config(cfg: &mut web::ServiceConfig) {
         .configure(about::config)
         .configure(settings::config)
         .configure(stats::config)
-        .configure(run_singularity::config);
+        .configure(singularity::config);
 }

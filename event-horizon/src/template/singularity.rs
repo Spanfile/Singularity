@@ -3,23 +3,47 @@ use crate::util::round_duration::RoundDuration;
 use chrono::{DateTime, Local};
 use maud::{html, Markup};
 
-pub fn run_singularity(last_run: Option<DateTime<Local>>, next_run: DateTime<Local>) -> ResponseBuilder<'static> {
+pub fn singularity_page(
+    last_run: Option<DateTime<Local>>,
+    next_run: DateTime<Local>,
+    currently_running: bool,
+) -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
         (singularity_last_run(last_run, next_run))
         p {
             "You may edit the run schedule in the "
             a href="/settings/singularity" { "Singularity settings." }
         }
-        (singularity_run_now_button())
+
+        @if currently_running {
+            p {
+                "Singularity is currently running. "
+                a href="/singularity/run" { "See its status here." }
+            }
+        } @else {
+            (singularity_run_now_button())
+            br;
+        }
+
+        a href="/singularity/history" { "Previous run history" }
     })
-    .current_path("/run_singularity")
+    .current_path("/singularity")
 }
 
 pub fn singularity_running() -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
-        p { "Singularity is running" }
+        p { "Singularity is running. Please refresh this page in a moment to see its result." }
     })
-    .current_path("/run_singularity")
+    .current_path("/singularity")
+}
+
+pub fn singularity_finished() -> ResponseBuilder<'static> {
+    ResponseBuilder::new(html! {
+        p { "The results for the run are going to be displayed here." }
+
+        (singularity_run_now_button())
+    })
+    .current_path("/singularity")
 }
 
 pub fn singularity_last_run(last_run: Option<DateTime<Local>>, next_run: DateTime<Local>) -> Markup {
@@ -53,7 +77,7 @@ pub fn singularity_last_run(last_run: Option<DateTime<Local>>, next_run: DateTim
 
 pub fn singularity_run_now_button() -> Markup {
     html! {
-        form method="POST" action="/run_singularity" {
+        form method="POST" action="/singularity/run" {
             button ."btn" ."btn-outline-success" type="submit" { "Run Singularity now" }
         }
     }

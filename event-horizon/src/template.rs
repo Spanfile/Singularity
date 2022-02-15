@@ -1,13 +1,13 @@
 pub mod about;
 pub mod index;
-pub mod run_singularity;
 pub mod settings;
+pub mod singularity;
 pub mod stats;
 
 // re-exported for convenience
+pub use self::singularity::singularity_page;
 pub use about::about;
 pub use index::index;
-pub use run_singularity::run_singularity;
 pub use settings::settings;
 pub use stats::stats;
 
@@ -119,6 +119,7 @@ impl<'a> ResponseBuilder<'a> {
                     #navbar .collapse ."navbar-collapse" {
                         .nav ."navbar-nav" {
                             a ."nav-link" .active[self.current_path == Some("/")] href="/" { "Home" }
+                            a ."nav-link" .active[self.current_path == Some("/singularity")] href="/singularity" { "Singularity" }
                             a ."nav-link" .active[self.current_path == Some("/settings")] href="/settings" { "Settings" }
                             a ."nav-link" .active[self.current_path == Some("/statistics")] href="/statistics" { "Statistics" }
                             a ."nav-link" .active[self.current_path == Some("/about")] href="/about" { "About" }

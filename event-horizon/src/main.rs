@@ -66,7 +66,7 @@ async fn main() -> EvhResult<()> {
     let rec_version = web::Data::new(rec_version);
     let cfg_manager = web::Data::new(cfg_manager);
     let config_importer = web::Data::new(ConfigImporter::new(&evh_config));
-    let singularity_runner = web::Data::new(SingularityRunner {});
+    let singularity_runner = web::Data::new(SingularityRunner::new());
 
     let listener = match env_config.listen {
         Listen::Http { bind } => bind,

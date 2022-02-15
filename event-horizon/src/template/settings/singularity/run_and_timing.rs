@@ -1,4 +1,4 @@
-use crate::template::run_singularity::{singularity_last_run, singularity_run_now_button};
+use crate::template::singularity::{singularity_last_run, singularity_run_now_button};
 use chrono::{DateTime, Local};
 use maud::{html, Markup};
 
