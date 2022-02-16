@@ -70,17 +70,17 @@ impl RunnerHistory {
         })
     }
 
-    pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<String>> {
+    pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<(String, DateTime<Local>)>> {
         use crate::database::schema::singularity_run_histories;
 
-        let history_ids = singularity_run_histories::table
+        let histories = singularity_run_histories::table
             .load::<models::SingularityRunHistory>(conn)?
             .into_iter()
-            .map(|hist| hist.run_id)
-            .collect::<Vec<_>>();
+            .map(|hist| Ok((hist.run_id, hist.timestamp.parse()?)))
+            .collect::<EvhResult<Vec<_>>>()?;
 
-        debug!("Singularity run histories: {}", history_ids.len());
-        Ok(history_ids)
+        debug!("Singularity run histories: {}", histories.len());
+        Ok(histories)
     }
 
     pub fn timestamp(&self) -> DateTime<Local> {

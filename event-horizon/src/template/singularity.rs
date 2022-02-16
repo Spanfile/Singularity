@@ -2,7 +2,9 @@ mod history;
 
 use super::ResponseBuilder;
 use crate::{
-    singularity::runner::history::HistoryEvent, template::DATETIME_FORMAT, util::round_duration::RoundDuration,
+    singularity::runner::history::{HistoryEvent, RunnerHistory},
+    template::DATETIME_FORMAT,
+    util::round_duration::RoundDuration,
 };
 use chrono::{DateTime, Local};
 use maud::{html, Markup};
@@ -45,6 +47,20 @@ pub fn singularity_finished(timestamp: DateTime<Local>, events: &[HistoryEvent])
     ResponseBuilder::new(html! {
         (history::history_card(timestamp, events))
         (singularity_run_now_button())
+    })
+    .current_path("/singularity")
+}
+
+pub fn singularity_history(timestamp: DateTime<Local>, events: &[HistoryEvent]) -> ResponseBuilder<'static> {
+    ResponseBuilder::new(html! {
+        (history::history_card(timestamp, events))
+    })
+    .current_path("/singularity")
+}
+
+pub fn singularity_histories(histories: &[(String, DateTime<Local>)]) -> ResponseBuilder<'static> {
+    ResponseBuilder::new(html! {
+        (history::histories_card(histories))
     })
     .current_path("/singularity")
 }
