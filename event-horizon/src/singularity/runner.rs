@@ -1,10 +1,13 @@
 pub mod history;
 
+use self::history::RunnerHistory;
 use super::singularity_config::SingularityConfig;
 use crate::{
+    config::EvhConfig,
     database::DbPool,
     error::{EvhError, EvhResult},
 };
+use chrono::Local;
 use crossbeam_utils::atomic::AtomicCell;
 use log::*;
 use nanoid::nanoid;
@@ -46,23 +49,23 @@ impl SingularityRunner {
     }
 
     pub async fn get_currently_running(&self) -> Option<CurrentlyRunningSingularity> {
-        let state = self.0.lock().expect("runner state mutex poisoned");
+        let state = self.0.lock().expect("runner state mutex is poisoned");
         state.currently_running.as_ref().map(|s| match s {
             SingularityRunningState::Running(..) => CurrentlyRunningSingularity::Running,
             SingularityRunningState::Finished(_) => CurrentlyRunningSingularity::Finished,
         })
     }
 
-    pub fn run(&self, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
-        {
-            // scope to drop the guard and unlock the mutex when this is done
-            let state = self.0.lock().expect("runner state mutex poisoned");
-            if let Some(SingularityRunningState::Running(..)) = state.currently_running {
-                return Err(EvhError::SingularityAlreadyRunning);
-            }
+    pub fn run(&self, cfg: SingularityConfig, pool: Arc<DbPool>, evh_cfg: Arc<EvhConfig>) -> EvhResult<()> {
+        let state = self.0.lock().expect("runner state mutex is poisoned");
+        if let Some(SingularityRunningState::Running(..)) = state.currently_running {
+            return Err(EvhError::SingularityAlreadyRunning);
         }
 
-        self.spawn_runner_thread(cfg, pool)?;
+        // drop the mutex guard to unlock the mutex and prevent deadlocks in the runner thread
+        drop(state);
+
+        self.spawn_runner_thread(cfg, evh_cfg, pool)?;
         Ok(())
     }
 
@@ -70,51 +73,60 @@ impl SingularityRunner {
         todo!()
     }
 
-    fn spawn_runner_thread(&self, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
+    fn spawn_runner_thread(&self, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
         let id = nanoid!();
 
         // move clones of the id and the state arc to the runner thread
         let _id = id.clone();
         let _state = Arc::clone(&self.0);
         let runner_handle = std::thread::spawn(move || {
-            let res = runner_thread(&_id, cfg, pool);
+            let res = runner_thread(&_id, cfg, evh_cfg, pool);
             debug!("Singularity {}: runner thread finished with result: {:?}", _id, res);
 
             match res {
                 Ok(_) => {
-                    info!("Singularity run ID {} finished running succesfully", _id);
+                    info!("Singularity run ID {} finished succesfully", _id);
                 }
                 Err(e) => {
                     error!("Singularity run ID {} returned error: {}", _id, e);
                 }
             }
 
-            let mut state = _state.lock().expect("runner state mutex poisoned");
+            let mut state = _state.lock().expect("runner state mutex is poisoned");
             state.currently_running = Some(SingularityRunningState::Finished(_id));
         });
 
         info!("Running Singularity. Run ID: {}", id);
-        let mut state = self.0.lock().expect("runner state mutex poisoned");
+        let mut state = self.0.lock().expect("runner state mutex is poisoned");
         state.currently_running = Some(SingularityRunningState::Running(id, runner_handle));
 
         Ok(())
     }
 }
 
-fn runner_thread(id: &str, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResult<()> {
-    debug!("Singularity {}: runner thread starting", id);
+fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
+    let start = Instant::now();
+    let now = Local::now();
+    let mut history = RunnerHistory::new(id, now);
+
+    history.debug(start.elapsed().as_secs_f32(), "runner thread starting".to_string());
 
     let mut conn = pool.get()?;
-    cfg.set_last_run_and_clear_dirty(&mut conn)?;
+    cfg.set_last_run(&mut conn, now)?;
 
     let (adlists, outputs, whitelist, http_timeout) = cfg.get_singularity_builder_config(&mut conn)?;
-    debug!(
-        "Singularity {}: {} adlists, {} outputs, {} whitelisted domains",
-        id,
-        adlists.len(),
-        outputs.len(),
-        whitelist.len()
+    history.debug(
+        start.elapsed().as_secs_f32(),
+        format!(
+            "{} adlists, {} outputs, {} whitelisted domains",
+            adlists.len(),
+            outputs.len(),
+            whitelist.len()
+        ),
     );
+
+    // get rid of the database connection, it's not needed during the run
+    drop(conn);
 
     let singularity = Singularity::builder()
         .add_many_adlists(adlists)
@@ -123,68 +135,84 @@ fn runner_thread(id: &str, cfg: SingularityConfig, pool: Arc<DbPool>) -> EvhResu
         .http_timeout(http_timeout as u64)
         .build()?;
 
+    // move the history into a mutex in an arc so the callback can access it
+    let history = Arc::new(Mutex::new(RunnerHistory::new(id, now)));
     let domain_count = AtomicCell::<usize>::new(0);
-    let start = Instant::now();
 
     singularity
         .progress_callback(|prog| match prog {
-            Progress::BeginAdlistRead { source, length } => debug!(
-                "Singularity {}: beginning adlist read from {} with length {:?}",
-                id, source, length
+            Progress::BeginAdlistRead { source, length } => history.lock().expect("history mutex is poisoned").info(
+                start.elapsed().as_secs_f32(),
+                format!("beginning adlist read from {} with length {:?}", source, length),
             ),
 
             Progress::ReadProgress { source, bytes, delta } => {
                 // TODO: keep track of individual read source read speeds
             }
 
-            Progress::FinishAdlistRead { source } => debug!("Singularity {}: finished reading {}", id, source),
+            Progress::FinishAdlistRead { source } => history
+                .lock()
+                .expect("history mutex is poisoned")
+                .info(start.elapsed().as_secs_f32(), format!("finished reading {}", source)),
 
             Progress::DomainWritten(_) => {
                 domain_count.fetch_add(1);
             }
 
             Progress::WhitelistedDomainIgnored { source, domain } => {
-                debug!("Singularity {}: ignored domain {} from {}", id, domain, source)
+                history.lock().expect("history mutex is poisoned").debug(
+                    start.elapsed().as_secs_f32(),
+                    format!("ignored domain {} from {}", domain, source),
+                )
             }
 
             Progress::AllMatchingLineIgnored {
                 source,
                 line_number,
                 line,
-            } => warn!(
-                "Singularity {}: line {} in {} is all-matching: '{}'",
-                id, line_number, source, line
+            } => history.lock().expect("history mutex is poisoned").warn(
+                start.elapsed().as_secs_f32(),
+                format!("line {} in {} is all-matching: '{}'", line_number, source, line),
             ),
 
             Progress::InvalidLine {
                 source,
                 line_number,
                 reason,
-            } => warn!(
-                "Singularity {}: line {} in {} is invalid: '{}'",
-                id, line_number, source, reason
+            } => history.lock().expect("history mutex is poisoned").warn(
+                start.elapsed().as_secs_f32(),
+                format!("line {} in {} is invalid: '{}'", line_number, source, reason),
             ),
 
             Progress::ReadingAdlistFailed { source, reason } => {
-                warn!("Singularity {}: failed to read adlist {}: {}", id, source, reason)
+                history.lock().expect("history mutex is poisoned").error(
+                    start.elapsed().as_secs_f32(),
+                    format!("failed to read adlist {}: {}", source, reason),
+                )
             }
 
             Progress::OutputWriteFailed { output_dest, reason } => {
-                warn!(
-                    "Singularity {}: failed to write to output {}: {}",
-                    id,
-                    output_dest.display(),
-                    reason
+                history.lock().expect("history mutex is poisoned").error(
+                    start.elapsed().as_secs_f32(),
+                    format!("failed to write to output {}: {}", output_dest.display(), reason),
                 )
             }
         })
         .run()?;
 
-    debug!(
-        "Singularity {}: {} domains read, elapsed {}s",
-        id,
-        domain_count.load(),
-        start.elapsed().as_secs_f32()
+    let mut history = history.lock().expect("history mutex is poisoned");
+    history.info(
+        start.elapsed().as_secs_f32(),
+        format!(
+            "{} domains read, elapsed {}s",
+            domain_count.load(),
+            start.elapsed().as_secs_f32()
+        ),
     );
+
+    let mut conn = pool.get()?;
+    history.save(&mut conn, &evh_cfg)?;
+    cfg.set_dirty(&mut conn, false)?;
+
     Ok(())
 }

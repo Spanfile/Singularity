@@ -69,6 +69,8 @@ pub enum EvhError {
     Redis(#[from] redis::RedisError),
     #[error("Failed to parse datetime: {0}")]
     DateTime(#[from] chrono::format::ParseError),
+    #[error("JSON serialising/deserialising failed: {0}")]
+    Json(#[from] serde_json::Error),
 
     // transparent errors
     #[error(transparent)]

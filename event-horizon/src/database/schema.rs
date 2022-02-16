@@ -63,6 +63,14 @@ table! {
 }
 
 table! {
+    singularity_run_histories (run_id) {
+        run_id -> Text,
+        timestamp -> Text,
+        filename -> Text,
+    }
+}
+
+table! {
     singularity_whitelists (id) {
         id -> Integer,
         singularity_config_id -> Integer,
@@ -85,5 +93,6 @@ allow_tables_to_appear_in_same_query!(
     singularity_output_hosts_includes,
     singularity_output_pdns_lua,
     singularity_outputs,
+    singularity_run_histories,
     singularity_whitelists,
 );

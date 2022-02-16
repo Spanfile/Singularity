@@ -21,7 +21,7 @@ pub enum EvhSettingType {
     ActiveSingularityConfig = 0,
 }
 
-#[derive(Identifiable, Queryable, Insertable, PartialEq, Debug)]
+#[derive(Identifiable, Queryable, PartialEq, Debug)]
 pub struct SingularityConfig {
     pub id: DbId,
     pub name: String,
@@ -126,6 +126,22 @@ pub struct NewSingularityOutputPdnsLua<'a> {
     pub singularity_output_id: DbId,
     pub output_metric: bool,
     pub metric_name: &'a str,
+}
+
+#[derive(Identifiable, Queryable, PartialEq, Debug)]
+#[diesel(table_name = singularity_run_histories, primary_key(run_id))]
+pub struct SingularityRunHistory {
+    pub run_id: String,
+    pub timestamp: String,
+    pub filename: String,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = singularity_run_histories)]
+pub struct NewSingularityRunHistory<'a> {
+    pub run_id: &'a str,
+    pub timestamp: &'a str,
+    pub filename: &'a str,
 }
 
 impl TryFrom<SingularityAdlist> for Adlist {

@@ -12,6 +12,7 @@ const EVH_CONFIG_WARNING: &str = "# These options are internal and critical to E
                                   any time without warning.";
 
 const DEFAULT_DATABASE_URL: &str = "evh.sqlite";
+const DEFAULT_HISTORY_LOCATION: &str = "history";
 const DEFAULT_REDIS_URL: &str = "redis://redis/";
 const REDIS_CONNECTION_TIMEOUT: u64 = 5000;
 const MAX_CONCURRENT_IMPORTS: usize = 5;
@@ -23,6 +24,7 @@ const DEFAULT_RECURSOR_CONTROL_SOCKET: &str = "/pdns-recursor/pdns_recursor.cont
 #[serde(default)]
 pub struct EvhConfig {
     pub database_url: String,
+    pub history_location: PathBuf,
     pub redis: RedisSettings,
     pub recursor: RecursorSettings,
 }
@@ -67,6 +69,7 @@ impl Default for EvhConfig {
     fn default() -> Self {
         Self {
             database_url: DEFAULT_DATABASE_URL.to_string(),
+            history_location: PathBuf::from(DEFAULT_HISTORY_LOCATION),
             redis: Default::default(),
             recursor: Default::default(),
         }

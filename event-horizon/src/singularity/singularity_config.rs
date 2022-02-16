@@ -549,13 +549,6 @@ impl SingularityConfig {
         Ok(whitelist)
     }
 
-    /// Convenience method that sets the last run time to the current time and resets the dirty flag. Returns the time
-    /// that was set as the last run time.
-    pub fn set_last_run_and_clear_dirty(&self, conn: &mut DbConn) -> EvhResult<()> {
-        self.set_last_run(conn, Local::now())?;
-        self.set_dirty(conn, false)
-    }
-
     /// Convenience method that returns the adlists, outputs and the whitelist in a format suitable for feeding directly
     /// into a Singularity builder.
     pub fn get_singularity_builder_config(

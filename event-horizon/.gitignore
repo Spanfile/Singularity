@@ -5,3 +5,4 @@ static/bootstrap.min.css.map
 evh.toml
 node_modules
 blackhole.lua
+history/
