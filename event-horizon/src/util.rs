@@ -1,3 +1,4 @@
+pub mod estimate;
 pub mod request_callback_error;
 pub mod round_duration;
 

@@ -10,13 +10,14 @@ version = "0.1.0"
 [dependencies]
 singularity = {path = "../singularity", default-features = false, features = ["serde"]}
 
-actix-files = "0.6.0-beta.15"
-actix-multipart = "0.4.0-beta.12"
-actix-router = "0.5.0-rc.2"
-actix-web = "4.0.0-beta.21"
+actix-files = "0.6.0-beta.16"
+actix-multipart = "0.4.0-beta.13"
+actix-router = "0.5.0-rc.3"
+actix-web = "4.0.0-rc.3"
 chrono = "0.4.19"
 cron_clock = "0.8.0"
 crossbeam-utils = "0.8.7"
+dashmap = "5.1.0"
 # the git master is used directly because it's got the "returning_clauses_for_sqlite_3_35" feature that hasn't been released yet
 diesel = {git = "https://github.com/diesel-rs/diesel", rev = "0e49ce0e22803c3b8f4141e4abe10d8b73a2c31f", features = ["sqlite", "r2d2", "returning_clauses_for_sqlite_3_35"]}
 # likewise, use the same git master and revision in order for the crate to be compatible
@@ -25,9 +26,9 @@ dotenv = "0.15.0"
 envy = "0.4.2"
 fern = {version = "0.6.0", features = ["colored"]}
 futures-util = "0.3.19"
+human_bytes = "0.3.0"
 humantime = "2.1.0"
 indexmap = "1.8.0"
-itertools = "0.10.3"
 log = "0.4.14"
 maud = "0.23.0"
 nanoid = "0.4.0"

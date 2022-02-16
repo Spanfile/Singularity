@@ -6,9 +6,12 @@ use crate::{
     config::EvhConfig,
     database::{DbConn, DbPool},
     error::{EvhError, EvhResult},
+    util::{estimate::Estimate, round_duration::RoundDuration},
 };
 use chrono::Local;
 use crossbeam_utils::atomic::AtomicCell;
+use dashmap::DashMap;
+use human_bytes::human_bytes;
 use log::*;
 use nanoid::nanoid;
 use singularity::{Progress, Singularity};
@@ -39,6 +42,13 @@ enum SingularityRunningState {
 pub enum CurrentlyRunningSingularity {
     Running,
     Finished,
+}
+
+#[derive(Debug, Default)]
+struct AdlistTracker {
+    length: Option<u64>,
+    bytes_read: u64,
+    estimate: Estimate<16>,
 }
 
 impl SingularityRunner {
@@ -149,16 +159,33 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
     // move the history into a mutex in an arc so the callback can access it
     let history = Arc::new(Mutex::new(RunnerHistory::new(id, now)));
     let domain_count = AtomicCell::<usize>::new(0);
+    let adlist_trackers = DashMap::<String, AdlistTracker>::new();
 
     singularity
         .progress_callback(|prog| match prog {
-            Progress::BeginAdlistRead { source, length } => history.lock().expect("history mutex is poisoned").info(
-                start.elapsed().as_secs_f32(),
-                format!("Beginning adlist read from {} with length {:?}", source, length),
-            ),
+            Progress::BeginAdlistRead { source, length } => {
+                adlist_trackers.insert(
+                    source.to_string(),
+                    AdlistTracker {
+                        length,
+                        ..Default::default()
+                    },
+                );
 
-            Progress::ReadProgress { source, bytes, delta } => {
-                // TODO: keep track of individual read source read speeds
+                history.lock().expect("history mutex is poisoned").info(
+                    start.elapsed().as_secs_f32(),
+                    format!("Beginning adlist read from {} with length {:?}", source, length),
+                );
+            }
+
+            Progress::ReadProgress {
+                source,
+                bytes,
+                delta: _,
+            } => {
+                let mut tracker = adlist_trackers.get_mut(source).expect("missing adlist tracker");
+                tracker.bytes_read = bytes;
+                tracker.estimate.step(bytes);
             }
 
             Progress::FinishAdlistRead { source } => history
@@ -220,6 +247,18 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
             start.elapsed().as_secs_f32()
         ),
     );
+
+    for (source, tracker) in adlist_trackers {
+        history.info(
+            start.elapsed().as_secs_f32(),
+            format!(
+                "{}: {} read at {}/s",
+                source,
+                human_bytes(tracker.bytes_read as f64),
+                human_bytes(tracker.estimate.steps_per_second()),
+            ),
+        );
+    }
 
     let mut conn = pool.get()?;
     history.save(&mut conn, &evh_cfg)?;
