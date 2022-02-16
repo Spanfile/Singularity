@@ -214,6 +214,21 @@ impl SingularityConfig {
         Ok(())
     }
 
+    pub fn get_http_timeout(&self, conn: &mut DbConn) -> EvhResult<i32> {
+        Ok(self.own_model(conn)?.http_timeout)
+    }
+
+    pub fn set_http_timeout(&self, conn: &mut DbConn, timeout: i32) -> EvhResult<()> {
+        use crate::database::schema::singularity_configs;
+
+        diesel::update(singularity_configs::table.filter(singularity_configs::id.eq(self.0)))
+            .set(singularity_configs::http_timeout.eq(timeout))
+            .execute(conn)?;
+
+        debug!("{:?} HTTP timeout: {}", self, timeout);
+        Ok(())
+    }
+
     pub fn get_timing(&self, conn: &mut DbConn) -> EvhResult<String> {
         Ok(self.own_model(conn)?.timing)
     }
@@ -532,6 +547,42 @@ impl SingularityConfig {
 
         debug!("Whitelist in {}: {}", self.0, whitelist.len());
         Ok(whitelist)
+    }
+
+    /// Convenience method that sets the last run time to the current time and resets the dirty flag. Returns the time
+    /// that was set as the last run time.
+    pub fn set_last_run_and_clear_dirty(&self, conn: &mut DbConn) -> EvhResult<()> {
+        self.set_last_run(conn, Local::now())?;
+        self.set_dirty(conn, false)
+    }
+
+    /// Convenience method that returns the adlists, outputs and the whitelist in a format suitable for feeding directly
+    /// into a Singularity builder.
+    pub fn get_singularity_builder_config(
+        &self,
+        conn: &mut DbConn,
+    ) -> EvhResult<(Vec<Adlist>, Vec<Output>, Vec<String>, i32)> {
+        let own_model = self.own_model(conn)?;
+
+        let adlists = models::SingularityAdlist::belonging_to(&own_model)
+            .load::<models::SingularityAdlist>(conn)?
+            .into_iter()
+            .map(|model| model.try_into())
+            .collect::<EvhResult<_>>()?;
+
+        let outputs = models::SingularityOutput::belonging_to(&own_model)
+            .load::<models::SingularityOutput>(conn)?
+            .into_iter()
+            .map(|model| self.output_from_model(conn, model))
+            .collect::<EvhResult<_>>()?;
+
+        let whitelist = models::SingularityWhitelist::belonging_to(&own_model)
+            .load::<models::SingularityWhitelist>(conn)?
+            .into_iter()
+            .map(|model| model.domain)
+            .collect::<_>();
+
+        Ok((adlists, outputs, whitelist, own_model.http_timeout))
     }
 }
 

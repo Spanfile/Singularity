@@ -20,8 +20,7 @@ use crate::{
     database::DbPool,
     error::{EvhError, EvhResult},
     singularity::{
-        config_importer::ConfigImporter, singularity_config::config_manager::ConfigManager,
-        singularity_runner::SingularityRunner,
+        config_importer::ConfigImporter, runner::SingularityRunner, singularity_config::config_manager::ConfigManager,
     },
 };
 use actix_files::Files;

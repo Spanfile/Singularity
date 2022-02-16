@@ -5,8 +5,8 @@ use crate::{
     database::DbPool,
     error::EvhResult,
     singularity::{
+        runner::{CurrentlyRunningSingularity, SingularityRunner},
         singularity_config::{config_manager::ConfigManager, SingularityConfig},
-        singularity_runner::{CurrentlyRunningSingularity, SingularityRunner},
     },
     template, util,
 };

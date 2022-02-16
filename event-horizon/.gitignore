@@ -4,3 +4,4 @@ static/bootstrap.min.css.map
 *.sqlite-journal
 evh.toml
 node_modules
+blackhole.lua
