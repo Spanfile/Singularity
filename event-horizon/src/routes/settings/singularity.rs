@@ -13,7 +13,6 @@ use crate::{
     util,
 };
 use actix_web::{web, Either, Responder};
-use log::*;
 use std::sync::Arc;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
@@ -32,10 +31,10 @@ async fn singularity(cfg_mg: web::Data<ConfigManager>, pool: web::Data<DbPool>) 
         Ok(page_info) => Either::Left(template::settings(SettingsPage::Singularity(SingularitySubPage::Main(
             page_info,
         )))),
-        Err(e) => {
-            error!("Failed to get Singularity information: {}", e);
-            Either::Right(util::internal_server_error_response(e.to_string()))
-        }
+        Err(e) => Either::Right(util::internal_server_error_response(format!(
+            "Failed to get Singularity information: {}",
+            e
+        ))),
     }
 }
 

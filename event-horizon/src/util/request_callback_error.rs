@@ -2,7 +2,6 @@
 
 use crate::error::EvhResult;
 use actix_web::{http::StatusCode, HttpResponse};
-use log::*;
 
 pub struct RequestCallbackError<F>
 where
@@ -44,8 +43,7 @@ where
         match (self.response_callback)() {
             Ok(res) => res,
             Err(e) => {
-                error!("RequestCallbackError handler returned error: {}", e);
-                super::internal_server_error_response(e)
+                super::internal_server_error_response(format!("RequestCallbackError handler returned error: {}", e))
             }
         }
     }

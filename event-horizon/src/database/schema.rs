@@ -66,7 +66,6 @@ table! {
     singularity_run_histories (run_id) {
         run_id -> Text,
         timestamp -> Text,
-        filename -> Text,
     }
 }
 

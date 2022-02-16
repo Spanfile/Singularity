@@ -1,5 +1,9 @@
+mod history;
+
 use super::ResponseBuilder;
-use crate::util::round_duration::RoundDuration;
+use crate::{
+    singularity::runner::history::HistoryEvent, template::DATETIME_FORMAT, util::round_duration::RoundDuration,
+};
 use chrono::{DateTime, Local};
 use maud::{html, Markup};
 
@@ -37,10 +41,9 @@ pub fn singularity_running() -> ResponseBuilder<'static> {
     .current_path("/singularity")
 }
 
-pub fn singularity_finished() -> ResponseBuilder<'static> {
+pub fn singularity_finished(timestamp: DateTime<Local>, events: &[HistoryEvent]) -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
-        p { "The results for the run are going to be displayed here." }
-
+        (history::history_card(timestamp, events))
         (singularity_run_now_button())
     })
     .current_path("/singularity")
@@ -63,14 +66,14 @@ pub fn singularity_last_run(last_run: Option<DateTime<Local>>, next_run: DateTim
                     .to_std()
                     .expect("failed to convert chrono duration to std duration")
                     .round_to_minutes()))
-                " ago at " (last_run.format("%H:%M, %a %x"))
+                " ago at " (last_run.format(DATETIME_FORMAT))
             } @else {
                 "Never"
             }
         }
 
         p {
-            "Next scheduled run: in " (to_next_run) " at " (next_run.format("%H:%M, %a %x"))
+            "Next scheduled run: in " (to_next_run) " at " (next_run.format(DATETIME_FORMAT))
         }
     }
 }

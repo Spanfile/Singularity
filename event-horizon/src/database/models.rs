@@ -133,7 +133,6 @@ pub struct NewSingularityOutputPdnsLua<'a> {
 pub struct SingularityRunHistory {
     pub run_id: String,
     pub timestamp: String,
-    pub filename: String,
 }
 
 #[derive(Insertable)]
@@ -141,7 +140,6 @@ pub struct SingularityRunHistory {
 pub struct NewSingularityRunHistory<'a> {
     pub run_id: &'a str,
     pub timestamp: &'a str,
-    pub filename: &'a str,
 }
 
 impl TryFrom<SingularityAdlist> for Adlist {

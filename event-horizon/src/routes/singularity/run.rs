@@ -19,7 +19,11 @@ pub fn config(cfg: &mut web::ServiceConfig) {
     );
 }
 
-async fn run_singularity_page(runner: web::Data<SingularityRunner>) -> impl Responder {
+async fn run_singularity_page(
+    runner: web::Data<SingularityRunner>,
+    evh_cfg: web::Data<EvhConfig>,
+    db_pool: web::Data<DbPool>,
+) -> impl Responder {
     match runner.get_currently_running().await {
         None => Either::Right(
             HttpResponse::SeeOther()
@@ -27,7 +31,24 @@ async fn run_singularity_page(runner: web::Data<SingularityRunner>) -> impl Resp
                 .finish(),
         ),
         Some(CurrentlyRunningSingularity::Running) => Either::Left(template::singularity::singularity_running()),
-        Some(CurrentlyRunningSingularity::Finished) => Either::Left(template::singularity::singularity_finished()),
+        Some(CurrentlyRunningSingularity::Finished) => {
+            match db_pool
+                .get()
+                .and_then(|mut conn| runner.get_finished_history(&mut conn, &evh_cfg))
+            {
+                Ok(history) => Either::Left(template::singularity::singularity_finished(
+                    history.timestamp(),
+                    history.events(),
+                )),
+
+                Err(EvhError::NoSuchHistory(_)) => todo!(),
+                Err(EvhError::NoPreviousRun) => todo!(),
+                Err(e) => Either::Right(util::internal_server_error_response(format!(
+                    "Failed to get previous run history: {}",
+                    e
+                ))),
+            }
+        }
     }
 }
 
@@ -43,13 +64,10 @@ async fn submit_run_singularity_form(
         Ok(_) => HttpResponse::SeeOther()
             .append_header((header::LOCATION, "/singularity/run"))
             .finish(),
-        Err(EvhError::SingularityAlreadyRunning) => {
+        Err(EvhError::SingularityRunning) => {
             warn!("Failed to run Singularity: already running");
             HttpResponse::BadRequest().body("Singularity is already running")
         }
-        Err(e) => {
-            error!("Failed to run Singularity: {}", e);
-            util::internal_server_error_response(e)
-        }
+        Err(e) => util::internal_server_error_response(format!("Failed to run Singularity: {}", e)),
     }
 }

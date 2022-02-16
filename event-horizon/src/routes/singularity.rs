@@ -12,7 +12,6 @@ use crate::{
 };
 use actix_web::{web, Either, Responder};
 use chrono::{DateTime, Local};
-use log::*;
 use std::sync::Arc;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
@@ -41,10 +40,10 @@ async fn singularity_page(
 
             Either::Left(template::singularity_page(last_run, next_run, currently_running))
         }
-        Err(e) => {
-            error!("Failed to get Singularity run page: {}", e);
-            Either::Right(util::internal_server_error_response(e.to_string()))
-        }
+        Err(e) => Either::Right(util::internal_server_error_response(format!(
+            "Failed to get Singularity run page: {}",
+            e
+        ))),
     }
 }
 

@@ -190,10 +190,10 @@ where
             )
         }
 
-        Err(e) => {
-            error!("Failed to retrieve item ID {}: {}", id, e);
-            Either::Right(util::internal_server_error_response(e))
-        }
+        Err(e) => Either::Right(util::internal_server_error_response(format!(
+            "Failed to retrieve item ID {}: {}",
+            id, e
+        ))),
     }
 }
 

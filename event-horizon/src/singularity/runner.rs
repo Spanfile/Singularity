@@ -4,7 +4,7 @@ use self::history::RunnerHistory;
 use super::singularity_config::SingularityConfig;
 use crate::{
     config::EvhConfig,
-    database::DbPool,
+    database::{DbConn, DbPool},
     error::{EvhError, EvhResult},
 };
 use chrono::Local;
@@ -59,7 +59,7 @@ impl SingularityRunner {
     pub fn run(&self, cfg: SingularityConfig, pool: Arc<DbPool>, evh_cfg: Arc<EvhConfig>) -> EvhResult<()> {
         let state = self.0.lock().expect("runner state mutex is poisoned");
         if let Some(SingularityRunningState::Running(..)) = state.currently_running {
-            return Err(EvhError::SingularityAlreadyRunning);
+            return Err(EvhError::SingularityRunning);
         }
 
         // drop the mutex guard to unlock the mutex and prevent deadlocks in the runner thread
@@ -71,6 +71,17 @@ impl SingularityRunner {
 
     pub fn terminate(&self) -> EvhResult<()> {
         todo!()
+    }
+
+    pub fn get_finished_history(&self, conn: &mut DbConn, evh_cfg: &EvhConfig) -> EvhResult<RunnerHistory> {
+        let state = self.0.lock().expect("runner state mutex is poisoned");
+        let id = match state.currently_running.as_ref() {
+            Some(SingularityRunningState::Finished(id)) => id,
+            Some(SingularityRunningState::Running(..)) => return Err(EvhError::SingularityRunning),
+            None => return Err(EvhError::NoPreviousRun),
+        };
+
+        RunnerHistory::load(id, conn, evh_cfg)
     }
 
     fn spawn_runner_thread(&self, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool: Arc<DbPool>) -> EvhResult<()> {
@@ -143,7 +154,7 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
         .progress_callback(|prog| match prog {
             Progress::BeginAdlistRead { source, length } => history.lock().expect("history mutex is poisoned").info(
                 start.elapsed().as_secs_f32(),
-                format!("beginning adlist read from {} with length {:?}", source, length),
+                format!("Beginning adlist read from {} with length {:?}", source, length),
             ),
 
             Progress::ReadProgress { source, bytes, delta } => {
@@ -153,7 +164,7 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
             Progress::FinishAdlistRead { source } => history
                 .lock()
                 .expect("history mutex is poisoned")
-                .info(start.elapsed().as_secs_f32(), format!("finished reading {}", source)),
+                .info(start.elapsed().as_secs_f32(), format!("Finished reading {}", source)),
 
             Progress::DomainWritten(_) => {
                 domain_count.fetch_add(1);
@@ -162,7 +173,7 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
             Progress::WhitelistedDomainIgnored { source, domain } => {
                 history.lock().expect("history mutex is poisoned").debug(
                     start.elapsed().as_secs_f32(),
-                    format!("ignored domain {} from {}", domain, source),
+                    format!("Ignored domain {} from {}", domain, source),
                 )
             }
 
@@ -172,7 +183,7 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
                 line,
             } => history.lock().expect("history mutex is poisoned").warn(
                 start.elapsed().as_secs_f32(),
-                format!("line {} in {} is all-matching: '{}'", line_number, source, line),
+                format!("Line {} in {} is all-matching: '{}'", line_number, source, line),
             ),
 
             Progress::InvalidLine {
@@ -181,20 +192,20 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
                 reason,
             } => history.lock().expect("history mutex is poisoned").warn(
                 start.elapsed().as_secs_f32(),
-                format!("line {} in {} is invalid: '{}'", line_number, source, reason),
+                format!("Line {} in {} is invalid: '{}'", line_number, source, reason),
             ),
 
             Progress::ReadingAdlistFailed { source, reason } => {
                 history.lock().expect("history mutex is poisoned").error(
                     start.elapsed().as_secs_f32(),
-                    format!("failed to read adlist {}: {}", source, reason),
+                    format!("Failed to read adlist {}: {}", source, reason),
                 )
             }
 
             Progress::OutputWriteFailed { output_dest, reason } => {
                 history.lock().expect("history mutex is poisoned").error(
                     start.elapsed().as_secs_f32(),
-                    format!("failed to write to output {}: {}", output_dest.display(), reason),
+                    format!("Failed to write to output {}: {}", output_dest.display(), reason),
                 )
             }
         })

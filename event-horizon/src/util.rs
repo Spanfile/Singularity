@@ -5,6 +5,7 @@ use crate::error::{EvhError, EvhResult};
 use actix_web::HttpResponse;
 use chrono::{DateTime, Local};
 use cron_clock::Schedule;
+use log::*;
 
 // so today I learned the library I use to parse cron expressions also expects specifiers for seconds and years. are
 // they even a thing in any cron implementation? anyways, cursed solution is to just slap the match-all specifiers
@@ -29,6 +30,7 @@ pub fn internal_server_error_response<D>(message: D) -> HttpResponse
 where
     D: std::fmt::Display,
 {
+    error!("{}", message);
     HttpResponse::InternalServerError().body(format!(
         "An internal server error occurred: {}\nPlease see the server logs for more information.",
         message

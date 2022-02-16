@@ -14,6 +14,8 @@ pub use stats::stats;
 use actix_web::{body::BoxBody, http::StatusCode, HttpResponse, Responder};
 use maud::{html, Markup, DOCTYPE};
 
+const DATETIME_FORMAT: &str = "%H:%M:%S, %a %x";
+
 pub struct ResponseBuilder<'a> {
     status: StatusCode,
     content: Markup,
