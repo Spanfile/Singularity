@@ -40,7 +40,7 @@ impl<const N: usize> Estimate<N> {
     }
 
     pub fn steps_per_second(&self) -> f64 {
-        let per_sec = 1.0 / self.buf[0..self.length].iter().sum::<f64>() / self.length as f64;
+        let per_sec = 1.0 / (self.buf[0..self.length].iter().sum::<f64>() / self.length as f64);
         if per_sec.is_nan() { 0.0 } else { per_sec }
     }
 
