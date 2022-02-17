@@ -28,6 +28,18 @@ pub struct HistoryEvent {
     severity: LogLevel,
 }
 
+impl PartialEq for HistoryEvent {
+    fn eq(&self, other: &Self) -> bool {
+        self.timestamp == other.timestamp
+    }
+}
+
+impl PartialOrd for HistoryEvent {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.timestamp.partial_cmp(&other.timestamp)
+    }
+}
+
 impl RunnerHistory {
     pub fn new(id: &str, timestamp: DateTime<Local>) -> Self {
         Self {
@@ -54,7 +66,12 @@ impl RunnerHistory {
 
         let events_file = File::open(&events_path)?;
         let mut reader = BufReader::new(events_file);
-        let events: Vec<HistoryEvent> = serde_json::from_reader(&mut reader)?;
+        let mut events: Vec<HistoryEvent> = serde_json::from_reader(&mut reader)?;
+
+        // the events are likely already sorted by timestamp because they're saved in insertion order, but sort them
+        // just in case and hope no timestamp is NaN. an unstable sort is used because there very likely aren't two
+        // events with the exact same timestamps
+        events.sort_unstable_by(|e1, e2| e1.partial_cmp(e2).expect("timestamp in history event is NaN"));
 
         debug!(
             "Singularity history {} @ {}: {} events",
@@ -74,6 +91,9 @@ impl RunnerHistory {
         use crate::database::schema::singularity_run_histories;
 
         let histories = singularity_run_histories::table
+            // the table is likely ordered with the oldest history first, so order them by descending timestamps to
+            // reverse the order and keep them sorted
+            .order(singularity_run_histories::timestamp.desc())
             .load::<models::SingularityRunHistory>(conn)?
             .into_iter()
             .map(|hist| Ok((hist.run_id, hist.timestamp.parse()?)))
@@ -169,5 +189,5 @@ impl HistoryEvent {
 
 fn generate_filename(timestamp: DateTime<Local>, run_id: &str) -> String {
     // %F = &Y-%m-%d
-    format!("{}-{}", timestamp.format("%F"), run_id)
+    format!("{}-{}", timestamp.format("%F-%H-%M-%S"), run_id)
 }

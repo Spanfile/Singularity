@@ -6,7 +6,7 @@ use crate::{
     config::EvhConfig,
     database::{DbConn, DbPool},
     error::{EvhError, EvhResult},
-    util::{estimate::Estimate, round_duration::RoundDuration},
+    util::estimate::Estimate,
 };
 use chrono::Local;
 use crossbeam_utils::atomic::AtomicCell;
@@ -130,7 +130,7 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
     let now = Local::now();
     let mut history = RunnerHistory::new(id, now);
 
-    history.debug(start.elapsed().as_secs_f32(), "runner thread starting".to_string());
+    history.debug(start.elapsed().as_secs_f32(), "Runner thread starting".to_string());
 
     let mut conn = pool.get()?;
     cfg.set_last_run(&mut conn, now)?;
@@ -157,7 +157,7 @@ fn runner_thread(id: &str, cfg: SingularityConfig, evh_cfg: Arc<EvhConfig>, pool
         .build()?;
 
     // move the history into a mutex in an arc so the callback can access it
-    let history = Arc::new(Mutex::new(RunnerHistory::new(id, now)));
+    let history = Arc::new(Mutex::new(history));
     let domain_count = AtomicCell::<usize>::new(0);
     let adlist_trackers = DashMap::<String, AdlistTracker>::new();
 
