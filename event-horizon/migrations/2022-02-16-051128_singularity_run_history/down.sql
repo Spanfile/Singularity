@@ -1,1 +1,2 @@
 DROP TABLE singularity_run_histories;
+DROP TABLE singularity_run_history_results;

@@ -1,22 +1,31 @@
+use std::fmt::Display;
+
 use super::{schema::*, DbId};
 use crate::error::EvhError;
+use diesel::{
+    backend::{Backend, RawValue},
+    deserialize::{self, FromSql},
+    serialize::{self, ToSql},
+    sql_types::Integer,
+};
 use singularity::{Adlist, AdlistFormat};
 
 #[derive(Identifiable, Queryable, Insertable, PartialEq, Debug)]
 pub struct EvhSetting {
     pub id: DbId,
-    pub setting_type: DbId,
+    pub setting_type: EvhSettingType,
     pub value: String,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = evh_settings)]
 pub struct NewEvhSetting<'a> {
-    pub setting_type: DbId,
+    pub setting_type: EvhSettingType,
     pub value: &'a str,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, AsExpression, FromSqlRow)]
+#[diesel(sql_type = Integer)]
 pub enum EvhSettingType {
     ActiveSingularityConfig = 0,
 }
@@ -133,6 +142,7 @@ pub struct NewSingularityOutputPdnsLua<'a> {
 pub struct SingularityRunHistory {
     pub run_id: String,
     pub timestamp: String,
+    pub result: SingularityRunHistoryResult,
 }
 
 #[derive(Insertable)]
@@ -140,6 +150,16 @@ pub struct SingularityRunHistory {
 pub struct NewSingularityRunHistory<'a> {
     pub run_id: &'a str,
     pub timestamp: &'a str,
+    pub result: SingularityRunHistoryResult,
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, AsExpression, FromSqlRow)]
+#[diesel(sql_type = Integer)]
+pub enum SingularityRunHistoryResult {
+    Success = 0,
+    SuccessWithErrors = 1,
+    SuccessWithWarnings = 2,
+    Failed = 3,
 }
 
 impl TryFrom<SingularityAdlist> for Adlist {
@@ -157,5 +177,72 @@ impl TryFrom<SingularityAdlist> for Adlist {
                 _ => todo!(),
             },
         )?)
+    }
+}
+
+impl<DB> ToSql<Integer, DB> for SingularityRunHistoryResult
+where
+    DB: Backend,
+    DbId: ToSql<Integer, DB>,
+{
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, DB>) -> serialize::Result {
+        match self {
+            SingularityRunHistoryResult::Success => 0.to_sql(out),
+            SingularityRunHistoryResult::SuccessWithErrors => 1.to_sql(out),
+            SingularityRunHistoryResult::SuccessWithWarnings => 2.to_sql(out),
+            SingularityRunHistoryResult::Failed => 3.to_sql(out),
+        }
+    }
+}
+
+impl<DB> FromSql<Integer, DB> for SingularityRunHistoryResult
+where
+    DB: Backend,
+    DbId: FromSql<Integer, DB>,
+{
+    fn from_sql(bytes: RawValue<'_, DB>) -> deserialize::Result<Self> {
+        match DbId::from_sql(bytes)? {
+            0 => Ok(Self::Success),
+            1 => Ok(Self::SuccessWithErrors),
+            2 => Ok(Self::SuccessWithWarnings),
+            3 => Ok(Self::Failed),
+            i => Err(format!("Unrecognised SingularityRunHistoryResult variant {}", i).into()),
+        }
+    }
+}
+
+impl Display for SingularityRunHistoryResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SingularityRunHistoryResult::Success => write!(f, "Success"),
+            SingularityRunHistoryResult::SuccessWithErrors => write!(f, "Success with errors"),
+            SingularityRunHistoryResult::SuccessWithWarnings => write!(f, "Success with warnings"),
+            SingularityRunHistoryResult::Failed => write!(f, "Failed"),
+        }
+    }
+}
+
+impl<DB> ToSql<Integer, DB> for EvhSettingType
+where
+    DB: Backend,
+    DbId: ToSql<Integer, DB>,
+{
+    fn to_sql<'b>(&'b self, out: &mut serialize::Output<'b, '_, DB>) -> serialize::Result {
+        match self {
+            Self::ActiveSingularityConfig => 0.to_sql(out),
+        }
+    }
+}
+
+impl<DB> FromSql<Integer, DB> for EvhSettingType
+where
+    DB: Backend,
+    DbId: FromSql<Integer, DB>,
+{
+    fn from_sql(bytes: RawValue<'_, DB>) -> deserialize::Result<Self> {
+        match DbId::from_sql(bytes)? {
+            0 => Ok(Self::ActiveSingularityConfig),
+            i => Err(format!("Unrecognised EvhSettingType variant {}", i).into()),
+        }
     }
 }

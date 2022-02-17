@@ -1,4 +1,4 @@
-use crate::database::DbId;
+use crate::database::{models::EvhSettingType, DbId};
 use thiserror::Error;
 
 pub type EvhResult<T> = std::result::Result<T, EvhError>;
@@ -37,8 +37,8 @@ pub enum EvhError {
     MissingFieldFilename,
     #[error("Received text was not encoded in UTF-8")]
     TextNotUtf8,
-    #[error("EVH setting has invalid value for type {0}: {1}")]
-    InvalidSetting(DbId, String),
+    #[error("EVH setting has invalid value for type {0:?}: {1}")]
+    InvalidSetting(EvhSettingType, String),
     #[error("No such Singularity configuration item: {0}")]
     NoSuchConfigItem(DbId),
     #[error("The provided name was empty")]
@@ -63,6 +63,8 @@ pub enum EvhError {
     NoSuchHistory(String),
     #[error("Singularity hasn't been run since Event Horizon was last restarted")]
     NoPreviousRun,
+    #[error("Run history result not set when saving history. This is a bug in Event Horizon")]
+    RunHistoryResultNotSet,
 
     // errors created from other error types
     #[error("Failed to read environment variables: {0}")]

@@ -2,9 +2,8 @@ mod history;
 
 use super::ResponseBuilder;
 use crate::{
-    singularity::runner::history::{HistoryEvent, RunnerHistory},
-    template::DATETIME_FORMAT,
-    util::round_duration::RoundDuration,
+    database::models::SingularityRunHistoryResult, singularity::runner::history::HistoryEvent,
+    template::DATETIME_FORMAT, util::round_duration::RoundDuration,
 };
 use chrono::{DateTime, Local};
 use maud::{html, Markup};
@@ -43,22 +42,21 @@ pub fn singularity_running() -> ResponseBuilder<'static> {
     .current_path("/singularity")
 }
 
-pub fn singularity_finished(timestamp: DateTime<Local>, events: &[HistoryEvent]) -> ResponseBuilder<'static> {
+pub fn singularity_history(
+    timestamp: DateTime<Local>,
+    result: SingularityRunHistoryResult,
+    events: &[HistoryEvent],
+) -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
-        (history::history_card(timestamp, events))
-        (singularity_run_now_button())
+        p { a href="/singularity/history" { "Back to previous run histories" } }
+        (history::history_card(timestamp, result, events))
     })
     .current_path("/singularity")
 }
 
-pub fn singularity_history(timestamp: DateTime<Local>, events: &[HistoryEvent]) -> ResponseBuilder<'static> {
-    ResponseBuilder::new(html! {
-        (history::history_card(timestamp, events))
-    })
-    .current_path("/singularity")
-}
-
-pub fn singularity_histories(histories: &[(String, DateTime<Local>)]) -> ResponseBuilder<'static> {
+pub fn singularity_histories(
+    histories: &[(String, SingularityRunHistoryResult, DateTime<Local>)],
+) -> ResponseBuilder<'static> {
     ResponseBuilder::new(html! {
         (history::histories_card(histories))
     })

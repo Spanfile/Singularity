@@ -1,6 +1,9 @@
 use crate::{
     config::EvhConfig,
-    database::{models, DbConn},
+    database::{
+        models::{self, SingularityRunHistoryResult},
+        DbConn,
+    },
     error::{EvhError, EvhResult},
     logging::LogLevel,
 };
@@ -12,12 +15,15 @@ use std::{
     fs::File,
     io::{BufReader, BufWriter, Write},
     path::Path,
+    time::Instant,
 };
 
 #[derive(Debug)]
 pub struct RunnerHistory {
     run_id: String,
+    start_time: Option<Instant>,
     timestamp: DateTime<Local>,
+    result: Option<SingularityRunHistoryResult>,
     events: Vec<HistoryEvent>,
 }
 
@@ -44,7 +50,9 @@ impl RunnerHistory {
     pub fn new(id: &str, timestamp: DateTime<Local>) -> Self {
         Self {
             run_id: id.to_string(),
+            start_time: Some(Instant::now()),
             timestamp,
+            result: None,
             events: Vec::new(),
         }
     }
@@ -82,12 +90,14 @@ impl RunnerHistory {
 
         Ok(Self {
             run_id: run_id.to_string(),
+            start_time: None,
             timestamp,
+            result: Some(hist.result),
             events,
         })
     }
 
-    pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<(String, DateTime<Local>)>> {
+    pub fn load_all(conn: &mut DbConn) -> EvhResult<Vec<(String, SingularityRunHistoryResult, DateTime<Local>)>> {
         use crate::database::schema::singularity_run_histories;
 
         let histories = singularity_run_histories::table
@@ -96,7 +106,7 @@ impl RunnerHistory {
             .order(singularity_run_histories::timestamp.desc())
             .load::<models::SingularityRunHistory>(conn)?
             .into_iter()
-            .map(|hist| Ok((hist.run_id, hist.timestamp.parse()?)))
+            .map(|hist| Ok((hist.run_id, hist.result, hist.timestamp.parse()?)))
             .collect::<EvhResult<Vec<_>>>()?;
 
         debug!("Singularity run histories: {}", histories.len());
@@ -105,6 +115,10 @@ impl RunnerHistory {
 
     pub fn timestamp(&self) -> DateTime<Local> {
         self.timestamp
+    }
+
+    pub fn result(&self) -> SingularityRunHistoryResult {
+        self.result.expect("run result not set in runner history")
     }
 
     pub fn events(&self) -> &[HistoryEvent] {
@@ -121,6 +135,7 @@ impl RunnerHistory {
             .values(models::NewSingularityRunHistory {
                 run_id: &self.run_id,
                 timestamp: &self.timestamp.to_string(),
+                result: self.result.ok_or(EvhError::RunHistoryResultNotSet)?,
             })
             .get_result::<models::SingularityRunHistory>(conn)?;
 
@@ -136,39 +151,39 @@ impl RunnerHistory {
         Ok(())
     }
 
-    pub fn debug(&mut self, timestamp: f32, message: String) {
+    pub fn set_result(&mut self, result: SingularityRunHistoryResult) {
+        self.result = Some(result);
+    }
+
+    pub fn debug(&mut self, message: String) {
         debug!("Singularity {}: {}", self.run_id, message);
-        self.events.push(HistoryEvent {
-            timestamp,
-            message,
-            severity: LogLevel::Debug,
-        })
+        self.push(message, LogLevel::Debug);
     }
 
-    pub fn info(&mut self, timestamp: f32, message: String) {
+    pub fn info(&mut self, message: String) {
         info!("Singularity {}: {}", self.run_id, message);
-        self.events.push(HistoryEvent {
-            timestamp,
-            message,
-            severity: LogLevel::Info,
-        })
+        self.push(message, LogLevel::Info);
     }
 
-    pub fn warn(&mut self, timestamp: f32, message: String) {
+    pub fn warn(&mut self, message: String) {
         warn!("Singularity {}: {}", self.run_id, message);
-        self.events.push(HistoryEvent {
-            timestamp,
-            message,
-            severity: LogLevel::Warn,
-        })
+        self.push(message, LogLevel::Warn);
     }
 
-    pub fn error(&mut self, timestamp: f32, message: String) {
+    pub fn error(&mut self, message: String) {
         error!("Singularity {}: {}", self.run_id, message);
+        self.push(message, LogLevel::Error);
+    }
+
+    fn push(&mut self, message: String, severity: LogLevel) {
         self.events.push(HistoryEvent {
-            timestamp,
+            timestamp: self
+                .start_time
+                .expect("start time not set in runner history")
+                .elapsed()
+                .as_secs_f32(),
             message,
-            severity: LogLevel::Warn,
+            severity,
         })
     }
 }

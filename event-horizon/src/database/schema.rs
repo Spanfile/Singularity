@@ -66,6 +66,14 @@ table! {
     singularity_run_histories (run_id) {
         run_id -> Text,
         timestamp -> Text,
+        result -> Integer,
+    }
+}
+
+table! {
+    singularity_run_history_results (id) {
+        id -> Integer,
+        name -> Text,
     }
 }
 
@@ -82,6 +90,7 @@ joinable!(singularity_adlists -> singularity_configs (singularity_config_id));
 joinable!(singularity_output_hosts_includes -> singularity_outputs (singularity_output_id));
 joinable!(singularity_output_pdns_lua -> singularity_outputs (singularity_output_id));
 joinable!(singularity_outputs -> singularity_configs (singularity_config_id));
+joinable!(singularity_run_histories -> singularity_run_history_results (result));
 joinable!(singularity_whitelists -> singularity_configs (singularity_config_id));
 
 allow_tables_to_appear_in_same_query!(
@@ -93,5 +102,6 @@ allow_tables_to_appear_in_same_query!(
     singularity_output_pdns_lua,
     singularity_outputs,
     singularity_run_histories,
+    singularity_run_history_results,
     singularity_whitelists,
 );

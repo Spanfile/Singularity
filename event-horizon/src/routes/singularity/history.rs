@@ -30,6 +30,7 @@ async fn history_page(
     {
         Ok(history) => Either::Left(template::singularity::singularity_history(
             history.timestamp(),
+            history.result(),
             history.events(),
         )),
 

@@ -24,9 +24,8 @@ impl ConfigManager {
     pub fn load(conn: &mut DbConn) -> EvhResult<Self> {
         use crate::database::schema::evh_settings;
 
-        let type_id = EvhSettingType::ActiveSingularityConfig as DbId;
         let active_config_id: Option<DbId> = evh_settings::table
-            .filter(evh_settings::setting_type.eq(type_id))
+            .filter(evh_settings::setting_type.eq(EvhSettingType::ActiveSingularityConfig))
             .first::<models::EvhSetting>(conn) // read the setting from the DB
             .optional() // turn it into an Option so it is allowed to not exist
             .map_err(EvhError::from)? // convert the diesel error into an EvhError
@@ -35,7 +34,7 @@ impl ConfigManager {
                 setting
                     .value
                     .parse()
-                    .map_err(|_| EvhError::InvalidSetting(type_id, setting.value))
+                    .map_err(|_| EvhError::InvalidSetting(EvhSettingType::ActiveSingularityConfig, setting.value))
             })
             // convert the Option<Result<...>> into Result<Option<...>> in order to handle the possible parsing error
             .transpose()?;
@@ -98,12 +97,10 @@ impl ConfigManager {
 fn store_active_config(id: DbId, conn: &mut DbConn) -> EvhResult<()> {
     use crate::database::schema::evh_settings;
 
-    let type_id = EvhSettingType::ActiveSingularityConfig as DbId;
     let value = id.to_string();
-
     let new_setting = diesel::insert_into(evh_settings::table)
         .values(models::NewEvhSetting {
-            setting_type: type_id,
+            setting_type: EvhSettingType::ActiveSingularityConfig,
             // TODO: the column type in the database is TEXT, so this conversion is necessary to keep diesel happy.
             // while technically SQLite wouldn't bat an eye if I gave it an integer anyways, diesel does care to ensure
             // the data type is correct. maybe there's a way to avoid the conversion with a custom type that accepts
