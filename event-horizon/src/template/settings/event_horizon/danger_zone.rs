@@ -3,6 +3,8 @@ use maud::{html, Markup};
 
 pub fn danger_zone(evh_config: &EvhConfig, env_config: &EnvConfig) -> Markup {
     html! {
+        p { a href="/settings/event_horizon" { "Back to safety" } }
+
         .card ."border-danger" ."w-100" ."mb-3" {
             ."card-header" ."bg-danger" ."text-white" { "Danger zone" }
             ."card-body" {
@@ -22,6 +24,14 @@ pub fn danger_zone(evh_config: &EvhConfig, env_config: &EnvConfig) -> Markup {
                         label ."col-form-label" ."col-lg-3" for="database_url" { "Database URL" }
                         ."col-lg-9" {
                             input #database_url ."form-control" name="database_url" type="text" value=(evh_config.database_url);
+                        }
+                    }
+
+                    .row ."mb-3" {
+                        label ."col-form-label" ."col-lg-3" for="history_location" { "Run history location" }
+                        ."col-lg-9" {
+                            input #history_location ."form-control" name="history_location" type="text"
+                                value=(evh_config.history_location.display());
                         }
                     }
 

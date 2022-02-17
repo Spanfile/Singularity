@@ -50,13 +50,11 @@ pub fn singularity(sub_page: SingularitySubPage) -> Markup {
 fn main(info: SingularityMainPageInformation) -> Markup {
     html! {
         p ."mb-1" {
-            "Current active Singularity configuration: "
-            (info.cfg_name)
-        }
-
-        p {
-            "You may change the active configuration in the "
-            a href="/settings/event_horizon" { "Event Horizon settings. " }
+            "Current active Singularity configuration: " (info.cfg_name)
+            br;
+            "You may change the active configuration in the " a href="/settings/event_horizon" {
+                "Event Horizon settings. "
+            }
             "Only one configuration may be active at one time."
         }
 
