@@ -1,6 +1,3 @@
-use crate::config::{OutputConfig, OutputConfigType};
-use chrono::Local;
-use io::SeekFrom;
 use std::{
     collections::HashSet,
     fs::File,
@@ -9,13 +6,21 @@ use std::{
     net::IpAddr,
     path::PathBuf,
 };
+
+use chrono::Local;
+use io::SeekFrom;
 use tempfile::tempfile;
+
+use crate::config::{OutputConfig, OutputConfigType};
 
 const PDNS_LUA_PRIMER: &str = "b=newDS() b:add{";
 
 enum OutputType {
     Hosts(Vec<PathBuf>),
-    PdnsLua { output_metric: bool, metric_name: String },
+    PdnsLua {
+        output_metric: bool,
+        metric_name: String,
+    },
 }
 
 pub(crate) struct Output {
@@ -77,9 +82,15 @@ impl Output {
             self.seen.insert(host.to_string());
         }
         match self.ty {
-            OutputType::Hosts(_) => writeln!(self.destination, "{} {}", self.blackhole_address, host)?,
+            OutputType::Hosts(_) => {
+                writeln!(self.destination, "{} {}", self.blackhole_address, host)?
+            }
             OutputType::PdnsLua { .. } => {
-                let host = host.split_once('#').map(|(left, _)| left).unwrap_or(host).trim_end();
+                let host = host
+                    .split_once('#')
+                    .map(|(left, _)| left)
+                    .unwrap_or(host)
+                    .trim_end();
                 write!(self.destination, r#""{}","#, host)?
             }
         }
@@ -92,7 +103,11 @@ impl Output {
             OutputType::Hosts(include) => {
                 for path in &include {
                     let mut include_file = File::open(path)?;
-                    writeln!(self.destination, "\n# hosts included from {}\n", path.display())?;
+                    writeln!(
+                        self.destination,
+                        "\n# hosts included from {}\n",
+                        path.display()
+                    )?;
                     io::copy(&mut include_file, &mut self.destination)?;
                 }
             }
@@ -100,7 +115,10 @@ impl Output {
                 output_metric,
                 metric_name,
             } => {
-                write!(self.destination, "}} function preresolve(q) if b:check(q.qname) then ")?;
+                write!(
+                    self.destination,
+                    "}} function preresolve(q) if b:check(q.qname) then "
+                )?;
 
                 let record = match self.blackhole_address {
                     IpAddr::V4(_) => "A",
@@ -115,7 +133,11 @@ impl Output {
                 )?;
 
                 if output_metric {
-                    write!(self.destination, "m=getMetric(\"{}\") m:inc() ", metric_name)?;
+                    write!(
+                        self.destination,
+                        "m=getMetric(\"{}\") m:inc() ",
+                        metric_name
+                    )?;
                 }
 
                 writeln!(self.destination, "return true end end return false end")?;

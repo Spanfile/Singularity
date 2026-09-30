@@ -3,4 +3,4 @@ Description=Run Singularity and reload PDNS Lua script
 
 [Service]
 Type=oneshot
-ExecStart=/opt/singularity/update.sh
+ExecStart=/data/singularity/update.sh

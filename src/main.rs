@@ -10,15 +10,6 @@ mod error;
 mod logging;
 mod output;
 
-use anyhow::Context;
-use config::{Adlist, AdlistFormat, Config};
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use io::{BufRead, BufReader};
-use log::*;
-use mpsc::Receiver;
-use num_format::{SystemLocale, ToFormattedString};
-use output::Output;
-use regex::Regex;
 use std::{
     collections::HashSet,
     fmt::Display,
@@ -33,6 +24,16 @@ use std::{
     },
     thread,
 };
+
+use anyhow::Context;
+use config::{Adlist, AdlistFormat, Config};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use io::{BufRead, BufReader};
+use log::*;
+use mpsc::Receiver;
+use num_format::{SystemLocale, ToFormattedString};
+use output::Output;
+use regex::Regex;
 use structopt::{lazy_static::lazy_static, StructOpt};
 
 const APP_NAME: &str = env!("CARGO_PKG_NAME");
@@ -69,8 +70,8 @@ struct Opt {
     /// Enable verbose logging
     #[structopt(short, long)]
     verbose: bool,
-    /// Custom path to the app's configuration file. By default the app will use the system-specific user configuration
-    /// directory.
+    /// Custom path to the app's configuration file. By default the app will use the
+    /// system-specific user configuration directory.
     #[structopt(short, long)]
     config: Option<PathBuf>,
     /// The timeout to wait for HTTP requests to succeed in milliseconds.
@@ -88,18 +89,25 @@ fn main() -> anyhow::Result<()> {
     debug!("{:?}", cfg);
 
     if cfg.adlist.is_empty() {
-        warn!("No adlists configured. Please edit the configuration file and add one or more adlists.");
+        warn!(
+            "No adlists configured. Please edit the configuration file and add one or more \
+             adlists."
+        );
         return Ok(());
     }
 
     if cfg.output.is_empty() {
-        warn!("No outputs configured. Please edit the configuration file and add one or more outputs.");
+        warn!(
+            "No outputs configured. Please edit the configuration file and add one or more \
+             outputs."
+        );
         return Ok(());
     }
 
     let mut outputs = Vec::new();
     for output_cfg in &cfg.output {
-        let mut output = Output::from_config(output_cfg).with_context(|| "Failed to create output")?;
+        let mut output =
+            Output::from_config(output_cfg).with_context(|| "Failed to create output")?;
         output.write_primer()?;
         outputs.push(output);
     }
@@ -108,8 +116,8 @@ fn main() -> anyhow::Result<()> {
     let (tx, rx) = mpsc::sync_channel::<String>(1024);
     spawn_writer_thread(&mb, rx, outputs, cfg.adlist.len());
 
-    // move the whitelist out of the config (partial move) and stick it into an Arc, so it can be shared between all
-    // reader threads
+    // move the whitelist out of the config (partial move) and stick it into an Arc, so it can be
+    // shared between all reader threads
     let whitelist = Arc::new(cfg.whitelist);
     // move each adlist out of the config (also a partial move)
     for adlist in cfg.adlist {
@@ -117,15 +125,21 @@ fn main() -> anyhow::Result<()> {
         spawn_reader_thread(&mb, adlist, tx, opt.timeout, Arc::clone(&whitelist));
     }
 
-    // when the requester threads finish, they drop their clones of the channel tx. the output writer thread ends when
-    // all the tx's have been dropped. drop ours now since we don't need it
+    // when the requester threads finish, they drop their clones of the channel tx. the output
+    // writer thread ends when all the tx's have been dropped. drop ours now since we don't need it
     drop(tx);
     mb.join_and_clear().unwrap();
     Ok(())
 }
 
-fn spawn_writer_thread(mb: &MultiProgress, rx: Receiver<String>, mut outputs: Vec<Output>, source_count: usize) {
-    let spinner_style = ProgressStyle::default_spinner().template("{spinner} {pos} domains read so far...");
+fn spawn_writer_thread(
+    mb: &MultiProgress,
+    rx: Receiver<String>,
+    mut outputs: Vec<Output>,
+    source_count: usize,
+) {
+    let spinner_style =
+        ProgressStyle::default_spinner().template("{spinner} {pos} domains read so far...");
     let pb = mb.add(ProgressBar::new_spinner());
     pb.set_style(spinner_style);
     pb.enable_steady_tick(100);
@@ -139,7 +153,9 @@ fn spawn_writer_thread(mb: &MultiProgress, rx: Receiver<String>, mut outputs: Ve
             pb.inc(1);
 
             for output in &mut outputs {
-                output.write_host(&line).expect("failed to write host into output");
+                output
+                    .write_host(&line)
+                    .expect("failed to write host into output");
             }
         }
 
@@ -148,7 +164,10 @@ fn spawn_writer_thread(mb: &MultiProgress, rx: Receiver<String>, mut outputs: Ve
         }
 
         let count = count.load(Ordering::Relaxed).to_formatted_string(&locale);
-        pb.println(&format!("INFO Read {} domains from {} source(s)", count, source_count));
+        pb.println(format!(
+            "INFO Read {} domains from {} source(s)",
+            count, source_count
+        ));
         pb.finish_and_clear();
     });
 }
@@ -163,7 +182,8 @@ fn spawn_reader_thread(
     let bar = ProgressStyle::default_bar()
         .template("[{elapsed_precise}] [{bar:40}] {bytes}/{total_bytes} ({bytes_per_sec})")
         .progress_chars("=> ");
-    let spinner = ProgressStyle::default_spinner().template("{spinner} [{elapsed_precise}] {bytes} ({bytes_per_sec})");
+    let spinner = ProgressStyle::default_spinner()
+        .template("{spinner} [{elapsed_precise}] {bytes} ({bytes_per_sec})");
     let pb = mb.add(ProgressBar::new(0));
 
     thread::spawn(move || {
@@ -200,8 +220,8 @@ fn spawn_reader_thread(
                     if let Some(parsed_line) = parsed_line {
                         if parsed_line.is_empty() || parsed_line == "." {
                             pb.println(format!(
-                                "WARN While reading {}, line #{} (\"{}\") was parsed into an all-matching entry, so \
-                                 it was ignored",
+                                "WARN While reading {}, line #{} (\"{}\") was parsed into an \
+                                 all-matching entry, so it was ignored",
                                 adlist.source,
                                 line_idx + 1,
                                 line
@@ -210,7 +230,10 @@ fn spawn_reader_thread(
                         }
 
                         if whitelist.contains(&parsed_line) {
-                            pb.println(format!("INFO Ignoring whitelisted entry '{}'", parsed_line));
+                            pb.println(format!(
+                                "INFO Ignoring whitelisted entry '{}'",
+                                parsed_line
+                            ));
                             continue;
                         }
 
@@ -242,7 +265,8 @@ fn load_config(opt: &Opt) -> anyhow::Result<Config> {
 }
 
 fn parse_hosts_line(line: &str) -> Option<String> {
-    if let Some((address, host)) = line.split_once(' ') {
+    let mut split = line.split_whitespace();
+    if let Some((address, host)) = split.next().zip(split.next()) {
         let address: IpAddr = address.parse().ok()?;
 
         // assumes the address in the host mapping is the 'unspecified' address 0.0.0.0
